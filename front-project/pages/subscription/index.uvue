@@ -1,0 +1,92 @@
+﻿<template>
+	<view class="sp-page">
+		<text class="sp-title">升级会员</text>
+		<text class="sp-sub">解锁更多萌宠</text>
+		<view class="sp-plans">
+			<view class="sp-card" v-for="p in plans" :key="p.id" @click="selectPlan(p.id)" :style="{ borderWidth: selectedPlanId === p.id ? '3rpx' : '2rpx', borderColor: selectedPlanId === p.id ? '#FF8C42' : '#E0E0E0' }">
+				<text class="sp-name">{{ p.name }}</text>
+				<text class="sp-price">{{ priceText(p.price) }}</text>
+				<text class="sp-dur">{{ p.durationDays }} 天</text>
+				<text class="sp-limit">{{ p.petLimit }} 只萌宠</text>
+			</view>
+		</view>
+		<view class="sp-buy" @click="buyNow"><text class="sp-buy-text">立即购买</text></view>
+	</view>
+</template>
+
+<script setup lang="uts">
+const BASE = "http://localhost:8080"
+
+type PlanData = { id: number; name: string; price: number; durationDays: number; petLimit: number }
+
+const plans = ref<PlanData[]>([])
+const selectedPlanId = ref(0)
+
+function priceText(price: number): string { return "¥" + (price / 100).toFixed(2) }
+
+function getToken(): string {
+	const t = uni.getStorageSync("token")
+	return t != null ? t as string : ""
+}
+
+function loadPlans(): void {
+	const token = getToken()
+	const h = new UTSJSONObject()
+	h["Content-Type"] = "application/json"
+	if (token !== "") h["Authorization"] = "Bearer " + token
+	uni.request({
+		url: BASE + "/api/subscription/plans",
+		method: "GET",
+		header: h,
+		success: (res): void => {
+			const d = res.data
+			if (d != null) {
+				const body = d as UTSJSONObject
+				const code = body.getNumber("code")
+				if (code === 200) {
+					const inner = body.get("data")
+					if (inner != null) {
+						const arr = inner as any as PlanData[]
+						plans.value = arr
+						if (arr.length >= 2) selectedPlanId.value = arr[1].id
+						else if (arr.length >= 1) selectedPlanId.value = arr[0].id
+					}
+				}
+			}
+		},
+		fail: (): void => {}
+	})
+}
+
+function selectPlan(id: number): void { selectedPlanId.value = id }
+
+function buyNow(): void {
+	const token = getToken()
+	const h = new UTSJSONObject()
+	h["Content-Type"] = "application/json"
+	if (token !== "") h["Authorization"] = "Bearer " + token
+	uni.request({
+		url: BASE + "/api/subscription/order?userId=1&planId=" + selectedPlanId.value,
+		method: "POST",
+		header: h,
+		success: (): void => { uni.showToast({ title: "订单已创建", icon: "success" }) },
+		fail: (): void => {}
+	})
+}
+
+onShow(() => { loadPlans() })
+</script>
+
+<style>
+.sp-page { background-color: #FFF8F0; flex: 1; flex-direction: column; align-items: center; padding-top: 60rpx; }
+.sp-title { font-size: 38rpx; font-weight: 700; color: #333; }
+.sp-sub { font-size: 24rpx; color: #999; margin: 8rpx 0 40rpx; }
+.sp-plans { flex-direction: row; padding: 0 14rpx; }
+.sp-card { flex: 1; align-items: center; margin: 0 6rpx; padding: 28rpx 14rpx; background-color: #FFF; border-radius: 18rpx; }
+.sp-name { font-size: 26rpx; font-weight: 700; color: #333; margin-bottom: 12rpx; }
+.sp-price { font-size: 44rpx; font-weight: 700; color: #FF8C42; }
+.sp-dur { font-size: 22rpx; color: #999; margin: 4rpx 0 10rpx; }
+.sp-limit { font-size: 22rpx; color: #666; }
+.sp-buy { margin-top: 50rpx; width: 600rpx; padding: 22rpx; background-color: #FF8C42; border-radius: 44rpx; align-items: center; }
+.sp-buy-text { font-size: 30rpx; color: #FFF; font-weight: 600; }
+</style>

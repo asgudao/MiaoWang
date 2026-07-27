@@ -1,0 +1,38 @@
+﻿*** Begin Patch
+*** Update File: E:\MapleLeaf\project\MiaoWang\front-project\pages\pets\add.uvue
+@@ -48,7 +48,7 @@
+ const age = ref("")
+ const weight = ref("")
+ const breeds = ref<BreedItem[]>([])
+-const breedNames: string[] = []
++const breedNames = ref<string[]>([])
+ const selectedBreedIdx = ref(-1)
+ const selectedBreedId = ref(0)
+ 
+@@ -80,16 +80,16 @@
+ 					const data = body.get("data")
+ 					if (data != null) {
+ 						breeds.value = data as any as BreedItem[]
+-						for (let i = 0; i < breeds.value.length; i++) {
+-							breedNames.push(breeds.value[i].name)
+-						}
++						const names: string[] = []
++						for (let i = 0; i < breeds.value.length; i++) { names.push(breeds.value[i].name) }
++						breedNames.value = names
+ 					}
+ 				}
+ 			}
+ 		},
+ 		fail: (): void => {}
+ 	})
+ }
+ 
+-function onBreedPick(e: any): void {
+-	const idx = e.detail.value as number
++function onBreedPick(e: UTSJSONObject): void {
++	const detail = e.get("detail") as UTSJSONObject
++	const idx = detail.getNumber("value")
+ 	selectedBreedIdx.value = idx
+ 	selectedBreedId.value = breeds.value[idx].id
+ }
+*** End Patch

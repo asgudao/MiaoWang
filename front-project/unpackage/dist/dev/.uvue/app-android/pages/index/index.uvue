@@ -1,0 +1,10 @@
+const __sfc__ = defineComponent({});
+export default __sfc__;
+function GenPagesIndexIndexRender(this: InstanceType<typeof __sfc__>): any | null {
+    const _ctx = this;
+    const _cache = this.$.renderCache;
+    const _component_web_view = resolveComponent("web-view");
+    return _cV(_component_web_view, _uM({ src: "/hybrid/html/cat-3d.html" }));
+}
+const GenPagesIndexIndexStyles = [];
+//# sourceMappingURL=index.uvue.map

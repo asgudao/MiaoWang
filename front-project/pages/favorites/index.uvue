@@ -1,0 +1,85 @@
+﻿<template>
+	<view class="fv-page">
+		<view class="fv-empty" v-if="favList.length === 0">
+			<text class="fv-empty-icon">⭐</text>
+			<text class="fv-empty-text">还没有收藏</text>
+			<text class="fv-empty-hint">在知识库文章详情页可以收藏</text>
+		</view>
+		<scroll-view scroll-y="true" class="fv-scroll" v-if="favList.length > 0">
+			<view class="fv-item" v-for="item in favList" :key="item.id" @click="goDetail(item.id)">
+				<view class="fv-cover"></view>
+				<view class="fv-info">
+					<text class="fv-title">{{ item.title }}</text>
+					<text class="fv-time">{{ item.time }}</text>
+				</view>
+				<view class="fv-del" @click.stop="removeFav(item.id)"><text class="fv-del-text">✕</text></view>
+			</view>
+		</scroll-view>
+	</view>
+</template>
+
+<script setup lang="uts">
+type FavItem = { id: number; title: string; time: string }
+
+const favList = ref<FavItem[]>([])
+
+function loadFavs(): void {
+	const raw = uni.getStorageSync("favorites")
+	if (raw != null && raw !== "") {
+		const arr = JSON.parse(raw as string) as any[]
+		const result: FavItem[] = []
+		for (let i = 0; i < arr.length; i++) {
+			const item = arr[i] as UTSJSONObject
+			const nid = item.getNumber("id")
+			const ntitle = item.getString("title")
+			const ntime = item.getString("time")
+			result.push({
+				id: nid != null ? nid : 0,
+				title: ntitle != null ? ntitle : "",
+				time: ntime != null ? ntime : ""
+			})
+		}
+		favList.value = result
+	} else {
+		favList.value = []
+	}
+}
+
+function removeFav(id: number): void {
+	const raw = uni.getStorageSync("favorites")
+	if (raw != null && raw !== "") {
+		const arr = JSON.parse(raw as string) as any[]
+		const filtered: any[] = []
+		for (let i = 0; i < arr.length; i++) {
+			const item = arr[i] as UTSJSONObject
+			const nid = item.getNumber("id")
+			if (nid != null && nid !== id) filtered.push(item)
+		}
+		uni.setStorageSync("favorites", JSON.stringify(filtered))
+	}
+	loadFavs()
+	uni.showToast({ title: "已取消收藏", icon: "none" })
+}
+
+function goDetail(id: number): void {
+	uni.navigateTo({ url: "/pages/knowledge/detail?id=" + id })
+}
+
+onShow(() => { loadFavs() })
+</script>
+
+<style>
+.fv-page { background-color: #FFF8F0; flex: 1; flex-direction: column; }
+.fv-empty { flex: 1; align-items: center; justify-content: center; }
+.fv-empty-icon { font-size: 80rpx; margin-bottom: 20rpx; }
+.fv-empty-text { font-size: 30rpx; color: #999; font-weight: 600; }
+.fv-empty-hint { font-size: 24rpx; color: #CCC; margin-top: 10rpx; }
+.fv-scroll { flex: 1; padding: 16rpx 24rpx; }
+.fv-item { flex-direction: row; align-items: center; padding: 20rpx; margin-bottom: 10rpx; background-color: #FFF; border-radius: 14rpx; }
+.fv-cover { width: 90rpx; height: 90rpx; border-radius: 10rpx; background-color: #FFE0CC; margin-right: 16rpx; }
+.fv-info { flex: 1; flex-direction: column; }
+.fv-title { font-size: 28rpx; color: #333; font-weight: 600; }
+.fv-time { font-size: 22rpx; color: #CCC; margin-top: 6rpx; }
+.fv-del { width: 56rpx; height: 56rpx; border-radius: 28rpx; background-color: #FFEEEE; align-items: center; justify-content: center; }
+.fv-del-text { font-size: 28rpx; color: #FF4444; }
+</style>

@@ -1,0 +1,115 @@
+type UserData = {
+    __$originalPosition?: UTSSourceMapPosition<"UserData", "pages/mine/index.uvue", 42, 6>;
+    id: number;
+    nickname: string;
+    memberType: number;
+};
+const __sfc__ = defineComponent({
+    __name: 'index',
+    setup(__props) {
+        const __ins = getCurrentInstance()!;
+        const _ctx = __ins.proxy as InstanceType<typeof __sfc__>;
+        const _cache = __ins.renderCache;
+        const BASE = "http://localhost:8080";
+        const user = ref<UserData>({ id: 0, nickname: "", memberType: 0 } as UserData);
+        function getToken(): string {
+            const t = uni.getStorageSync("token");
+            return t != null ? t as string : "";
+        }
+        function loadProfile(): void {
+            const token = getToken();
+            const h = new UTSJSONObject(new UTSSourceMapPosition("h", "pages/mine/index.uvue", 53, 8));
+            h["Content-Type"] = "application/json";
+            if (token !== "")
+                h["Authorization"] = "Bearer " + token;
+            uni.request({
+                url: BASE + "/api/user/profile",
+                method: "GET",
+                header: h,
+                success: (res): void => {
+                    const d = res.data;
+                    if (d != null) {
+                        const body = d as UTSJSONObject;
+                        const code = body.getNumber("code");
+                        if (code === 200) {
+                            const inner = body.get("data");
+                            if (inner != null)
+                                user.value = inner as any as UserData;
+                        }
+                    }
+                },
+                fail: (): void => { }
+            });
+        }
+        function goMyPets(): void { uni.switchTab({ url: "/pages/pets/list" }); }
+        function goReminder(): void { uni.navigateTo({ url: "/pages/reminder/index" }); }
+        function goFavorites(): void { uni.navigateTo({ url: "/pages/favorites/index" }); }
+        function goAbout(): void { uni.navigateTo({ url: "/pages/about/index" }); }
+        function goSubscribe(): void { uni.navigateTo({ url: "/pages/subscription/index" }); }
+        onShow(() => { loadProfile(); });
+        return (): any | null => {
+            return _cE("view", _uM({ class: "page-wrap" }), [
+                _cE("view", _uM({ class: "profile-header" }), [
+                    _cE("text", _uM({ class: "avatar-text" }), "😺"),
+                    _cE("view", _uM({ class: "profile-info" }), [
+                        _cE("text", _uM({ class: "nickname" }), _tD(unref(user).nickname !== "" ? unref(user).nickname : "猫咪爱好者"), 1 /* TEXT */),
+                        _cE("view", _uM({
+                            class: "member-badge",
+                            style: _nS(_uM({ backgroundColor: unref(user).memberType === 2 ? '#FFD700' : 'rgba(255,255,255,0.3)' }))
+                        }), [
+                            _cE("text", _uM({
+                                style: _nS(_uM({ color: unref(user).memberType === 2 ? '#333' : '#FFF', fontSize: '22rpx', fontWeight: '600' }))
+                            }), _tD(unref(user).memberType === 2 ? 'VIP' : 'Free'), 5 /* TEXT, STYLE */)
+                        ], 4 /* STYLE */)
+                    ])
+                ]),
+                _cE("view", _uM({
+                    class: "member-card",
+                    onClick: goSubscribe
+                }), [
+                    _cE("view", _uM({ class: "member-card-left" }), [
+                        _cE("text", _uM({ class: "member-card-icon" }), "⭐"),
+                        _cE("view", _uM({ class: "member-card-text" }), [
+                            _cE("text", _uM({ class: "member-card-title" }), "会员中心"),
+                            _cE("text", _uM({ class: "member-card-desc" }), "升级解锁更多萌宠")
+                        ])
+                    ]),
+                    _cE("text", _uM({ class: "member-card-action" }), "升级")
+                ]),
+                _cE("view", _uM({ class: "menu-list" }), [
+                    _cE("view", _uM({
+                        class: "menu-item",
+                        onClick: goMyPets
+                    }), [
+                        _cE("text", _uM({ class: "menu-text" }), "我的萌宠"),
+                        _cE("text", _uM({ class: "arrow" }), ">")
+                    ]),
+                    _cE("view", _uM({
+                        class: "menu-item",
+                        onClick: goReminder
+                    }), [
+                        _cE("text", _uM({ class: "menu-text" }), "护理日历"),
+                        _cE("text", _uM({ class: "arrow" }), ">")
+                    ]),
+                    _cE("view", _uM({
+                        class: "menu-item",
+                        onClick: goFavorites
+                    }), [
+                        _cE("text", _uM({ class: "menu-text" }), "收藏"),
+                        _cE("text", _uM({ class: "arrow" }), ">")
+                    ]),
+                    _cE("view", _uM({
+                        class: "menu-item menu-item-last",
+                        onClick: goAbout
+                    }), [
+                        _cE("text", _uM({ class: "menu-text" }), "关于"),
+                        _cE("text", _uM({ class: "arrow" }), ">")
+                    ])
+                ])
+            ]);
+        };
+    }
+});
+export default __sfc__;
+const GenPagesMineIndexStyles = [_uM([["page-wrap", _pS(_uM([["backgroundColor", "#FFF8F0"], ["flexGrow", 1], ["flexShrink", 1], ["flexBasis", "0%"], ["flexDirection", "column"]]))], ["profile-header", _pS(_uM([["flexDirection", "row"], ["alignItems", "center"], ["paddingTop", "48rpx"], ["paddingRight", "32rpx"], ["paddingBottom", "24rpx"], ["paddingLeft", "32rpx"], ["backgroundColor", "#FF8C42"]]))], ["avatar-text", _pS(_uM([["fontSize", "80rpx"], ["marginRight", "24rpx"]]))], ["profile-info", _pS(_uM([["flexGrow", 1], ["flexShrink", 1], ["flexBasis", "0%"]]))], ["nickname", _pS(_uM([["fontSize", "36rpx"], ["fontWeight", 700], ["color", "#FFFFFF"]]))], ["member-badge", _pS(_uM([["paddingTop", "4rpx"], ["paddingRight", "20rpx"], ["paddingBottom", "4rpx"], ["paddingLeft", "20rpx"], ["borderTopLeftRadius", "24rpx"], ["borderTopRightRadius", "24rpx"], ["borderBottomRightRadius", "24rpx"], ["borderBottomLeftRadius", "24rpx"], ["marginTop", "8rpx"]]))], ["member-card", _pS(_uM([["flexDirection", "row"], ["alignItems", "center"], ["justifyContent", "space-between"], ["marginTop", "24rpx"], ["marginRight", "24rpx"], ["marginBottom", "24rpx"], ["marginLeft", "24rpx"], ["paddingTop", "28rpx"], ["paddingRight", "28rpx"], ["paddingBottom", "28rpx"], ["paddingLeft", "28rpx"], ["backgroundColor", "#FFFFFF"], ["borderTopLeftRadius", "16rpx"], ["borderTopRightRadius", "16rpx"], ["borderBottomRightRadius", "16rpx"], ["borderBottomLeftRadius", "16rpx"]]))], ["member-card-left", _pS(_uM([["flexDirection", "row"], ["alignItems", "center"]]))], ["member-card-icon", _pS(_uM([["fontSize", "40rpx"], ["marginRight", "16rpx"]]))], ["member-card-text", _pS(_uM([["flexDirection", "column"]]))], ["member-card-title", _pS(_uM([["fontSize", "28rpx"], ["fontWeight", 600], ["color", "#333333"]]))], ["member-card-desc", _pS(_uM([["fontSize", "24rpx"], ["color", "#999999"]]))], ["member-card-action", _pS(_uM([["fontSize", "26rpx"], ["color", "#FF8C42"], ["fontWeight", 600]]))], ["menu-list", _pS(_uM([["marginTop", "24rpx"], ["marginRight", "24rpx"], ["marginBottom", "24rpx"], ["marginLeft", "24rpx"], ["backgroundColor", "#FFFFFF"], ["borderTopLeftRadius", "16rpx"], ["borderTopRightRadius", "16rpx"], ["borderBottomRightRadius", "16rpx"], ["borderBottomLeftRadius", "16rpx"]]))], ["menu-item", _pS(_uM([["flexDirection", "row"], ["justifyContent", "space-between"], ["alignItems", "center"], ["paddingTop", "28rpx"], ["paddingRight", "24rpx"], ["paddingBottom", "28rpx"], ["paddingLeft", "24rpx"], ["borderBottomWidth", "1rpx"], ["borderBottomColor", "#F5F5F5"]]))], ["menu-item-last", _pS(_uM([["borderBottomWidth", 0]]))], ["menu-text", _pS(_uM([["fontSize", "28rpx"], ["color", "#333333"]]))], ["arrow", _pS(_uM([["fontSize", "36rpx"], ["color", "#CCCCCC"]]))]])];
+//# sourceMappingURL=index.uvue.map

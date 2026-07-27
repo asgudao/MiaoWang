@@ -1,0 +1,53 @@
+{
+  "version": "1",
+  "env": {
+    "vapor": false,
+    "compiler_version": "5.15"
+  },
+  "files": {
+    "pages/pets/add.kt": {
+      "class": "GenPagesPetsAdd",
+      "md5": "6543b2e01441dff247c702a9cc0460ddc07b1729"
+    },
+    "index.kt": {
+      "class": "",
+      "md5": "b7d45035b075a1920ceaee2a4ffdc7bee7acf7a8"
+    },
+    "pages/knowledge/list.kt": {
+      "md5": "e806a653a8bb7b34bc0a7d13f18f9ba1c7ad1044",
+      "class": "GenPagesKnowledgeList"
+    },
+    "pages/reminder/index.kt": {
+      "class": "GenPagesReminderIndex",
+      "md5": "8af0d80034d498d0f0d768a489ebb11feb794703"
+    },
+    "pages/mine/index.kt": {
+      "md5": "0d3991de6ce6fefe293510b37ac7689f59281ae6",
+      "class": "GenPagesMineIndex"
+    },
+    "pages/subscription/index.kt": {
+      "md5": "e46c6fc710592932bad5bcf34343f2bb83929fbf",
+      "class": "GenPagesSubscriptionIndex"
+    },
+    "pages/about/index.kt": {
+      "md5": "8729833c38e8806b726f1ed2d1abe2d0458fda02",
+      "class": "GenPagesAboutIndex"
+    },
+    "pages/pets/list.kt": {
+      "class": "GenPagesPetsList",
+      "md5": "27a13909864419da6d2879069aad0a537633cb22"
+    },
+    "pages/index/index.kt": {
+      "class": "GenPagesIndexIndex",
+      "md5": "383070eac3a29890806c42969187fb4de8d70d0f"
+    },
+    "pages/knowledge/detail.kt": {
+      "md5": "2fce983688fed96cc30f2af5c7d3113fe9664e62",
+      "class": "GenPagesKnowledgeDetail"
+    },
+    "pages/favorites/index.kt": {
+      "md5": "a3791b7ac0db9bd64e880e8ac216a2073a08b5ed",
+      "class": "GenPagesFavoritesIndex"
+    }
+  }
+}

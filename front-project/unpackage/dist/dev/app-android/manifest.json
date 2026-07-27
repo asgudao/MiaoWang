@@ -1,0 +1,25 @@
+{
+  "id": "__UNI__19DBD81",
+  "name": "喵汪",
+  "description": "面向猫狗主人的宠物护理App",
+  "version": {
+    "name": "1.0.0",
+    "code": "100"
+  },
+  "uni-app-x": {
+    "styleIsolationVersion": "2",
+    "compilerVersion": "5.15"
+  },
+  "app": {
+    "distribute": {
+      "icons": {
+        "android": {
+          "hdpi": "",
+          "xhdpi": "",
+          "xxhdpi": "",
+          "xxxhdpi": ""
+        }
+      }
+    }
+  }
+}

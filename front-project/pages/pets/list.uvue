@@ -1,0 +1,77 @@
+﻿<template>
+	<view class="pl-page">
+		<view class="pl-header"><text class="pl-title">我的萌宠</text></view>
+		<scroll-view scroll-y="true" class="pl-list">
+			<view class="pl-card" v-for="pet in pets" :key="pet.id">
+				<view class="pl-top">
+					<text class="pl-avatar">🐱</text>
+					<view class="pl-info">
+						<text class="pl-name">{{ pet.name }}</text>
+						<text class="pl-breed">{{ pet.breedName !== "" ? pet.breedName : "未知品种" }}</text>
+						<text class="pl-detail">{{ pet.gender === 1 ? "公" : "母" }} | {{ pet.age }} 岁 | {{ pet.weight }}kg</text>
+					</view>
+				</view>
+			</view>
+		</scroll-view>
+		<view class="pl-add" @click="addPet"><text class="pl-add-text">+ 添加宠物</text></view>
+	</view>
+</template>
+
+<script setup lang="uts">
+const BASE = "http://localhost:8080"
+
+type PetData = { id: number; name: string; breedName: string; gender: number; age: number; weight: number }
+
+const pets = ref<PetData[]>([])
+
+function getToken(): string {
+	const token = uni.getStorageSync("token")
+	return token != null ? token as string : ""
+}
+
+function loadPets(): void {
+	const token = getToken()
+	const h = new UTSJSONObject()
+	h["Content-Type"] = "application/json"
+	if (token !== "") h["Authorization"] = "Bearer " + token
+	uni.request({
+		url: BASE + "/api/pets",
+		method: "GET",
+		header: h,
+		success: (res): void => {
+			const d = res.data
+			if (d != null) {
+				const body = d as UTSJSONObject
+				const code = body.getNumber("code")
+				if (code === 200) {
+					const inner = body.get("data")
+					if (inner != null) pets.value = inner as any as PetData[]
+				}
+			}
+		},
+		fail: (): void => {}
+	})
+}
+
+function addPet(): void {
+	uni.navigateTo({ url: "/pages/pets/add" })
+}
+
+onShow(() => { loadPets() })
+</script>
+
+<style>
+.pl-page { background-color: #FFF8F0; flex: 1; flex-direction: column; }
+.pl-header { padding: 32rpx 28rpx 16rpx; }
+.pl-title { font-size: 40rpx; font-weight: 700; color: #333; }
+.pl-list { flex: 1; padding: 8rpx 0; }
+.pl-card { margin: 12rpx 24rpx; padding: 24rpx; background-color: #FFF; border-radius: 18rpx; }
+.pl-top { flex-direction: row; align-items: center; }
+.pl-avatar { font-size: 72rpx; margin-right: 20rpx; }
+.pl-info { flex: 1; flex-direction: column; }
+.pl-name { font-size: 32rpx; font-weight: 700; color: #333; }
+.pl-breed { font-size: 24rpx; color: #999; margin-top: 4rpx; }
+.pl-detail { font-size: 22rpx; color: #666; margin-top: 4rpx; }
+.pl-add { margin: 20rpx 24rpx; padding: 20rpx; background-color: #FF8C42; border-radius: 16rpx; align-items: center; }
+.pl-add-text { font-size: 28rpx; color: #FFF; font-weight: 600; }
+</style>

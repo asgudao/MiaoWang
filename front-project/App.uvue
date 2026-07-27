@@ -1,0 +1,5 @@
+<script setup lang="uts">
+onLaunch(() => {
+	console.log("Pet App Launch")
+})
+</script>

@@ -1,0 +1,107 @@
+﻿<template>
+	<view class="page-wrap">
+		<view class="profile-header">
+			<text class="avatar-text">😺</text>
+			<view class="profile-info">
+				<text class="nickname">{{ user.nickname !== "" ? user.nickname : "猫咪爱好者" }}</text>
+				<view class="member-badge" :style="{ backgroundColor: user.memberType === 2 ? '#FFD700' : 'rgba(255,255,255,0.3)' }">
+					<text :style="{ color: user.memberType === 2 ? '#333' : '#FFF', fontSize: '22rpx', fontWeight: '600' }">{{ user.memberType === 2 ? 'VIP' : 'Free' }}</text>
+				</view>
+			</view>
+		</view>
+		<view class="member-card" @click="goSubscribe">
+			<view class="member-card-left">
+				<text class="member-card-icon">⭐</text>
+				<view class="member-card-text">
+					<text class="member-card-title">会员中心</text>
+					<text class="member-card-desc">升级解锁更多萌宠</text>
+				</view>
+			</view>
+			<text class="member-card-action">升级</text>
+		</view>
+		<view class="menu-list">
+			<view class="menu-item" @click="goMyPets"><text class="menu-text">我的萌宠</text>
+				<text class="arrow">></text>
+			</view>
+			<view class="menu-item" @click="goReminder"><text class="menu-text">护理日历</text>
+				<text class="arrow">></text>
+			</view>
+			<view class="menu-item" @click="goFavorites"><text class="menu-text">收藏</text>
+				<text class="arrow">></text>
+			</view>
+			<view class="menu-item menu-item-last" @click="goAbout"><text class="menu-text">关于</text>
+				<text class="arrow">></text>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+const BASE = "http://localhost:8080"
+
+type UserData = { id: number; nickname: string; memberType: number }
+
+const user = ref<UserData>({ id: 0, nickname: "", memberType: 0 })
+
+function getToken(): string {
+	const t = uni.getStorageSync("token")
+	return t != null ? t as string : ""
+}
+
+function loadProfile(): void {
+	const token = getToken()
+	const h = new UTSJSONObject()
+	h["Content-Type"] = "application/json"
+	if (token !== "") h["Authorization"] = "Bearer " + token
+	uni.request({
+		url: BASE + "/api/user/profile",
+		method: "GET",
+		header: h,
+		success: (res): void => {
+			const d = res.data
+			if (d != null) {
+				const body = d as UTSJSONObject
+				const code = body.getNumber("code")
+				if (code === 200) {
+					const inner = body.get("data")
+					if (inner != null) user.value = inner as any as UserData
+				}
+			}
+		},
+		fail: (): void => {}
+	})
+}
+
+function goMyPets(): void { uni.switchTab({ url: "/pages/pets/list" }) }
+
+function goReminder(): void { uni.navigateTo({ url: "/pages/reminder/index" }) }
+
+function goFavorites(): void { uni.navigateTo({ url: "/pages/favorites/index" }) }
+
+function goAbout(): void { uni.navigateTo({ url: "/pages/about/index" }) }
+
+function goSubscribe(): void { uni.navigateTo({ url: "/pages/subscription/index" }) }
+
+onShow(() => { loadProfile() })
+</script>
+
+<style>
+.page-wrap { background-color: #FFF8F0; flex: 1; flex-direction: column; }
+.profile-header { flex-direction: row; align-items: center; padding: 48rpx 32rpx 24rpx; background-color: #FF8C42; }
+.avatar-text { font-size: 80rpx; margin-right: 24rpx; }
+.profile-info { flex: 1; }
+.nickname { font-size: 36rpx; font-weight: 700; color: #FFFFFF; }
+.member-badge { padding: 4rpx 20rpx; border-radius: 24rpx; margin-top: 8rpx; }
+.member-card { flex-direction: row; align-items: center; justify-content: space-between; margin: 24rpx; padding: 28rpx; background-color: #FFFFFF; border-radius: 16rpx; }
+.member-card-left { flex-direction: row; align-items: center; }
+.member-card-icon { font-size: 40rpx; margin-right: 16rpx; }
+.member-card-text { flex-direction: column; }
+.member-card-title { font-size: 28rpx; font-weight: 600; color: #333; }
+.member-card-desc { font-size: 24rpx; color: #999; }
+.member-card-action { font-size: 26rpx; color: #FF8C42; font-weight: 600; }
+.menu-list { margin: 24rpx; background-color: #FFFFFF; border-radius: 16rpx; }
+.menu-item { flex-direction: row; justify-content: space-between; align-items: center; padding: 28rpx 24rpx; border-bottom-width: 1rpx; border-bottom-color: #F5F5F5; }
+.menu-item-last { border-bottom-width: 0; }
+.menu-text { font-size: 28rpx; color: #333; }
+.arrow { font-size: 36rpx; color: #CCCCCC; }
+</style>

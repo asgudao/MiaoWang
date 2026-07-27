@@ -1,0 +1,157 @@
+﻿<template>
+	<view class="ap-page">
+		<scroll-view scroll-y="true" class="ap-scroll">
+			<view class="ap-field">
+				<text class="ap-label">宠物名字</text>
+				<input class="ap-input" v-model="name" placeholder="给宠物起个名字" />
+			</view>
+			<view class="ap-field">
+				<text class="ap-label">种类</text>
+				<view class="ap-row">
+					<view class="ap-chip" :style="species===1?chipOn:chipOff" @click="species=1"><text :style="species===1?chipTextOn:chipTextOff">猫</text></view>
+					<view class="ap-chip" :style="species===2?chipOn:chipOff" @click="species=2"><text :style="species===2?chipTextOn:chipTextOff">狗</text></view>
+				</view>
+			</view>
+			<view class="ap-field">
+				<text class="ap-label">品种</text>
+				<picker :range="breedNames" @change="onBreedPick">
+					<view class="ap-picker"><text>{{ breedNames.length>0&&selectedBreedIdx>=0 ? breedNames[selectedBreedIdx] : "请选择品种" }}</text></view>
+				</picker>
+			</view>
+			<view class="ap-field">
+				<text class="ap-label">性别</text>
+				<view class="ap-row">
+					<view class="ap-chip" :style="gender===1?chipOn:chipOff" @click="gender=1"><text :style="gender===1?chipTextOn:chipTextOff">公</text></view>
+					<view class="ap-chip" :style="gender===2?chipOn:chipOff" @click="gender=2"><text :style="gender===2?chipTextOn:chipTextOff">母</text></view>
+				</view>
+			</view>
+			<view class="ap-field">
+				<text class="ap-label">年龄(月)</text>
+				<input class="ap-input" v-model="age" type="number" placeholder="输入月龄" />
+			</view>
+			<view class="ap-field">
+				<text class="ap-label">体重(kg)</text>
+				<input class="ap-input" v-model="weight" type="number" placeholder="输入体重" />
+			</view>
+			<view class="ap-submit" @click="submit"><text class="ap-submit-text">添加宠物</text></view>
+		</scroll-view>
+	</view>
+</template>
+
+<script setup lang="uts">
+const BASE = "http://localhost:8080"
+
+type BreedItem = { id: number; name: string; species: number }
+
+const name = ref("")
+const species = ref(1)
+const gender = ref(1)
+const age = ref("")
+const weight = ref("")
+const breeds = ref<BreedItem[]>([])
+const breedNames = ref<string[]>([])
+const selectedBreedIdx = ref(-1)
+const selectedBreedId = ref(0)
+
+const chipOn = "padding:16rpx 36rpx;border-radius:32rpx;background-color:#FF8C42;margin-right:20rpx;"
+const chipOff = "padding:16rpx 36rpx;border-radius:32rpx;background-color:#F0F0F0;margin-right:20rpx;"
+const chipTextOn = "font-size:28rpx;color:#FFF;font-weight:600;"
+const chipTextOff = "font-size:28rpx;color:#666;"
+
+function getToken(): string {
+	const t = uni.getStorageSync("token")
+	return t != null ? t as string : ""
+}
+
+function loadBreeds(): void {
+	const token = getToken()
+	const h = new UTSJSONObject()
+	h["Content-Type"] = "application/json"
+	if (token !== "") h["Authorization"] = "Bearer " + token
+	uni.request({
+		url: BASE + "/api/breeds",
+		method: "GET",
+		header: h,
+		success: (res): void => {
+			const d = res.data
+			if (d != null) {
+				const body = d as UTSJSONObject
+				if (body.getNumber("code") === 200) {
+					const data = body.get("data")
+					if (data != null) {
+						breeds.value = data as any as BreedItem[]
+						const names: string[] = []
+						for (let i = 0; i < breeds.value.length; i++) { names.push(breeds.value[i].name) }
+						breedNames.value = names
+					}
+				}
+			}
+		},
+		fail: (): void => {}
+	})
+}
+
+function onBreedPick(e: UTSJSONObject): void {
+	const detail = e.get("detail") as UTSJSONObject
+	const idxNum = detail.getNumber("value")
+	const idx: number = idxNum != null ? idxNum : 0
+	selectedBreedIdx.value = idx
+	selectedBreedId.value = breeds.value[idx].id
+}
+
+function submit(): void {
+	if (name.value === "") { uni.showToast({ title: "请输入宠物名字", icon: "none" }); return }
+	if (selectedBreedId.value === 0) { uni.showToast({ title: "请选择品种", icon: "none" }); return }
+	if (age.value === "") { uni.showToast({ title: "请输入年龄", icon: "none" }); return }
+	if (weight.value === "") { uni.showToast({ title: "请输入体重", icon: "none" }); return }
+
+	const token = getToken()
+	const h = new UTSJSONObject()
+	h["Content-Type"] = "application/json"
+	if (token !== "") h["Authorization"] = "Bearer " + token
+
+	const body = new UTSJSONObject()
+	body["userId"] = 1
+	body["name"] = name.value
+	body["species"] = species.value
+	body["breedId"] = selectedBreedId.value
+	body["gender"] = gender.value
+	body["age"] = parseInt(age.value)
+	body["weight"] = parseFloat(weight.value)
+
+	uni.request({
+		url: BASE + "/api/pets",
+		method: "POST",
+		data: body,
+		header: h,
+		success: (res): void => {
+			const d = res.data
+			if (d != null) {
+				const resp = d as UTSJSONObject
+				if (resp.getNumber("code") === 200) {
+					uni.showToast({ title: "添加成功", icon: "success" })
+					uni.navigateBack()
+				} else {
+					uni.showToast({ title: "添加失败", icon: "none" })
+				}
+			}
+		},
+		fail: (): void => { uni.showToast({ title: "网络错误", icon: "none" }) }
+	})
+}
+
+onShow(() => { loadBreeds() })
+</script>
+
+<style>
+.ap-page { background-color: #FFF8F0; flex: 1; flex-direction: column; }
+.ap-scroll { flex: 1; padding: 24rpx; }
+.ap-field { margin-bottom: 32rpx; }
+.ap-label { font-size: 28rpx; font-weight: 600; color: #333; margin-bottom: 12rpx; }
+.ap-input { height: 80rpx; padding: 0 24rpx; background-color: #FFF; border-radius: 16rpx; font-size: 28rpx; color: #333; }
+.ap-row { flex-direction: row; }
+.ap-chip { align-items: center; justify-content: center; }
+.ap-picker { height: 80rpx; padding: 0 24rpx; background-color: #FFF; border-radius: 16rpx; justify-content: center; }
+.ap-submit { margin-top: 40rpx; height: 88rpx; background-color: #FF8C42; border-radius: 44rpx; align-items: center; justify-content: center; }
+.ap-submit-text { font-size: 32rpx; color: #FFF; font-weight: 600; }
+</style>

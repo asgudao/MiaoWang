@@ -1,0 +1,101 @@
+﻿<template>
+	<view class="kw-page">
+		<input class="kw-search" v-model="keyword" placeholder="搜索..." @confirm="doSearch" />
+		<scroll-view scroll-x="true" class="kw-cats">
+			<view class="kw-tag" v-for="cat in categories" :key="cat.id" @click="selectCategory(cat.id)">
+				<text :style="{ color: activeCategory === cat.id ? '#FFF' : '#666' }">{{ cat.name }}</text>
+			</view>
+		</scroll-view>
+		<scroll-view scroll-y="true" class="kw-list">
+			<view class="kw-item" v-for="item in list" :key="item.id" @click="goDetail(item.id)">
+				<view class="kw-cover"></view>
+				<view class="kw-info">
+					<text class="kw-title">{{ item.title }}</text>
+					<text class="kw-meta">{{ item.viewCount }} 次浏览</text>
+				</view>
+			</view>
+		</scroll-view>
+	</view>
+</template>
+
+<script setup lang="uts">
+const BASE = "http://localhost:8080"
+type KI = { id: number; title: string; viewCount: number }
+type CT = { id: number; name: string }
+
+const keyword = ref("")
+const activeCategory = ref(0)
+const categories = ref<CT[]>([])
+const list = ref<KI[]>([])
+
+function getToken(): string {
+	const t = uni.getStorageSync("token")
+	return t != null ? t as string : ""
+}
+
+function doRequest(url: string, onOk: (data: UTSJSONObject) => void): void {
+	const token = getToken()
+	const h = new UTSJSONObject()
+	h["Content-Type"] = "application/json"
+	if (token !== "") h["Authorization"] = "Bearer " + token
+	uni.request({
+		url: BASE + url,
+		method: "GET",
+		header: h,
+		success: (res): void => {
+			const d = res.data
+			if (d != null) {
+				const body = d as UTSJSONObject
+				const code = body.getNumber("code")
+				if (code === 200) {
+					const inner = body.get("data")
+					if (inner != null) onOk(inner as UTSJSONObject)
+				}
+			}
+		},
+		fail: (): void => {}
+	})
+}
+
+function loadCats(): void {
+	doRequest("/api/knowledge/categories", (data: UTSJSONObject): void => {
+		const arr = data as any as CT[]
+		categories.value = arr
+	})
+}
+
+function loadList(): void {
+	let url = "/api/knowledge?page=1&size=20"
+	if (activeCategory.value > 0) url += "&categoryId=" + activeCategory.value
+	doRequest(url, (data: UTSJSONObject): void => {
+		const records = data.get("records")
+		if (records != null) list.value = records as any as KI[]
+	})
+}
+
+function selectCategory(id: number): void { activeCategory.value = id; loadList() }
+
+function doSearch(): void {
+	doRequest("/api/knowledge/search?keyword=" + keyword.value + "&page=1&size=20", (data: UTSJSONObject): void => {
+		const records = data.get("records")
+		if (records != null) list.value = records as any as KI[]
+	})
+}
+
+function goDetail(id: number): void { uni.navigateTo({ url: "/pages/knowledge/detail?id=" + id }) }
+
+onShow(() => { loadCats(); loadList() })
+</script>
+
+<style>
+.kw-page { background-color: #FFF8F0; flex: 1; flex-direction: column; }
+.kw-search { height: 72rpx; margin: 16rpx 24rpx; padding: 0 24rpx; background-color: #F5F5F5; border-radius: 36rpx; font-size: 28rpx; color: #333; }
+.kw-cats { height: 64rpx; padding: 10rpx 24rpx; background-color: #FFF; }
+.kw-tag { padding: 8rpx 24rpx; margin-right: 14rpx; border-radius: 36rpx; background-color: #F5F5F5; align-items: center; justify-content: center; }
+.kw-list { flex: 1; padding: 8rpx 0; }
+.kw-item { flex-direction: row; align-items: center; padding: 20rpx; margin: 6rpx 20rpx; background-color: #FFF; border-radius: 14rpx; }
+.kw-cover { width: 110rpx; height: 110rpx; border-radius: 10rpx; background-color: #FFE0CC; margin-right: 18rpx; }
+.kw-info { flex: 1; }
+.kw-title { font-size: 28rpx; color: #333; font-weight: 600; }
+.kw-meta { font-size: 22rpx; color: #999; margin-top: 6rpx; }
+</style>

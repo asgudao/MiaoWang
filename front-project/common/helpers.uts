@@ -1,0 +1,23 @@
+const CARE_ICONS: Map<string, string> = new Map([
+	["vaccine", "💉"], ["deworm", "💊"], ["nail", "✂️"],
+	["bath", "🛁"], ["checkup", "🏥"]
+])
+
+const CARE_NAMES: Map<string, string> = new Map([
+	["vaccine", "Vaccine"], ["deworm", "Deworm"], ["nail", "Nail Trim"],
+	["bath", "Bath"], ["checkup", "Checkup"]
+])
+
+export function getCareIcon(type: string): string {
+	return CARE_ICONS.get(type) ?? "📋"
+}
+
+export function getCareName(type: string): string {
+	return CARE_NAMES.get(type) ?? type
+}
+
+export function getDaysText(days: number): string {
+	if (days <= 0) return "Today"
+	if (days === 1) return "Tomorrow"
+	return days + " days"
+}

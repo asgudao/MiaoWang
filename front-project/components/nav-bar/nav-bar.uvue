@@ -1,0 +1,76 @@
+﻿<template>
+	<view class="nb-outer">
+		<view class="nb-row">
+			<view class="nb-tab" @click="switchTab(0)">
+				<view class="nb-circle" :style="circleStyle(0)"><text :style="iconStyle(0)">喵</text></view>
+				<text :style="textStyle(0)">喵汪</text>
+			</view>
+			<view class="nb-tab" @click="switchTab(1)">
+				<view class="nb-circle" :style="circleStyle(1)"><text :style="iconStyle(1)">知</text></view>
+				<text :style="textStyle(1)">知识库</text>
+			</view>
+			<view class="nb-tab" @click="switchTab(2)">
+				<view class="nb-circle" :style="circleStyle(2)"><text :style="iconStyle(2)">宠</text></view>
+				<text :style="textStyle(2)">萌宠</text>
+			</view>
+			<view class="nb-tab" @click="switchTab(3)">
+				<view class="nb-circle" :style="circleStyle(3)"><text :style="iconStyle(3)">我</text></view>
+				<text :style="textStyle(3)">我的</text>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+const current = ref(0)
+
+const tabPaths: string[] = [
+	"/pages/index/index",
+	"/pages/knowledge/list",
+	"/pages/pets/list",
+	"/pages/mine/index"
+]
+
+function circleStyle(idx: number): string {
+	return idx === current.value
+		? "width:88rpx;height:88rpx;border-radius:44rpx;background-color:#FF8C42;align-items:center;justify-content:center;"
+		: "width:88rpx;height:88rpx;border-radius:44rpx;background-color:#FFFFFF;align-items:center;justify-content:center;"
+}
+
+function iconStyle(idx: number): string {
+	return idx === current.value
+		? "font-size:32rpx;font-weight:700;color:#FFF;"
+		: "font-size:32rpx;font-weight:700;color:#666;"
+}
+
+function textStyle(idx: number): string {
+	return idx === current.value
+		? "font-size:20rpx;color:#FF8C42;font-weight:500;margin-top:6rpx;"
+		: "font-size:20rpx;color:#999;font-weight:500;margin-top:6rpx;"
+}
+
+onShow(() => {
+	const pages = getCurrentPages()
+	if (pages.length > 0) {
+		const route = "/" + pages[pages.length - 1].route
+		for (let i = 0; i < tabPaths.length; i++) {
+			if (route === tabPaths[i]) {
+				current.value = i
+				break
+			}
+		}
+	}
+})
+
+function switchTab(idx: number): void {
+	if (idx === current.value) return
+	uni.switchTab({ url: tabPaths[idx] })
+}
+</script>
+
+<style>
+.nb-outer { flex-direction: row; justify-content: center; padding-top: 8rpx; padding-bottom: 16rpx; }
+.nb-row { flex-direction: row; width: 640rpx; justify-content: space-between; }
+.nb-tab { flex-direction: column; align-items: center; width: 140rpx; }
+.nb-circle { margin-bottom: 6rpx; }
+</style>

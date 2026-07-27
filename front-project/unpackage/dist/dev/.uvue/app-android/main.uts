@@ -1,0 +1,57 @@
+import 'E:/Builder/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-console/src/runtime/app/index.ts';
+import App from './App.uvue';
+import { createSSRApp } from 'vue';
+export function createApp(): UTSJSONObject {
+    const app = createSSRApp(App);
+    return {
+        app
+    };
+}
+export function main(app: IApp) {
+    enableStyleIsolation();
+    definePageRoutes();
+    defineAppConfig();
+    (createApp()['app'] as VueApp).mount(app, GenUniApp());
+}
+export class UniAppConfig extends io.dcloud.uniapp.appframe.AppConfig {
+    override name: string = "喵汪";
+    override appid: string = "__UNI__19DBD81";
+    override versionName: string = "1.0.0";
+    override versionCode: string = "100";
+    override uniCompilerVersion: string = "5.15";
+    constructor() { super(); }
+}
+import GenPagesIndexIndexClass from './pages/index/index.uvue';
+import GenPagesKnowledgeListClass from './pages/knowledge/list.uvue';
+import GenPagesKnowledgeDetailClass from './pages/knowledge/detail.uvue';
+import GenPagesPetsListClass from './pages/pets/list.uvue';
+import GenPagesPetsAddClass from './pages/pets/add.uvue';
+import GenPagesReminderIndexClass from './pages/reminder/index.uvue';
+import GenPagesFavoritesIndexClass from './pages/favorites/index.uvue';
+import GenPagesAboutIndexClass from './pages/about/index.uvue';
+import GenPagesMineIndexClass from './pages/mine/index.uvue';
+import GenPagesSubscriptionIndexClass from './pages/subscription/index.uvue';
+function definePageRoutes() {
+    __uniRoutes.push({ path: "pages/index/index", component: GenPagesIndexIndexClass, meta: { isQuit: true } as UniPageMeta, style: _uM([["navigationBarTitleText", "喵汪"]]) } as UniPageRoute);
+    __uniRoutes.push({ path: "pages/knowledge/list", component: GenPagesKnowledgeListClass, meta: { isQuit: false } as UniPageMeta, style: _uM([["navigationBarTitleText", "知识库"]]) } as UniPageRoute);
+    __uniRoutes.push({ path: "pages/knowledge/detail", component: GenPagesKnowledgeDetailClass, meta: { isQuit: false } as UniPageMeta, style: _uM([["navigationBarTitleText", "详情"]]) } as UniPageRoute);
+    __uniRoutes.push({ path: "pages/pets/list", component: GenPagesPetsListClass, meta: { isQuit: false } as UniPageMeta, style: _uM([["navigationBarTitleText", "我的萌宠"]]) } as UniPageRoute);
+    __uniRoutes.push({ path: "pages/pets/add", component: GenPagesPetsAddClass, meta: { isQuit: false } as UniPageMeta, style: _uM([["navigationBarTitleText", "添加宠物"]]) } as UniPageRoute);
+    __uniRoutes.push({ path: "pages/reminder/index", component: GenPagesReminderIndexClass, meta: { isQuit: false } as UniPageMeta, style: _uM([["navigationBarTitleText", "护理日历"]]) } as UniPageRoute);
+    __uniRoutes.push({ path: "pages/favorites/index", component: GenPagesFavoritesIndexClass, meta: { isQuit: false } as UniPageMeta, style: _uM([["navigationBarTitleText", "我的收藏"]]) } as UniPageRoute);
+    __uniRoutes.push({ path: "pages/about/index", component: GenPagesAboutIndexClass, meta: { isQuit: false } as UniPageMeta, style: _uM([["navigationBarTitleText", "关于喵汪"]]) } as UniPageRoute);
+    __uniRoutes.push({ path: "pages/mine/index", component: GenPagesMineIndexClass, meta: { isQuit: false } as UniPageMeta, style: _uM([["navigationBarTitleText", "我的"]]) } as UniPageRoute);
+    __uniRoutes.push({ path: "pages/subscription/index", component: GenPagesSubscriptionIndexClass, meta: { isQuit: false } as UniPageMeta, style: _uM([["navigationBarTitleText", "订阅中心"]]) } as UniPageRoute);
+}
+const __uniTabBar: Map<string, any | null> | null = _uM([["color", "#999999"], ["selectedColor", "#FF8C42"], ["backgroundColor", "#FFFFFF"], ["borderStyle", "white"], ["list", [_uM([["pagePath", "pages/index/index"], ["text", "喵汪"]]), _uM([["pagePath", "pages/knowledge/list"], ["text", "知识库"]]), _uM([["pagePath", "pages/pets/list"], ["text", "萌宠"]]), _uM([["pagePath", "pages/mine/index"], ["text", "我的"]])]]]);
+const __uniLaunchPage: Map<string, any | null> = _uM([["url", "pages/index/index"], ["style", _uM([["navigationBarTitleText", "喵汪"]])]]);
+function defineAppConfig() {
+    __uniConfig.entryPagePath = '/pages/index/index';
+    __uniConfig.globalStyle = _uM([["navigationBarTextStyle", "white"], ["navigationBarTitleText", "喵汪"], ["navigationBarBackgroundColor", "#FF8C42"], ["backgroundColor", "#FFF8F0"]]);
+    __uniConfig.getTabBarConfig = (): Map<string, any> | null => _uM([["color", "#999999"], ["selectedColor", "#FF8C42"], ["backgroundColor", "#FFFFFF"], ["borderStyle", "white"], ["list", [_uM([["pagePath", "pages/index/index"], ["text", "喵汪"]]), _uM([["pagePath", "pages/knowledge/list"], ["text", "知识库"]]), _uM([["pagePath", "pages/pets/list"], ["text", "萌宠"]]), _uM([["pagePath", "pages/mine/index"], ["text", "我的"]])]]]);
+    __uniConfig.tabBar = __uniConfig.getTabBarConfig();
+    __uniConfig.conditionUrl = '';
+    __uniConfig.uniIdRouter = new Map();
+    __uniConfig.ready = true;
+}
+//# sourceMappingURL=main.uts.map

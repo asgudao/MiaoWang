@@ -1,0 +1,301 @@
+﻿<template>
+	<view class="rm-page">
+		<scroll-view scroll-y="true" class="rm-scroll">
+			<view class="rm-pet-section" v-for="pet in pets" :key="pet.id">
+				<view class="rm-pet-header">
+					<text class="rm-pet-icon">{{ pet.species === 1 ? '🐱' : '🐶' }}</text>
+					<text class="rm-pet-name">{{ pet.name }}</text>
+				</view>
+				<view class="rm-list">
+					<view class="rm-card" v-for="r in pet.reminders" :key="r.id">
+						<view class="rm-left">
+							<text class="rm-type">{{ typeLabel(r.ruleType) }}</text>
+							<text class="rm-date">{{ r.nextDate }}</text>
+						</view>
+						<view class="rm-right">
+							<text class="rm-cycle">每{{ r.cycleDays }}天</text>
+							<view class="rm-status" :style="{ backgroundColor: statusColor(r.nextDate) }">
+								<text class="rm-status-text">{{ statusText(r.nextDate) }}</text>
+							</view>
+						</view>
+					</view>
+				</view>
+				<view class="rm-add-btn" @click="openAdd(pet.id, pet.name)"><text class="rm-add-text">+ 添加提醒</text></view>
+			</view>
+		</scroll-view>
+
+		<view class="rm-modal" v-if="showModal">
+			<view class="rm-mask" @click="showModal=false"></view>
+			<view class="rm-form">
+				<text class="rm-form-title">为 {{ addPetName }} 添加提醒</text>
+				<view class="rm-field">
+					<text class="rm-label">类型</text>
+					<picker :range="typeOptions" @change="onTypePick">
+						<view class="rm-picker"><text>{{ typeOptions[addTypeIdx] }}</text></view>
+					</picker>
+				</view>
+				<view class="rm-field">
+					<text class="rm-label">日期</text>
+					<input class="rm-input" v-model="addDate" placeholder="yyyy-MM-dd" />
+				</view>
+				<view class="rm-field">
+					<text class="rm-label">间隔天数</text>
+					<input class="rm-input" v-model="addCycle" type="number" placeholder="如90" />
+				</view>
+				<view class="rm-actions">
+					<view class="rm-cancel" @click="showModal=false"><text class="rm-cancel-text">取消</text></view>
+					<view class="rm-confirm" @click="doAdd"><text class="rm-confirm-text">确定</text></view>
+				</view>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+const BASE = "http://localhost:8080"
+
+type RemData = { id: number; ruleType: string; nextDate: string; cycleDays: number; enabled: boolean }
+type PetWithRem = { id: number; name: string; species: number; reminders: RemData[] }
+
+const pets = ref<PetWithRem[]>([])
+const typeOptions = ["疫苗", "驱虫", "剪指甲", "洗澡", "体检"]
+const typeKeys = ["vaccine", "deworm", "nail", "bath", "checkup"]
+
+const showModal = ref(false)
+const addPetId = ref(0)
+const addPetName = ref("")
+const addTypeIdx = ref(0)
+const addDate = ref("")
+const addCycle = ref("90")
+
+/* ---- helper functions ---- */
+
+function getToken(): string {
+	const t = uni.getStorageSync("token")
+	return t != null ? t as string : ""
+}
+
+function parseDate(s: string): number {
+	const parts = s.split("-")
+	if (parts.length !== 3) return 0
+	const y = parseInt(parts[0])
+	const m = parseInt(parts[1]) - 1
+	const d = parseInt(parts[2])
+	return new Date(y, m, d).getTime()
+}
+
+function typeLabel(t: string): string {
+	if (t === "vaccine") return "💉 疫苗"
+	if (t === "deworm") return "💊 驱虫"
+	if (t === "nail") return "✂️ 剪指甲"
+	if (t === "bath") return "🛁 洗澡"
+	if (t === "checkup") return "🏥 体检"
+	return t
+}
+
+function statusColor(dateStr: string): string {
+	const d = parseDate(dateStr)
+	const now = Date.now()
+	const diff = d - now
+	const dayMs: number = 86400000
+	if (diff < 0) return "#FF4444"
+	if (diff < 3 * dayMs) return "#FF8C42"
+	if (diff < 7 * dayMs) return "#FFD700"
+	return "#4CAF50"
+}
+
+function statusText(dateStr: string): string {
+	const d = parseDate(dateStr)
+	const now = Date.now()
+	const diff = d - now
+	const dayMs: number = 86400000
+	if (diff < 0) return "已过期"
+	if (diff < dayMs) return "今天"
+	if (diff < 2 * dayMs) return "明天"
+	if (diff < 7 * dayMs) {
+		const days: number = Math.ceil(diff / dayMs)
+		return days + "天后"
+	}
+	return ""
+}
+
+/* ---- data functions ---- */
+
+function loadReminders(petId: number, idx: number): void {
+	const token = getToken()
+	const h = new UTSJSONObject()
+	h["Content-Type"] = "application/json"
+	if (token !== "") h["Authorization"] = "Bearer " + token
+	uni.request({
+		url: BASE + "/api/reminders?petId=" + petId,
+		method: "GET",
+		header: h,
+		success: (res): void => {
+			const d = res.data
+			if (d != null) {
+				const body = d as UTSJSONObject
+				const code = body.getNumber("code")
+				if (code === 200) {
+					const inner = body.get("data")
+					if (inner != null) {
+						const arr = inner as any as any[]
+						const rems: RemData[] = []
+						for (let k = 0; k < arr.length; k++) {
+							const r = arr[k] as UTSJSONObject
+							const rid = r.getNumber("id")
+							const rtype = r.getString("ruleType")
+							const rdate = r.getString("nextDate")
+							const rcycle = r.getNumber("cycleDays")
+							rems.push({
+								id: rid != null ? rid : 0,
+								ruleType: rtype != null ? rtype : "",
+								nextDate: rdate != null ? rdate : "",
+								cycleDays: rcycle != null ? rcycle : 0,
+								enabled: true
+							})
+						}
+						if (idx < pets.value.length) {
+							const updated = pets.value
+							updated[idx].reminders = rems
+							pets.value = updated
+						}
+					}
+				}
+			}
+		},
+		fail: (): void => {}
+	})
+}
+
+function loadData(): void {
+	const token = getToken()
+	const h = new UTSJSONObject()
+	h["Content-Type"] = "application/json"
+	if (token !== "") h["Authorization"] = "Bearer " + token
+	uni.request({
+		url: BASE + "/api/pets?userId=1",
+		method: "GET",
+		header: h,
+		success: (res): void => {
+			const d = res.data
+			if (d != null) {
+				const body = d as UTSJSONObject
+				const code = body.getNumber("code")
+				if (code === 200) {
+					const inner = body.get("data")
+					if (inner != null) {
+						const petList = inner as any as any[]
+						const result: PetWithRem[] = []
+						for (let i = 0; i < petList.length; i++) {
+							const p = petList[i] as UTSJSONObject
+							const pid = p.getNumber("id")
+							const pname = p.getString("name")
+							const pspecies = p.getNumber("species")
+							result.push({
+								id: pid != null ? pid : 0,
+								name: pname != null ? pname : "",
+								species: pspecies != null ? pspecies : 1,
+								reminders: []
+							})
+						}
+						pets.value = result
+						for (let j = 0; j < result.length; j++) {
+							loadReminders(result[j].id, j)
+						}
+					}
+				}
+			}
+		},
+		fail: (): void => {}
+	})
+}
+
+/* ---- modal functions ---- */
+
+function openAdd(petId: number, petName: string): void {
+	addPetId.value = petId
+	addPetName.value = petName
+	addTypeIdx.value = 0
+	addDate.value = ""
+	addCycle.value = "90"
+	showModal.value = true
+}
+
+function onTypePick(e: UTSJSONObject): void {
+	const detail = e.get("detail") as UTSJSONObject
+	const v = detail.getNumber("value")
+	if (v != null) addTypeIdx.value = v
+}
+
+function doAdd(): void {
+	if (addDate.value === "") { uni.showToast({ title: "请输入日期", icon: "none" }); return }
+	const token = getToken()
+	const h = new UTSJSONObject()
+	h["Content-Type"] = "application/json"
+	if (token !== "") h["Authorization"] = "Bearer " + token
+
+	const body = new UTSJSONObject()
+	body["petId"] = addPetId.value
+	body["ruleType"] = typeKeys[addTypeIdx.value]
+	body["nextDate"] = addDate.value
+	body["cycleDays"] = parseInt(addCycle.value)
+	body["enabled"] = true
+
+	uni.request({
+		url: BASE + "/api/reminders",
+		method: "POST",
+		data: body,
+		header: h,
+		success: (res): void => {
+			const d = res.data
+			if (d != null) {
+				const resp = d as UTSJSONObject
+				const code = resp.getNumber("code")
+				if (code === 200) {
+					uni.showToast({ title: "添加成功", icon: "success" })
+					showModal.value = false
+					loadData()
+				} else {
+					uni.showToast({ title: "添加失败", icon: "none" })
+				}
+			}
+		},
+		fail: (): void => { uni.showToast({ title: "网络错误", icon: "none" }) }
+	})
+}
+
+onShow(() => { loadData() })
+</script>
+
+<style>
+.rm-page { background-color: #FFF8F0; flex: 1; flex-direction: column; }
+.rm-scroll { flex: 1; padding: 20rpx 24rpx; }
+.rm-pet-section { margin-bottom: 28rpx; }
+.rm-pet-header { flex-direction: row; align-items: center; margin-bottom: 12rpx; }
+.rm-pet-icon { font-size: 40rpx; margin-right: 12rpx; }
+.rm-pet-name { font-size: 34rpx; font-weight: 700; color: #333; }
+.rm-list { flex-direction: column; }
+.rm-card { flex-direction: row; justify-content: space-between; align-items: center; padding: 20rpx; margin-bottom: 8rpx; background-color: #FFF; border-radius: 14rpx; }
+.rm-left { flex-direction: column; }
+.rm-type { font-size: 26rpx; color: #333; font-weight: 600; }
+.rm-date { font-size: 22rpx; color: #999; margin-top: 4rpx; }
+.rm-right { align-items: flex-end; }
+.rm-cycle { font-size: 22rpx; color: #999; }
+.rm-status { padding: 4rpx 16rpx; border-radius: 20rpx; margin-top: 6rpx; }
+.rm-status-text { font-size: 20rpx; color: #FFF; font-weight: 600; }
+.rm-add-btn { padding: 16rpx; background-color: #FF8C42; border-radius: 12rpx; align-items: center; margin-top: 8rpx; }
+.rm-add-text { font-size: 24rpx; color: #FFF; font-weight: 600; }
+.rm-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; align-items: center; justify-content: center; }
+.rm-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.4); }
+.rm-form { width: 600rpx; padding: 36rpx; background-color: #FFF; border-radius: 20rpx; }
+.rm-form-title { font-size: 30rpx; font-weight: 700; color: #333; margin-bottom: 28rpx; text-align: center; }
+.rm-field { margin-bottom: 20rpx; }
+.rm-label { font-size: 26rpx; color: #666; margin-bottom: 8rpx; }
+.rm-input { height: 72rpx; padding: 0 20rpx; background-color: #F5F5F5; border-radius: 12rpx; font-size: 26rpx; color: #333; }
+.rm-picker { height: 72rpx; padding: 0 20rpx; background-color: #F5F5F5; border-radius: 12rpx; justify-content: center; font-size: 26rpx; color: #333; }
+.rm-actions { flex-direction: row; justify-content: space-between; margin-top: 28rpx; }
+.rm-cancel { flex: 1; height: 72rpx; background-color: #F5F5F5; border-radius: 12rpx; align-items: center; justify-content: center; margin-right: 16rpx; }
+.rm-cancel-text { font-size: 26rpx; color: #666; }
+.rm-confirm { flex: 1; height: 72rpx; background-color: #FF8C42; border-radius: 12rpx; align-items: center; justify-content: center; }
+.rm-confirm-text { font-size: 26rpx; color: #FFF; font-weight: 600; }
+</style>

@@ -1,0 +1,103 @@
+type LangMap = Map<string, string>
+
+const zh: LangMap = new Map([
+	["home", "首页"],
+	["knowledge", "知识库"],
+	["pets", "萌宠"],
+	["my", "我的"],
+	["detail", "详情"],
+	["subscribe", "订阅"],
+	["search", "搜索..."],
+	["view3d", "查看3D小猫"],
+	["tip", "拖拽旋转 | 点击弹跳"],
+	["myPets", "我的萌宠"],
+	["addPet", "+ 添加宠物"],
+	["male", "公"],
+	["female", "母"],
+	["age", "岁"],
+	["membership", "会员中心"],
+	["upgrade", "升级"],
+	["upgradeDesc", "升级解锁更多萌宠"],
+	["careCalendar", "护理日历"],
+	["favorites", "收藏"],
+	["settings", "设置"],
+	["about", "关于"],
+	["language", "语言"],
+	["langZh", "中文"],
+	["langEn", "English"],
+	["buyNow", "立即购买"],
+	["orderDone", "订单已创建"],
+	["networkError", "网络错误"],
+	["loading", "加载中..."],
+	["unknownBreed", "未知品种"],
+	["catLover", "猫咪爱好者"],
+	["profile", "个人中心"],
+	["views", "次浏览"],
+	["unlockPets", "解锁更多萌宠"],
+	["days", "天"],
+	["petLimit", "只萌宠"],
+	["comingSoon", "即将上线"],
+	["modelFailed", "模型加载失败"]
+])
+
+const en: LangMap = new Map([
+	["home", "Home"],
+	["knowledge", "Knowledge"],
+	["pets", "Pets"],
+	["my", "My"],
+	["detail", "Detail"],
+	["subscribe", "Subscribe"],
+	["search", "Search..."],
+	["view3d", "View 3D Cat"],
+	["tip", "Drag to rotate | Tap to bounce"],
+	["myPets", "My Pets"],
+	["addPet", "+ Add Pet"],
+	["male", "Male"],
+	["female", "Female"],
+	["age", "yrs"],
+	["membership", "Membership"],
+	["upgrade", "Upgrade"],
+	["upgradeDesc", "Upgrade for more pets"],
+	["careCalendar", "Care Calendar"],
+	["favorites", "Favorites"],
+	["settings", "Settings"],
+	["about", "About"],
+	["language", "Language"],
+	["langZh", "中文"],
+	["langEn", "English"],
+	["buyNow", "Buy Now"],
+	["orderDone", "Order created"],
+	["networkError", "Network error"],
+	["loading", "Loading..."],
+	["unknownBreed", "Unknown breed"],
+	["catLover", "Cat Lover"],
+	["profile", "Profile"],
+	["views", "views"],
+	["unlockPets", "Unlock more pets"],
+	["days", "days"],
+	["petLimit", "pets"],
+	["comingSoon", "Coming soon"],
+	["modelFailed", "Model load failed"]
+])
+
+export function t(key: string): string {
+	const lang = getLanguage()
+	const map = lang === "zh" ? zh : en
+	return map.get(key) ?? key
+}
+
+export function getLanguage(): string {
+	const saved = uni.getStorageSync("language")
+	return saved != null ? saved as string : "zh"
+}
+
+export function setLanguage(lang: string): void {
+	uni.setStorageSync("language", lang)
+}
+
+export function toggleLanguage(): string {
+	const current = getLanguage()
+	const next = current === "zh" ? "en" : "zh"
+	uni.setStorageSync("language", next)
+	return next
+}

@@ -1,0 +1,130 @@
+const BASE_URL = "http://localhost:8080"
+
+function getToken(): string {
+	const t = uni.getStorageSync("token")
+	return t != null ? t as string : ""
+}
+
+export function get<T>(url: string): Promise<T> {
+	return new Promise((resolve, reject) => {
+		uni.request({
+			url: BASE_URL + url,
+			method: "GET",
+			header: {
+				"Content-Type": "application/json",
+				"Authorization": "Bearer " + getToken()
+			},
+			success: (res): void => {
+				const d = res.data
+				if (d != null) {
+					const body = d as UTSJSONObject
+					const code = body.getNumber("code")
+					if (code === 200) {
+						const inner = body.get("data")
+						if (inner != null) resolve(inner as any as T)
+						else reject("no data")
+					} else {
+						const msg = body.getString("msg")
+						uni.showToast({ title: msg, icon: "none" })
+						reject(msg)
+					}
+				} else {
+					reject("empty response")
+				}
+			},
+			fail: (err): void => { uni.showToast({ title: "Network error", icon: "none" }); reject(err) }
+		})
+	})
+}
+
+export function post<T>(url: string, data: any): Promise<T> {
+	return new Promise((resolve, reject) => {
+		uni.request({
+			url: BASE_URL + url,
+			method: "POST",
+			data: data,
+			header: {
+				"Content-Type": "application/json",
+				"Authorization": "Bearer " + getToken()
+			},
+			success: (res): void => {
+				const d = res.data
+				if (d != null) {
+					const body = d as UTSJSONObject
+					const code = body.getNumber("code")
+					if (code === 200) {
+						const inner = body.get("data")
+						if (inner != null) resolve(inner as any as T)
+						else reject("no data")
+					} else {
+						const msg = body.getString("msg")
+						uni.showToast({ title: msg, icon: "none" })
+						reject(msg)
+					}
+				}
+			},
+			fail: (err): void => { uni.showToast({ title: "Network error", icon: "none" }); reject(err) }
+		})
+	})
+}
+
+export function put<T>(url: string, data: any): Promise<T> {
+	return new Promise((resolve, reject) => {
+		uni.request({
+			url: BASE_URL + url,
+			method: "PUT",
+			data: data,
+			header: {
+				"Content-Type": "application/json",
+				"Authorization": "Bearer " + getToken()
+			},
+			success: (res): void => {
+				const d = res.data
+				if (d != null) {
+					const body = d as UTSJSONObject
+					const code = body.getNumber("code")
+					if (code === 200) {
+						const inner = body.get("data")
+						if (inner != null) resolve(inner as any as T)
+						else reject("no data")
+					} else {
+						const msg = body.getString("msg")
+						uni.showToast({ title: msg, icon: "none" })
+						reject(msg)
+					}
+				}
+			},
+			fail: (err): void => { uni.showToast({ title: "Network error", icon: "none" }); reject(err) }
+		})
+	})
+}
+
+export function del<T>(url: string): Promise<T> {
+	return new Promise((resolve, reject) => {
+		uni.request({
+			url: BASE_URL + url,
+			method: "DELETE",
+			header: {
+				"Content-Type": "application/json",
+				"Authorization": "Bearer " + getToken()
+			},
+			success: (res): void => {
+				const d = res.data
+				if (d != null) {
+					const body = d as UTSJSONObject
+					const code = body.getNumber("code")
+					if (code === 200) {
+						const inner = body.get("data")
+						if (inner != null) resolve(inner as any as T)
+						else reject("no data")
+					} else {
+						const msg = body.getString("msg")
+						uni.showToast({ title: msg, icon: "none" })
+						reject(msg)
+					}
+				}
+			},
+			fail: (err): void => { uni.showToast({ title: "Network error", icon: "none" }); reject(err) }
+		})
+	})
+}

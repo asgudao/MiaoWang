@@ -1,0 +1,348 @@
+type RemData = {
+    __$originalPosition?: UTSSourceMapPosition<"RemData", "pages/reminder/index.uvue", 57, 6>;
+    id: number;
+    ruleType: string;
+    nextDate: string;
+    cycleDays: number;
+    enabled: boolean;
+};
+type PetWithRem = {
+    __$originalPosition?: UTSSourceMapPosition<"PetWithRem", "pages/reminder/index.uvue", 58, 6>;
+    id: number;
+    name: string;
+    species: number;
+    reminders: RemData[];
+};
+const __sfc__ = defineComponent({
+    __name: 'index',
+    setup(__props) {
+        const __ins = getCurrentInstance()!;
+        const _ctx = __ins.proxy as InstanceType<typeof __sfc__>;
+        const _cache = __ins.renderCache;
+        const BASE = "http://localhost:8080";
+        const pets = ref<PetWithRem[]>([]);
+        const typeOptions = ["疫苗", "驱虫", "剪指甲", "洗澡", "体检"];
+        const typeKeys = ["vaccine", "deworm", "nail", "bath", "checkup"];
+        const showModal = ref(false);
+        const addPetId = ref(0);
+        const addPetName = ref("");
+        const addTypeIdx = ref(0);
+        const addDate = ref("");
+        const addCycle = ref("90");
+        /* ---- helper functions ---- */
+        function getToken(): string {
+            const t = uni.getStorageSync("token");
+            return t != null ? t as string : "";
+        }
+        function parseDate(s: string): number {
+            const parts = s.split("-");
+            if (parts.length !== 3)
+                return 0;
+            const y = parseInt(parts[0]);
+            const m = parseInt(parts[1]) - 1;
+            const d = parseInt(parts[2]);
+            return new Date(y, m, d).getTime();
+        }
+        function typeLabel(t: string): string {
+            if (t === "vaccine")
+                return "💉 疫苗";
+            if (t === "deworm")
+                return "💊 驱虫";
+            if (t === "nail")
+                return "✂️ 剪指甲";
+            if (t === "bath")
+                return "🛁 洗澡";
+            if (t === "checkup")
+                return "🏥 体检";
+            return t;
+        }
+        function statusColor(dateStr: string): string {
+            const d = parseDate(dateStr);
+            const now = Date.now();
+            const diff = d - now;
+            const dayMs: number = 86400000;
+            if (diff < 0)
+                return "#FF4444";
+            if (diff < 3 * dayMs)
+                return "#FF8C42";
+            if (diff < 7 * dayMs)
+                return "#FFD700";
+            return "#4CAF50";
+        }
+        function statusText(dateStr: string): string {
+            const d = parseDate(dateStr);
+            const now = Date.now();
+            const diff = d - now;
+            const dayMs: number = 86400000;
+            if (diff < 0)
+                return "已过期";
+            if (diff < dayMs)
+                return "今天";
+            if (diff < 2 * dayMs)
+                return "明天";
+            if (diff < 7 * dayMs) {
+                const days: number = Math.ceil(diff / dayMs);
+                return days + "天后";
+            }
+            return "";
+        }
+        /* ---- data functions ---- */
+        function loadReminders(petId: number, idx: number): void {
+            const token = getToken();
+            const h = new UTSJSONObject(new UTSSourceMapPosition("h", "pages/reminder/index.uvue", 126, 8));
+            h["Content-Type"] = "application/json";
+            if (token !== "")
+                h["Authorization"] = "Bearer " + token;
+            uni.request({
+                url: BASE + "/api/reminders?petId=" + petId,
+                method: "GET",
+                header: h,
+                success: (res): void => {
+                    const d = res.data;
+                    if (d != null) {
+                        const body = d as UTSJSONObject;
+                        const code = body.getNumber("code");
+                        if (code === 200) {
+                            const inner = body.get("data");
+                            if (inner != null) {
+                                const arr = inner as any as any[];
+                                const rems: RemData[] = [];
+                                for (let k = 0; k < arr.length; k++) {
+                                    const r = arr[k] as UTSJSONObject;
+                                    const rid = r.getNumber("id");
+                                    const rtype = r.getString("ruleType");
+                                    const rdate = r.getString("nextDate");
+                                    const rcycle = r.getNumber("cycleDays");
+                                    rems.push({
+                                        id: rid != null ? rid : 0,
+                                        ruleType: rtype != null ? rtype : "",
+                                        nextDate: rdate != null ? rdate : "",
+                                        cycleDays: rcycle != null ? rcycle : 0,
+                                        enabled: true
+                                    } as RemData);
+                                }
+                                if (idx < pets.value.length) {
+                                    const updated = pets.value;
+                                    updated[idx].reminders = rems;
+                                    pets.value = updated;
+                                }
+                            }
+                        }
+                    }
+                },
+                fail: (): void => { }
+            });
+        }
+        function loadData(): void {
+            const token = getToken();
+            const h = new UTSJSONObject(new UTSSourceMapPosition("h", "pages/reminder/index.uvue", 172, 8));
+            h["Content-Type"] = "application/json";
+            if (token !== "")
+                h["Authorization"] = "Bearer " + token;
+            uni.request({
+                url: BASE + "/api/pets?userId=1",
+                method: "GET",
+                header: h,
+                success: (res): void => {
+                    const d = res.data;
+                    if (d != null) {
+                        const body = d as UTSJSONObject;
+                        const code = body.getNumber("code");
+                        if (code === 200) {
+                            const inner = body.get("data");
+                            if (inner != null) {
+                                const petList = inner as any as any[];
+                                const result: PetWithRem[] = [];
+                                for (let i = 0; i < petList.length; i++) {
+                                    const p = petList[i] as UTSJSONObject;
+                                    const pid = p.getNumber("id");
+                                    const pname = p.getString("name");
+                                    const pspecies = p.getNumber("species");
+                                    result.push({
+                                        id: pid != null ? pid : 0,
+                                        name: pname != null ? pname : "",
+                                        species: pspecies != null ? pspecies : 1,
+                                        reminders: []
+                                    } as PetWithRem);
+                                }
+                                pets.value = result;
+                                for (let j = 0; j < result.length; j++) {
+                                    loadReminders(result[j].id, j);
+                                }
+                            }
+                        }
+                    }
+                },
+                fail: (): void => { }
+            });
+        }
+        /* ---- modal functions ---- */
+        function openAdd(petId: number, petName: string): void {
+            addPetId.value = petId;
+            addPetName.value = petName;
+            addTypeIdx.value = 0;
+            addDate.value = "";
+            addCycle.value = "90";
+            showModal.value = true;
+        }
+        function onTypePick(e: UTSJSONObject): void {
+            const detail = e.get("detail") as UTSJSONObject;
+            const v = detail.getNumber("value");
+            if (v != null)
+                addTypeIdx.value = v;
+        }
+        function doAdd(): void {
+            if (addDate.value === "") {
+                uni.showToast({ title: "请输入日期", icon: "none" });
+                return;
+            }
+            const token = getToken();
+            const h = new UTSJSONObject(new UTSSourceMapPosition("h", "pages/reminder/index.uvue", 233, 8));
+            h["Content-Type"] = "application/json";
+            if (token !== "")
+                h["Authorization"] = "Bearer " + token;
+            const body = new UTSJSONObject(new UTSSourceMapPosition("body", "pages/reminder/index.uvue", 237, 8));
+            body["petId"] = addPetId.value;
+            body["ruleType"] = typeKeys[addTypeIdx.value];
+            body["nextDate"] = addDate.value;
+            body["cycleDays"] = parseInt(addCycle.value);
+            body["enabled"] = true;
+            uni.request({
+                url: BASE + "/api/reminders",
+                method: "POST",
+                data: body,
+                header: h,
+                success: (res): void => {
+                    const d = res.data;
+                    if (d != null) {
+                        const resp = d as UTSJSONObject;
+                        const code = resp.getNumber("code");
+                        if (code === 200) {
+                            uni.showToast({ title: "添加成功", icon: "success" });
+                            showModal.value = false;
+                            loadData();
+                        }
+                        else {
+                            uni.showToast({ title: "添加失败", icon: "none" });
+                        }
+                    }
+                },
+                fail: (): void => { uni.showToast({ title: "网络错误", icon: "none" }); }
+            });
+        }
+        onShow(() => { loadData(); });
+        return (): any | null => {
+            const _component_picker = resolveComponent("picker");
+            return _cE("view", _uM({ class: "rm-page" }), [
+                _cE("scroll-view", _uM({
+                    "scroll-y": "true",
+                    class: "rm-scroll"
+                }), [
+                    _cE(Fragment, null, RenderHelpers.renderList(unref(pets), (pet, __key, __index, _cached): any => {
+                        return _cE("view", _uM({
+                            class: "rm-pet-section",
+                            key: pet.id
+                        }), [
+                            _cE("view", _uM({ class: "rm-pet-header" }), [
+                                _cE("text", _uM({ class: "rm-pet-icon" }), _tD(pet.species === 1 ? '🐱' : '🐶'), 1 /* TEXT */),
+                                _cE("text", _uM({ class: "rm-pet-name" }), _tD(pet.name), 1 /* TEXT */)
+                            ]),
+                            _cE("view", _uM({ class: "rm-list" }), [
+                                _cE(Fragment, null, RenderHelpers.renderList(pet.reminders, (r, __key, __index, _cached): any => {
+                                    return _cE("view", _uM({
+                                        class: "rm-card",
+                                        key: r.id
+                                    }), [
+                                        _cE("view", _uM({ class: "rm-left" }), [
+                                            _cE("text", _uM({ class: "rm-type" }), _tD(typeLabel(r.ruleType)), 1 /* TEXT */),
+                                            _cE("text", _uM({ class: "rm-date" }), _tD(r.nextDate), 1 /* TEXT */)
+                                        ]),
+                                        _cE("view", _uM({ class: "rm-right" }), [
+                                            _cE("text", _uM({ class: "rm-cycle" }), "每" + _tD(r.cycleDays) + "天", 1 /* TEXT */),
+                                            _cE("view", _uM({
+                                                class: "rm-status",
+                                                style: _nS(_uM({ backgroundColor: statusColor(r.nextDate) }))
+                                            }), [
+                                                _cE("text", _uM({ class: "rm-status-text" }), _tD(statusText(r.nextDate)), 1 /* TEXT */)
+                                            ], 4 /* STYLE */)
+                                        ])
+                                    ]);
+                                }), 128 /* KEYED_FRAGMENT */)
+                            ]),
+                            _cE("view", _uM({
+                                class: "rm-add-btn",
+                                onClick: () => { openAdd(pet.id, pet.name); }
+                            }), [
+                                _cE("text", _uM({ class: "rm-add-text" }), "+ 添加提醒")
+                            ], 8 /* PROPS */, ["onClick"])
+                        ]);
+                    }), 128 /* KEYED_FRAGMENT */)
+                ]),
+                isTrue(unref(showModal))
+                    ? _cE("view", _uM({
+                        key: 0,
+                        class: "rm-modal"
+                    }), [
+                        _cE("view", _uM({
+                            class: "rm-mask",
+                            onClick: () => { showModal.value = false; }
+                        }), null, 8 /* PROPS */, ["onClick"]),
+                        _cE("view", _uM({ class: "rm-form" }), [
+                            _cE("text", _uM({ class: "rm-form-title" }), "为 " + _tD(unref(addPetName)) + " 添加提醒", 1 /* TEXT */),
+                            _cE("view", _uM({ class: "rm-field" }), [
+                                _cE("text", _uM({ class: "rm-label" }), "类型"),
+                                _cV(_component_picker, _uM({
+                                    range: typeOptions,
+                                    onChange: onTypePick
+                                }), _uM({
+                                    default: withSlotCtx((): any[] => [
+                                        _cE("view", _uM({ class: "rm-picker" }), [
+                                            _cE("text", null, _tD(typeOptions[unref(addTypeIdx)]), 1 /* TEXT */)
+                                        ])
+                                    ]),
+                                    _: 1 /* STABLE */
+                                }))
+                            ]),
+                            _cE("view", _uM({ class: "rm-field" }), [
+                                _cE("text", _uM({ class: "rm-label" }), "日期"),
+                                _cE("input", _uM({
+                                    class: "rm-input",
+                                    modelValue: unref(addDate),
+                                    onInput: ($event: UniInputEvent) => { trySetRefValue(addDate, $event.detail.value); },
+                                    placeholder: "yyyy-MM-dd"
+                                }), null, 40 /* PROPS, NEED_HYDRATION */, ["modelValue"])
+                            ]),
+                            _cE("view", _uM({ class: "rm-field" }), [
+                                _cE("text", _uM({ class: "rm-label" }), "间隔天数"),
+                                _cE("input", _uM({
+                                    class: "rm-input",
+                                    modelValue: unref(addCycle),
+                                    onInput: ($event: UniInputEvent) => { trySetRefValue(addCycle, $event.detail.value); },
+                                    type: "number",
+                                    placeholder: "如90"
+                                }), null, 40 /* PROPS, NEED_HYDRATION */, ["modelValue"])
+                            ]),
+                            _cE("view", _uM({ class: "rm-actions" }), [
+                                _cE("view", _uM({
+                                    class: "rm-cancel",
+                                    onClick: () => { showModal.value = false; }
+                                }), [
+                                    _cE("text", _uM({ class: "rm-cancel-text" }), "取消")
+                                ], 8 /* PROPS */, ["onClick"]),
+                                _cE("view", _uM({
+                                    class: "rm-confirm",
+                                    onClick: doAdd
+                                }), [
+                                    _cE("text", _uM({ class: "rm-confirm-text" }), "确定")
+                                ])
+                            ])
+                        ])
+                    ])
+                    : _cC("v-if", true)
+            ]);
+        };
+    }
+});
+export default __sfc__;
+const GenPagesReminderIndexStyles = [_uM([["rm-page", _pS(_uM([["backgroundColor", "#FFF8F0"], ["flexGrow", 1], ["flexShrink", 1], ["flexBasis", "0%"], ["flexDirection", "column"]]))], ["rm-scroll", _pS(_uM([["flexGrow", 1], ["flexShrink", 1], ["flexBasis", "0%"], ["paddingTop", "20rpx"], ["paddingRight", "24rpx"], ["paddingBottom", "20rpx"], ["paddingLeft", "24rpx"]]))], ["rm-pet-section", _pS(_uM([["marginBottom", "28rpx"]]))], ["rm-pet-header", _pS(_uM([["flexDirection", "row"], ["alignItems", "center"], ["marginBottom", "12rpx"]]))], ["rm-pet-icon", _pS(_uM([["fontSize", "40rpx"], ["marginRight", "12rpx"]]))], ["rm-pet-name", _pS(_uM([["fontSize", "34rpx"], ["fontWeight", 700], ["color", "#333333"]]))], ["rm-list", _pS(_uM([["flexDirection", "column"]]))], ["rm-card", _pS(_uM([["flexDirection", "row"], ["justifyContent", "space-between"], ["alignItems", "center"], ["paddingTop", "20rpx"], ["paddingRight", "20rpx"], ["paddingBottom", "20rpx"], ["paddingLeft", "20rpx"], ["marginBottom", "8rpx"], ["backgroundColor", "#FFFFFF"], ["borderTopLeftRadius", "14rpx"], ["borderTopRightRadius", "14rpx"], ["borderBottomRightRadius", "14rpx"], ["borderBottomLeftRadius", "14rpx"]]))], ["rm-left", _pS(_uM([["flexDirection", "column"]]))], ["rm-type", _pS(_uM([["fontSize", "26rpx"], ["color", "#333333"], ["fontWeight", 600]]))], ["rm-date", _pS(_uM([["fontSize", "22rpx"], ["color", "#999999"], ["marginTop", "4rpx"]]))], ["rm-right", _pS(_uM([["alignItems", "flex-end"]]))], ["rm-cycle", _pS(_uM([["fontSize", "22rpx"], ["color", "#999999"]]))], ["rm-status", _pS(_uM([["paddingTop", "4rpx"], ["paddingRight", "16rpx"], ["paddingBottom", "4rpx"], ["paddingLeft", "16rpx"], ["borderTopLeftRadius", "20rpx"], ["borderTopRightRadius", "20rpx"], ["borderBottomRightRadius", "20rpx"], ["borderBottomLeftRadius", "20rpx"], ["marginTop", "6rpx"]]))], ["rm-status-text", _pS(_uM([["fontSize", "20rpx"], ["color", "#FFFFFF"], ["fontWeight", 600]]))], ["rm-add-btn", _pS(_uM([["paddingTop", "16rpx"], ["paddingRight", "16rpx"], ["paddingBottom", "16rpx"], ["paddingLeft", "16rpx"], ["backgroundColor", "#FF8C42"], ["borderTopLeftRadius", "12rpx"], ["borderTopRightRadius", "12rpx"], ["borderBottomRightRadius", "12rpx"], ["borderBottomLeftRadius", "12rpx"], ["alignItems", "center"], ["marginTop", "8rpx"]]))], ["rm-add-text", _pS(_uM([["fontSize", "24rpx"], ["color", "#FFFFFF"], ["fontWeight", 600]]))], ["rm-modal", _pS(_uM([["position", "fixed"], ["top", 0], ["left", 0], ["right", 0], ["bottom", 0], ["alignItems", "center"], ["justifyContent", "center"]]))], ["rm-mask", _pS(_uM([["position", "fixed"], ["top", 0], ["left", 0], ["right", 0], ["bottom", 0], ["backgroundColor", "rgba(0,0,0,0.4)"]]))], ["rm-form", _pS(_uM([["width", "600rpx"], ["paddingTop", "36rpx"], ["paddingRight", "36rpx"], ["paddingBottom", "36rpx"], ["paddingLeft", "36rpx"], ["backgroundColor", "#FFFFFF"], ["borderTopLeftRadius", "20rpx"], ["borderTopRightRadius", "20rpx"], ["borderBottomRightRadius", "20rpx"], ["borderBottomLeftRadius", "20rpx"]]))], ["rm-form-title", _pS(_uM([["fontSize", "30rpx"], ["fontWeight", 700], ["color", "#333333"], ["marginBottom", "28rpx"], ["textAlign", "center"]]))], ["rm-field", _pS(_uM([["marginBottom", "20rpx"]]))], ["rm-label", _pS(_uM([["fontSize", "26rpx"], ["color", "#666666"], ["marginBottom", "8rpx"]]))], ["rm-input", _pS(_uM([["height", "72rpx"], ["paddingTop", 0], ["paddingRight", "20rpx"], ["paddingBottom", 0], ["paddingLeft", "20rpx"], ["backgroundColor", "#F5F5F5"], ["borderTopLeftRadius", "12rpx"], ["borderTopRightRadius", "12rpx"], ["borderBottomRightRadius", "12rpx"], ["borderBottomLeftRadius", "12rpx"], ["fontSize", "26rpx"], ["color", "#333333"]]))], ["rm-picker", _pS(_uM([["height", "72rpx"], ["paddingTop", 0], ["paddingRight", "20rpx"], ["paddingBottom", 0], ["paddingLeft", "20rpx"], ["backgroundColor", "#F5F5F5"], ["borderTopLeftRadius", "12rpx"], ["borderTopRightRadius", "12rpx"], ["borderBottomRightRadius", "12rpx"], ["borderBottomLeftRadius", "12rpx"], ["justifyContent", "center"], ["fontSize", "26rpx"], ["color", "#333333"]]))], ["rm-actions", _pS(_uM([["flexDirection", "row"], ["justifyContent", "space-between"], ["marginTop", "28rpx"]]))], ["rm-cancel", _pS(_uM([["flexGrow", 1], ["flexShrink", 1], ["flexBasis", "0%"], ["height", "72rpx"], ["backgroundColor", "#F5F5F5"], ["borderTopLeftRadius", "12rpx"], ["borderTopRightRadius", "12rpx"], ["borderBottomRightRadius", "12rpx"], ["borderBottomLeftRadius", "12rpx"], ["alignItems", "center"], ["justifyContent", "center"], ["marginRight", "16rpx"]]))], ["rm-cancel-text", _pS(_uM([["fontSize", "26rpx"], ["color", "#666666"]]))], ["rm-confirm", _pS(_uM([["flexGrow", 1], ["flexShrink", 1], ["flexBasis", "0%"], ["height", "72rpx"], ["backgroundColor", "#FF8C42"], ["borderTopLeftRadius", "12rpx"], ["borderTopRightRadius", "12rpx"], ["borderBottomRightRadius", "12rpx"], ["borderBottomLeftRadius", "12rpx"], ["alignItems", "center"], ["justifyContent", "center"]]))], ["rm-confirm-text", _pS(_uM([["fontSize", "26rpx"], ["color", "#FFFFFF"], ["fontWeight", 600]]))]])];
+//# sourceMappingURL=index.uvue.map

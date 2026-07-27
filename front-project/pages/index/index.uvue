@@ -1,0 +1,9 @@
+<template>
+	<web-view src="/hybrid/html/cat-3d.html"></web-view>
+</template>
+
+<script setup lang="uts">
+</script>
+
+<style>
+</style>

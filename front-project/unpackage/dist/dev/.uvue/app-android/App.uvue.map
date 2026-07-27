@@ -1,0 +1,1 @@
+{"version":3,"sources":["App.uvue"],"names":[],"mappings":";;;;;;QACA,QAAQ,CAAC,WAAG,EAAE;YACb,OAAO,CAAC,GAAG,CAAC,gBAAe,EAAA,gBAAC,CAAC,CAAA;QAC9B,CAAC,CAAC,CAAA","sourcesContent":["<script setup lang=\"uts\">\nonLaunch(() => {\n\tconsole.log(\"Pet App Launch\")\n})\n</script>"]}
