@@ -12,6 +12,10 @@ public class KnowledgeCategory {
     private Long id;
 
     private String name;
+
+    /** 物种: 1=猫, 2=狗 */
+    private Integer species;
+
     private Integer sortOrder;
 
     @TableField(fill = FieldFill.INSERT)

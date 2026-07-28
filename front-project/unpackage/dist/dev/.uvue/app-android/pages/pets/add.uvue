@@ -10,7 +10,7 @@ const __sfc__ = defineComponent({
         const __ins = getCurrentInstance()!;
         const _ctx = __ins.proxy as InstanceType<typeof __sfc__>;
         const _cache = __ins.renderCache;
-        const BASE = "http://localhost:8080";
+        const BASE = "http://192.168.1.5:8080";
         const name = ref("");
         const species = ref(1);
         const gender = ref(1);
@@ -30,12 +30,15 @@ const __sfc__ = defineComponent({
         }
         function loadBreeds(): void {
             const token = getToken();
-            const h = new UTSJSONObject(new UTSSourceMapPosition("h", "pages/pets/add.uvue", 68, 8));
+            if (token === "") {
+                setTimeout(() => { loadBreeds(); }, 1000);
+                return;
+            }
+            const h = new UTSJSONObject(new UTSSourceMapPosition("h", "pages/pets/add.uvue", 69, 8));
             h["Content-Type"] = "application/json";
-            if (token !== "")
-                h["Authorization"] = "Bearer " + token;
+            h["Authorization"] = "Bearer " + token;
             uni.request({
-                url: BASE + "/api/breeds",
+                url: BASE + "/api/breeds?species=" + species.value,
                 method: "GET",
                 header: h,
                 success: (res): void => {
@@ -65,29 +68,36 @@ const __sfc__ = defineComponent({
             selectedBreedIdx.value = idx;
             selectedBreedId.value = breeds.value[idx].id;
         }
+        function switchSpecies(s: number): void {
+            species.value = s;
+            selectedBreedIdx.value = -1;
+            selectedBreedId.value = 0;
+            breedNames.value = [];
+            loadBreeds();
+        }
         function submit(): void {
             if (name.value === "") {
-                uni.showToast({ title: "请输入宠物名字", icon: "none" });
+                uni.showToast({ title: "璇疯緭鍏ュ疇鐗╁悕瀛?, icon: "none" });
                 return;
             }
             if (selectedBreedId.value === 0) {
-                uni.showToast({ title: "请选择品种", icon: "none" });
+                uni.showToast({ title: "璇烽€夋嫨鍝佺", icon: "none" });
                 return;
             }
             if (age.value === "") {
-                uni.showToast({ title: "请输入年龄", icon: "none" });
+                uni.showToast({ title: "璇疯緭鍏ュ勾榫?, icon: "none" });
                 return;
             }
             if (weight.value === "") {
-                uni.showToast({ title: "请输入体重", icon: "none" });
+                uni.showToast({ title: "璇疯緭鍏ヤ綋閲?, icon: "none" });
                 return;
             }
             const token = getToken();
-            const h = new UTSJSONObject(new UTSSourceMapPosition("h", "pages/pets/add.uvue", 109, 8));
+            const h = new UTSJSONObject(new UTSSourceMapPosition("h", "pages/pets/add.uvue", 118, 8));
             h["Content-Type"] = "application/json";
             if (token !== "")
                 h["Authorization"] = "Bearer " + token;
-            const body = new UTSJSONObject(new UTSSourceMapPosition("body", "pages/pets/add.uvue", 113, 8));
+            const body = new UTSJSONObject(new UTSSourceMapPosition("body", "pages/pets/add.uvue", 122, 8));
             body["userId"] = 1;
             body["name"] = name.value;
             body["species"] = species.value;
@@ -105,15 +115,15 @@ const __sfc__ = defineComponent({
                     if (d != null) {
                         const resp = d as UTSJSONObject;
                         if (resp.getNumber("code") === 200) {
-                            uni.showToast({ title: "添加成功", icon: "success" });
+                            uni.showToast({ title: "娣诲姞鎴愬姛", icon: "success" });
                             uni.navigateBack();
                         }
                         else {
-                            uni.showToast({ title: "添加失败", icon: "none" });
+                            uni.showToast({ title: "娣诲姞澶辫触", icon: "none" });
                         }
                     }
                 },
-                fail: (): void => { uni.showToast({ title: "网络错误", icon: "none" }); }
+                fail: (): void => { uni.showToast({ title: "缃戠粶閿欒", icon: "none" }); }
             });
         }
         onShow(() => { loadBreeds(); });
@@ -125,53 +135,53 @@ const __sfc__ = defineComponent({
                     class: "ap-scroll"
                 }), [
                     _cE("view", _uM({ class: "ap-field" }), [
-                        _cE("text", _uM({ class: "ap-label" }), "宠物名字"),
+                        _cE("text", _uM({ class: "ap-label" }), "瀹犵墿鍚嶅瓧"),
                         _cE("input", _uM({
                             class: "ap-input",
                             modelValue: unref(name),
                             onInput: ($event: UniInputEvent) => { trySetRefValue(name, $event.detail.value); },
-                            placeholder: "给宠物起个名字"
+                            placeholder: "缁欏疇鐗╄捣涓悕瀛?
                         }), null, 40 /* PROPS, NEED_HYDRATION */, ["modelValue"])
                     ]),
                     _cE("view", _uM({ class: "ap-field" }), [
-                        _cE("text", _uM({ class: "ap-label" }), "种类"),
+                        _cE("text", _uM({ class: "ap-label" }), "绉嶇被"),
                         _cE("view", _uM({ class: "ap-row" }), [
                             _cE("view", _uM({
                                 class: "ap-chip",
                                 style: _nS(unref(species) === 1 ? chipOn : chipOff),
-                                onClick: () => { species.value = 1; }
+                                onClick: () => { switchSpecies(1); }
                             }), [
                                 _cE("text", _uM({
                                     style: _nS(unref(species) === 1 ? chipTextOn : chipTextOff)
-                                }), "猫", 4 /* STYLE */)
+                                }), "鐚?, 4 /* STYLE */)
                             ], 12 /* STYLE, PROPS */, ["onClick"]),
                             _cE("view", _uM({
                                 class: "ap-chip",
                                 style: _nS(unref(species) === 2 ? chipOn : chipOff),
-                                onClick: () => { species.value = 2; }
+                                onClick: () => { switchSpecies(2); }
                             }), [
                                 _cE("text", _uM({
                                     style: _nS(unref(species) === 2 ? chipTextOn : chipTextOff)
-                                }), "狗", 4 /* STYLE */)
+                                }), "鐙?, 4 /* STYLE */)
                             ], 12 /* STYLE, PROPS */, ["onClick"])
                         ])
                     ]),
                     _cE("view", _uM({ class: "ap-field" }), [
-                        _cE("text", _uM({ class: "ap-label" }), "品种"),
+                        _cE("text", _uM({ class: "ap-label" }), "鍝佺"),
                         _cV(_component_picker, _uM({
                             range: unref(breedNames),
                             onChange: onBreedPick
                         }), _uM({
                             default: withSlotCtx((): any[] => [
                                 _cE("view", _uM({ class: "ap-picker" }), [
-                                    _cE("text", null, _tD(unref(breedNames).length > 0 && unref(selectedBreedIdx) >= 0 ? unref(breedNames)[unref(selectedBreedIdx)] : "请选择品种"), 1 /* TEXT */)
+                                    _cE("text", null, _tD(unref(breedNames).length > 0 && unref(selectedBreedIdx) >= 0 ? unref(breedNames)[unref(selectedBreedIdx)] : "璇烽€夋嫨鍝佺"), 1 /* TEXT */)
                                 ])
                             ]),
                             _: 1 /* STABLE */
                         }), 8 /* PROPS */, ["range"])
                     ]),
                     _cE("view", _uM({ class: "ap-field" }), [
-                        _cE("text", _uM({ class: "ap-label" }), "性别"),
+                        _cE("text", _uM({ class: "ap-label" }), "鎬у埆"),
                         _cE("view", _uM({ class: "ap-row" }), [
                             _cE("view", _uM({
                                 class: "ap-chip",
@@ -180,7 +190,7 @@ const __sfc__ = defineComponent({
                             }), [
                                 _cE("text", _uM({
                                     style: _nS(unref(gender) === 1 ? chipTextOn : chipTextOff)
-                                }), "公", 4 /* STYLE */)
+                                }), "鍏?, 4 /* STYLE */)
                             ], 12 /* STYLE, PROPS */, ["onClick"]),
                             _cE("view", _uM({
                                 class: "ap-chip",
@@ -189,35 +199,35 @@ const __sfc__ = defineComponent({
                             }), [
                                 _cE("text", _uM({
                                     style: _nS(unref(gender) === 2 ? chipTextOn : chipTextOff)
-                                }), "母", 4 /* STYLE */)
+                                }), "姣?, 4 /* STYLE */)
                             ], 12 /* STYLE, PROPS */, ["onClick"])
                         ])
                     ]),
                     _cE("view", _uM({ class: "ap-field" }), [
-                        _cE("text", _uM({ class: "ap-label" }), "年龄(月)"),
+                        _cE("text", _uM({ class: "ap-label" }), "骞撮緞(鏈?"),
                         _cE("input", _uM({
                             class: "ap-input",
                             modelValue: unref(age),
                             onInput: ($event: UniInputEvent) => { trySetRefValue(age, $event.detail.value); },
                             type: "number",
-                            placeholder: "输入月龄"
+                            placeholder: "杈撳叆鏈堥緞"
                         }), null, 40 /* PROPS, NEED_HYDRATION */, ["modelValue"])
                     ]),
                     _cE("view", _uM({ class: "ap-field" }), [
-                        _cE("text", _uM({ class: "ap-label" }), "体重(kg)"),
+                        _cE("text", _uM({ class: "ap-label" }), "浣撻噸(kg)"),
                         _cE("input", _uM({
                             class: "ap-input",
                             modelValue: unref(weight),
                             onInput: ($event: UniInputEvent) => { trySetRefValue(weight, $event.detail.value); },
                             type: "number",
-                            placeholder: "输入体重"
+                            placeholder: "杈撳叆浣撻噸"
                         }), null, 40 /* PROPS, NEED_HYDRATION */, ["modelValue"])
                     ]),
                     _cE("view", _uM({
                         class: "ap-submit",
                         onClick: submit
                     }), [
-                        _cE("text", _uM({ class: "ap-submit-text" }), "添加宠物")
+                        _cE("text", _uM({ class: "ap-submit-text" }), "娣诲姞瀹犵墿")
                     ])
                 ])
             ]);

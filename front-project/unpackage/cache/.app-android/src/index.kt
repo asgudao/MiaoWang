@@ -1,5 +1,5 @@
 @file:Suppress("UNCHECKED_CAST", "USELESS_CAST", "INAPPLICABLE_JVM_NAME", "UNUSED_ANONYMOUS_PARAMETER", "SENSELESS_COMPARISON", "NAME_SHADOWING", "UNNECESSARY_NOT_NULL_ASSERTION")
-package uni.UNI19DBD81
+package uni.UNIuniappx
 import io.dcloud.uniapp.*
 import io.dcloud.uniapp.extapi.*
 import io.dcloud.uniapp.framework.*
@@ -14,6 +14,8 @@ import io.dcloud.uts.UTSAndroid
 import kotlin.properties.Delegates
 import io.dcloud.uniapp.extapi.connectSocket as uni_connectSocket
 import io.dcloud.uniapp.extapi.getFileSystemManager as uni_getFileSystemManager
+import io.dcloud.uniapp.extapi.getStorageSync as uni_getStorageSync
+import io.dcloud.uniapp.extapi.reLaunch as uni_reLaunch
 val runBlock1 = run {
     __uniConfig.getAppStyles = fun(): Map<String, Map<String, Map<String, Any>>> {
         return GenApp.styles
@@ -100,7 +102,7 @@ fun tryConnectSocket(host: String, port: String, id: String): UTSPromise<SocketT
 fun initRuntimeSocketService(): UTSPromise<Boolean> {
     val hosts: String = "192.168.59.1,192.168.133.1,192.168.1.5,127.0.0.1"
     val port: String = "8090"
-    val id: String = "app-android_re159S"
+    val id: String = "app-android_V5_3SW"
     if (hosts == "" || port == "" || id == "") {
         return UTSPromise.resolve(false)
     }
@@ -135,7 +137,10 @@ open class GenApp : BaseApp {
             val _ctx = __ins.proxy as GenApp
             val _cache = __ins.renderCache
             onLaunch(fun(_options){
-                console.log("Pet App Launch", " at App.uvue:3")
+                val token = uni_getStorageSync("token")
+                if (token == null || token === "") {
+                    uni_reLaunch(ReLaunchOptions(url = "/pages/auth/login"))
+                }
             }
             )
             return fun(): Any? {
@@ -173,7 +178,7 @@ open class KI (
     open var viewCount: Number,
 ) : UTSReactiveObject(), IUTSSourceMap {
     override fun `__$getOriginalPosition`(): UTSSourceMapPosition? {
-        return UTSSourceMapPosition("KI", "pages/knowledge/list.uvue", 23, 6)
+        return UTSSourceMapPosition("KI", "pages/knowledge/list.uvue", 33, 6)
     }
     override fun __v_create(__v_isReadonly: Boolean, __v_isShallow: Boolean, __v_skip: Boolean): UTSReactiveObject {
         return KIReactiveObject(this, __v_isReadonly, __v_isShallow, __v_skip)
@@ -235,9 +240,11 @@ open class CT (
     open var id: Number,
     @JsonNotNull
     open var name: String,
+    @JsonNotNull
+    open var species: Number,
 ) : UTSReactiveObject(), IUTSSourceMap {
     override fun `__$getOriginalPosition`(): UTSSourceMapPosition? {
-        return UTSSourceMapPosition("CT", "pages/knowledge/list.uvue", 24, 6)
+        return UTSSourceMapPosition("CT", "pages/knowledge/list.uvue", 34, 6)
     }
     override fun __v_create(__v_isReadonly: Boolean, __v_isShallow: Boolean, __v_skip: Boolean): UTSReactiveObject {
         return CTReactiveObject(this, __v_isReadonly, __v_isShallow, __v_skip)
@@ -248,7 +255,7 @@ class CTReactiveObject : CT, IUTSReactive<CT> {
     override var __v_isReadonly: Boolean
     override var __v_isShallow: Boolean
     override var __v_skip: Boolean
-    constructor(__v_raw: CT, __v_isReadonly: Boolean, __v_isShallow: Boolean, __v_skip: Boolean) : super(id = __v_raw.id, name = __v_raw.name) {
+    constructor(__v_raw: CT, __v_isReadonly: Boolean, __v_isShallow: Boolean, __v_skip: Boolean) : super(id = __v_raw.id, name = __v_raw.name, species = __v_raw.species) {
         this.__v_raw = __v_raw
         this.__v_isReadonly = __v_isReadonly
         this.__v_isShallow = __v_isShallow
@@ -280,6 +287,18 @@ class CTReactiveObject : CT, IUTSReactive<CT> {
             val oldValue = __v_raw.name
             __v_raw.name = value
             _tRS(__v_raw, "name", oldValue, value)
+        }
+    override var species: Number
+        get() {
+            return _tRG(__v_raw, "species", __v_raw.species, __v_isReadonly, __v_isShallow)
+        }
+        set(value) {
+            if (!__v_canSet("species")) {
+                return
+            }
+            val oldValue = __v_raw.species
+            __v_raw.species = value
+            _tRS(__v_raw, "species", oldValue, value)
         }
 }
 val GenPagesKnowledgeListClass = CreateVueComponent(GenPagesKnowledgeList::class.java, fun(): VueComponentOptions {
@@ -852,7 +871,7 @@ open class UserData (
     open var memberType: Number,
 ) : UTSReactiveObject(), IUTSSourceMap {
     override fun `__$getOriginalPosition`(): UTSSourceMapPosition? {
-        return UTSSourceMapPosition("UserData", "pages/mine/index.uvue", 42, 6)
+        return UTSSourceMapPosition("UserData", "pages/mine/index.uvue", 44, 6)
     }
     override fun __v_create(__v_isReadonly: Boolean, __v_isShallow: Boolean, __v_skip: Boolean): UTSReactiveObject {
         return UserDataReactiveObject(this, __v_isReadonly, __v_isShallow, __v_skip)
@@ -917,6 +936,26 @@ val GenPagesMineIndexClass = CreateVueComponent(GenPagesMineIndex::class.java, f
 }
 , fun(instance, renderer): GenPagesMineIndex {
     return GenPagesMineIndex(instance, renderer)
+}
+)
+val GenPagesAuthLoginClass = CreateVueComponent(GenPagesAuthLogin::class.java, fun(): VueComponentOptions {
+    return VueComponentOptions(type = "page", name = "", inheritAttrs = GenPagesAuthLogin.inheritAttrs, inject = GenPagesAuthLogin.inject, props = GenPagesAuthLogin.props, propsNeedCastKeys = GenPagesAuthLogin.propsNeedCastKeys, emits = GenPagesAuthLogin.emits, components = GenPagesAuthLogin.components, styles = GenPagesAuthLogin.styles, setup = fun(props: ComponentPublicInstance): Any? {
+        return GenPagesAuthLogin.setup(props as GenPagesAuthLogin)
+    }
+    )
+}
+, fun(instance, renderer): GenPagesAuthLogin {
+    return GenPagesAuthLogin(instance, renderer)
+}
+)
+val GenPagesAuthRegisterClass = CreateVueComponent(GenPagesAuthRegister::class.java, fun(): VueComponentOptions {
+    return VueComponentOptions(type = "page", name = "", inheritAttrs = GenPagesAuthRegister.inheritAttrs, inject = GenPagesAuthRegister.inject, props = GenPagesAuthRegister.props, propsNeedCastKeys = GenPagesAuthRegister.propsNeedCastKeys, emits = GenPagesAuthRegister.emits, components = GenPagesAuthRegister.components, styles = GenPagesAuthRegister.styles, setup = fun(props: ComponentPublicInstance): Any? {
+        return GenPagesAuthRegister.setup(props as GenPagesAuthRegister)
+    }
+    )
+}
+, fun(instance, renderer): GenPagesAuthRegister {
+    return GenPagesAuthRegister(instance, renderer)
 }
 )
 open class PlanData (
@@ -1035,7 +1074,7 @@ fun main(app: IApp) {
 }
 open class UniAppConfig : io.dcloud.uniapp.appframe.AppConfig {
     override var name: String = "喵汪"
-    override var appid: String = "__UNI__19DBD81"
+    override var appid: String = "__UNI__uniappx"
     override var versionName: String = "1.0.0"
     override var versionCode: String = "100"
     override var uniCompilerVersion: String = "5.15"
@@ -1051,6 +1090,8 @@ fun definePageRoutes() {
     __uniRoutes.push(UniPageRoute(path = "pages/favorites/index", component = GenPagesFavoritesIndexClass, meta = UniPageMeta(isQuit = false), style = _uM("navigationBarTitleText" to "我的收藏")))
     __uniRoutes.push(UniPageRoute(path = "pages/about/index", component = GenPagesAboutIndexClass, meta = UniPageMeta(isQuit = false), style = _uM("navigationBarTitleText" to "关于喵汪")))
     __uniRoutes.push(UniPageRoute(path = "pages/mine/index", component = GenPagesMineIndexClass, meta = UniPageMeta(isQuit = false), style = _uM("navigationBarTitleText" to "我的")))
+    __uniRoutes.push(UniPageRoute(path = "pages/auth/login", component = GenPagesAuthLoginClass, meta = UniPageMeta(isQuit = false), style = _uM("navigationBarTitleText" to "登录")))
+    __uniRoutes.push(UniPageRoute(path = "pages/auth/register", component = GenPagesAuthRegisterClass, meta = UniPageMeta(isQuit = false), style = _uM("navigationBarTitleText" to "注册")))
     __uniRoutes.push(UniPageRoute(path = "pages/subscription/index", component = GenPagesSubscriptionIndexClass, meta = UniPageMeta(isQuit = false), style = _uM("navigationBarTitleText" to "订阅中心")))
 }
 val __uniTabBar: Map<String, Any?>? = _uM("color" to "#999999", "selectedColor" to "#FF8C42", "backgroundColor" to "#FFFFFF", "borderStyle" to "white", "list" to _uA(

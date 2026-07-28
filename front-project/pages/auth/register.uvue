@@ -1,0 +1,90 @@
+<template>
+	<view class="rg-page">
+		<view class="rg-card">
+			<text class="rg-title">娉ㄥ唽璐﹀彿</text>
+			<text class="rg-sub">鍔犲叆鍠垫豹锛岀瀛﹀吇瀹?/text>
+
+			<view class="rg-field">
+				<text class="rg-label">鎵嬫満鍙?/text>
+				<input class="rg-input" v-model="phone" type="number" maxlength="11" placeholder="璇疯緭鍏ユ墜鏈哄彿" />
+			</view>
+
+			<view class="rg-field">
+				<text class="rg-label">鏄电О锛堥€夊～锛?/text>
+				<input class="rg-input" v-model="nickname" placeholder="缁欒嚜宸辫捣涓樀绉? />
+			</view>
+
+			<view class="rg-btn" @click="doRegister">
+				<text class="rg-btn-text">娉ㄥ唽</text>
+			</view>
+
+			<view class="rg-switch" @click="goLogin">
+				<text class="rg-switch-text">宸叉湁璐﹀彿锛熷幓鐧诲綍</text>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+const BASE = "http://192.168.1.5:8080"
+const phone = ref("")
+const nickname = ref("")
+
+function doRegister(): void {
+	if (phone.value === "" || phone.value.length !== 11) {
+		uni.showToast({ title: "璇疯緭鍏ユ纭殑鎵嬫満鍙?, icon: "none" })
+		return
+	}
+	const body = new UTSJSONObject()
+	body["phone"] = phone.value
+	body["code"] = "1234"
+	if (nickname.value !== "") body["nickname"] = nickname.value
+	uni.request({
+		url: BASE + "/api/auth/register",
+		method: "POST",
+		data: body,
+		header: new UTSJSONObject(),
+		success: (res): void => {
+			const d = res.data
+			if (d != null) {
+				const resp = d as UTSJSONObject
+				const code = resp.getNumber("code")
+				if (code === 200) {
+					const data = resp.get("data")
+					if (data != null) {
+						const loginData = data as UTSJSONObject
+						const t = loginData.getString("token")
+						if (t != null) {
+							uni.setStorageSync("token", t)
+							uni.setStorageSync("phone", phone.value)
+							uni.showToast({ title: "娉ㄥ唽鎴愬姛", icon: "success" })
+							uni.reLaunch({ url: "/pages/index/index" })
+							return
+						}
+					}
+				}
+				uni.showToast({ title: "璇ユ墜鏈哄彿宸叉敞鍐?, icon: "none" })
+			}
+		},
+		fail: (): void => { uni.showToast({ title: "缃戠粶閿欒", icon: "none" }) }
+	})
+}
+
+function goLogin(): void {
+	uni.navigateBack()
+}
+</script>
+
+<style>
+.rg-page { background-color: #FFF8F0; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 48rpx; }
+.rg-card { width: 640rpx; padding: 60rpx 48rpx; background-color: #FFF; border-radius: 24rpx; align-items: center; }
+.rg-title { font-size: 38rpx; font-weight: 700; color: #333; }
+.rg-sub { font-size: 26rpx; color: #999; margin: 8rpx 0 48rpx; }
+.rg-field { width: 100%; margin-bottom: 28rpx; }
+.rg-label { font-size: 26rpx; color: #666; margin-bottom: 10rpx; }
+.rg-input { height: 88rpx; padding: 0 24rpx; background-color: #F5F5F5; border-radius: 16rpx; font-size: 30rpx; color: #333; }
+.rg-btn { width: 100%; height: 88rpx; background-color: #FF8C42; border-radius: 44rpx; align-items: center; justify-content: center; margin-top: 16rpx; }
+.rg-btn-text { font-size: 32rpx; color: #FFF; font-weight: 600; }
+.rg-switch { margin-top: 28rpx; padding: 12rpx; }
+.rg-switch-text { font-size: 26rpx; color: #FF8C42; }
+</style>

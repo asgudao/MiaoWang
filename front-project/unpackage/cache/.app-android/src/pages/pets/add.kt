@@ -1,5 +1,5 @@
 @file:Suppress("UNCHECKED_CAST", "USELESS_CAST", "INAPPLICABLE_JVM_NAME", "UNUSED_ANONYMOUS_PARAMETER", "SENSELESS_COMPARISON", "NAME_SHADOWING", "UNNECESSARY_NOT_NULL_ASSERTION")
-package uni.UNI19DBD81
+package uni.UNIuniappx
 import io.dcloud.uniapp.*
 import io.dcloud.uniapp.extapi.*
 import io.dcloud.uniapp.framework.*
@@ -49,12 +49,17 @@ open class GenPagesPetsAdd : BasePage {
             val getToken = ::gen_getToken_fn
             fun gen_loadBreeds_fn(): Unit {
                 val token = getToken()
-                val h = UTSJSONObject(UTSSourceMapPosition("h", "pages/pets/add.uvue", 68, 8))
-                h["Content-Type"] = "application/json"
-                if (token !== "") {
-                    h["Authorization"] = "Bearer " + token
+                if (token === "") {
+                    setTimeout(fun(){
+                        gen_loadBreeds_fn()
+                    }
+                    , 1000)
+                    return
                 }
-                uni_request<Any>(RequestOptions(url = BASE + "/api/breeds", method = "GET", header = h, success = fun(res): Unit {
+                val h = UTSJSONObject(UTSSourceMapPosition("h", "pages/pets/add.uvue", 69, 8))
+                h["Content-Type"] = "application/json"
+                h["Authorization"] = "Bearer " + token
+                uni_request<Any>(RequestOptions(url = BASE + "/api/breeds?species=" + species.value, method = "GET", header = h, success = fun(res): Unit {
                     val d = res.data
                     if (d != null) {
                         val body = d as UTSJSONObject
@@ -90,6 +95,14 @@ open class GenPagesPetsAdd : BasePage {
                 selectedBreedId.value = breeds.value[idx].id
             }
             val onBreedPick = ::gen_onBreedPick_fn
+            fun gen_switchSpecies_fn(s: Number): Unit {
+                species.value = s
+                selectedBreedIdx.value = -1
+                selectedBreedId.value = 0
+                breedNames.value = _uA()
+                loadBreeds()
+            }
+            val switchSpecies = ::gen_switchSpecies_fn
             fun gen_submit_fn(): Unit {
                 if (name.value === "") {
                     uni_showToast(ShowToastOptions(title = "请输入宠物名字", icon = "none"))
@@ -108,12 +121,12 @@ open class GenPagesPetsAdd : BasePage {
                     return
                 }
                 val token = getToken()
-                val h = UTSJSONObject(UTSSourceMapPosition("h", "pages/pets/add.uvue", 109, 8))
+                val h = UTSJSONObject(UTSSourceMapPosition("h", "pages/pets/add.uvue", 118, 8))
                 h["Content-Type"] = "application/json"
                 if (token !== "") {
                     h["Authorization"] = "Bearer " + token
                 }
-                val body = UTSJSONObject(UTSSourceMapPosition("body", "pages/pets/add.uvue", 113, 8))
+                val body = UTSJSONObject(UTSSourceMapPosition("body", "pages/pets/add.uvue", 122, 8))
                 body["userId"] = 1
                 body["name"] = name.value
                 body["species"] = species.value
@@ -165,7 +178,7 @@ open class GenPagesPetsAdd : BasePage {
                                     chipOff
                                 }
                                 ), "onClick" to fun(){
-                                    species.value = 1
+                                    switchSpecies(1)
                                 }
                                 ), _uA(
                                     _cE("text", _uM("style" to _nS(if (unref(species) === 1) {
@@ -183,7 +196,7 @@ open class GenPagesPetsAdd : BasePage {
                                     chipOff
                                 }
                                 ), "onClick" to fun(){
-                                    species.value = 2
+                                    switchSpecies(2)
                                 }
                                 ), _uA(
                                     _cE("text", _uM("style" to _nS(if (unref(species) === 2) {

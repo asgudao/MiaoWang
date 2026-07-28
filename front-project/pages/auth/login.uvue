@@ -1,0 +1,85 @@
+<template>
+	<view class="lg-page">
+		<view class="lg-card">
+			<text class="lg-logo">馃惐馃惗</text>
+			<text class="lg-title">鍠垫豹</text>
+			<text class="lg-sub">瀹犵墿鍏绘姢鍔╂墜</text>
+
+			<view class="lg-field">
+				<text class="lg-label">鎵嬫満鍙?/text>
+				<input class="lg-input" v-model="phone" type="number" maxlength="11" placeholder="璇疯緭鍏ユ墜鏈哄彿" />
+			</view>
+
+			<view class="lg-btn" @click="doLogin">
+				<text class="lg-btn-text">鐧诲綍</text>
+			</view>
+
+			<view class="lg-switch" @click="goRegister">
+				<text class="lg-switch-text">娌℃湁璐﹀彿锛熷幓娉ㄥ唽</text>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="uts">
+const BASE = "http://192.168.1.5:8080"
+const phone = ref("")
+
+function doLogin(): void {
+	if (phone.value === "" || phone.value.length !== 11) {
+		uni.showToast({ title: "璇疯緭鍏ユ纭殑鎵嬫満鍙?, icon: "none" })
+		return
+	}
+	const body = new UTSJSONObject()
+	body["phone"] = phone.value
+	body["code"] = "1234"
+	uni.request({
+		url: BASE + "/api/auth/login",
+		method: "POST",
+		data: body,
+		header: new UTSJSONObject(),
+		success: (res): void => {
+			const d = res.data
+			if (d != null) {
+				const resp = d as UTSJSONObject
+				const code = resp.getNumber("code")
+				if (code === 200) {
+					const data = resp.get("data")
+					if (data != null) {
+						const loginData = data as UTSJSONObject
+						const t = loginData.getString("token")
+						if (t != null) {
+							uni.setStorageSync("token", t)
+							uni.setStorageSync("phone", phone.value)
+							uni.showToast({ title: "鐧诲綍鎴愬姛", icon: "success" })
+							uni.reLaunch({ url: "/pages/index/index" })
+							return
+						}
+					}
+				}
+				uni.showToast({ title: "鎵嬫満鍙锋湭娉ㄥ唽", icon: "none" })
+			}
+		},
+		fail: (): void => { uni.showToast({ title: "缃戠粶閿欒", icon: "none" }) }
+	})
+}
+
+function goRegister(): void {
+	uni.navigateTo({ url: "/pages/auth/register" })
+}
+</script>
+
+<style>
+.lg-page { background-color: #FFF8F0; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 48rpx; }
+.lg-card { width: 640rpx; padding: 60rpx 48rpx; background-color: #FFF; border-radius: 24rpx; align-items: center; }
+.lg-logo { font-size: 80rpx; }
+.lg-title { font-size: 44rpx; font-weight: 700; color: #FF8C42; margin-top: 16rpx; }
+.lg-sub { font-size: 26rpx; color: #999; margin: 8rpx 0 48rpx; }
+.lg-field { width: 100%; margin-bottom: 32rpx; }
+.lg-label { font-size: 26rpx; color: #666; margin-bottom: 10rpx; }
+.lg-input { height: 88rpx; padding: 0 24rpx; background-color: #F5F5F5; border-radius: 16rpx; font-size: 30rpx; color: #333; }
+.lg-btn { width: 100%; height: 88rpx; background-color: #FF8C42; border-radius: 44rpx; align-items: center; justify-content: center; margin-top: 16rpx; }
+.lg-btn-text { font-size: 32rpx; color: #FFF; font-weight: 600; }
+.lg-switch { margin-top: 28rpx; padding: 12rpx; }
+.lg-switch-text { font-size: 26rpx; color: #FF8C42; }
+</style>

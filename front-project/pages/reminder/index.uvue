@@ -1,4 +1,4 @@
-﻿<template>
+<template>
 	<view class="rm-page">
 		<scroll-view scroll-y="true" class="rm-scroll">
 			<view class="rm-pet-section" v-for="pet in pets" :key="pet.id">
@@ -52,7 +52,7 @@
 </template>
 
 <script setup lang="uts">
-const BASE = "http://localhost:8080"
+const BASE = "http://192.168.1.5:8080"
 
 type RemData = { id: number; ruleType: string; nextDate: string; cycleDays: number; enabled: boolean }
 type PetWithRem = { id: number; name: string; species: number; reminders: RemData[] }

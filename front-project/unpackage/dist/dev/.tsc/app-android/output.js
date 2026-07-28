@@ -18,4 +18,8 @@ const index_uvue_vue_type_style_index_0_lang$2 = {};
 
 const index_uvue_vue_type_style_index_0_lang$1 = {};
 
+const login_uvue_vue_type_style_index_0_lang = {};
+
+const register_uvue_vue_type_style_index_0_lang = {};
+
 const index_uvue_vue_type_style_index_0_lang = {};

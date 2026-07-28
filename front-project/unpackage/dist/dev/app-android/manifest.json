@@ -1,5 +1,5 @@
 {
-  "id": "__UNI__19DBD81",
+  "id": "__UNI__uniappx",
   "name": "喵汪",
   "description": "面向猫狗主人的宠物护理App",
   "version": {
@@ -12,13 +12,31 @@
   },
   "app": {
     "distribute": {
+      "android": {
+        "packageName": "com.miaowang.app",
+        "minSdkVersion": 21,
+        "targetSdkVersion": 33,
+        "abiFilters": [
+          "armeabi-v7a",
+          "arm64-v8a"
+        ]
+      },
       "icons": {
         "android": {
-          "hdpi": "",
-          "xhdpi": "",
-          "xxhdpi": "",
-          "xxxhdpi": ""
+          "hdpi": "static/logo.png",
+          "xhdpi": "static/logo.png",
+          "xxhdpi": "static/logo.png",
+          "xxxhdpi": "static/logo.png"
         }
+      },
+      "splashscreen": {
+        "android": {
+          "hdpi": "static/logo.png",
+          "xhdpi": "static/logo.png",
+          "xxhdpi": "static/logo.png"
+        },
+        "alwaysShowBeforeRender": false,
+        "autoclose": true
       }
     }
   }

@@ -1,5 +1,5 @@
 @file:Suppress("UNCHECKED_CAST", "USELESS_CAST", "INAPPLICABLE_JVM_NAME", "UNUSED_ANONYMOUS_PARAMETER", "SENSELESS_COMPARISON", "NAME_SHADOWING", "UNNECESSARY_NOT_NULL_ASSERTION")
-package uni.UNI19DBD81
+package uni.UNIuniappx
 import io.dcloud.uniapp.*
 import io.dcloud.uniapp.extapi.*
 import io.dcloud.uniapp.framework.*
@@ -14,6 +14,8 @@ import io.dcloud.uts.UTSAndroid
 import kotlin.properties.Delegates
 import io.dcloud.uniapp.extapi.getStorageSync as uni_getStorageSync
 import io.dcloud.uniapp.extapi.navigateTo as uni_navigateTo
+import io.dcloud.uniapp.extapi.reLaunch as uni_reLaunch
+import io.dcloud.uniapp.extapi.removeStorageSync as uni_removeStorageSync
 import io.dcloud.uniapp.extapi.request as uni_request
 import io.dcloud.uniapp.extapi.switchTab as uni_switchTab
 open class GenPagesMineIndex : BasePage {
@@ -26,6 +28,7 @@ open class GenPagesMineIndex : BasePage {
             val _cache = __ins.renderCache
             val BASE = "http://localhost:8080"
             val user = ref<UserData>(UserData(id = 0, nickname = "", memberType = 0))
+            val phoneNum = ref("")
             fun gen_getToken_fn(): String {
                 val t = uni_getStorageSync("token")
                 return if (t != null) {
@@ -37,7 +40,7 @@ open class GenPagesMineIndex : BasePage {
             val getToken = ::gen_getToken_fn
             fun gen_loadProfile_fn(): Unit {
                 val token = getToken()
-                val h = UTSJSONObject(UTSSourceMapPosition("h", "pages/mine/index.uvue", 53, 8))
+                val h = UTSJSONObject(UTSSourceMapPosition("h", "pages/mine/index.uvue", 56, 8))
                 h["Content-Type"] = "application/json"
                 if (token !== "") {
                     h["Authorization"] = "Bearer " + token
@@ -78,8 +81,20 @@ open class GenPagesMineIndex : BasePage {
                 uni_navigateTo(NavigateToOptions(url = "/pages/subscription/index"))
             }
             val goSubscribe = ::gen_goSubscribe_fn
+            fun gen_doLogout_fn(): Unit {
+                uni_removeStorageSync("token")
+                uni_removeStorageSync("phone")
+                uni_reLaunch(ReLaunchOptions(url = "/pages/auth/login"))
+            }
+            val doLogout = ::gen_doLogout_fn
             onShow(fun(){
                 loadProfile()
+                val p = uni_getStorageSync("phone")
+                phoneNum.value = if (p != null) {
+                    p as String
+                } else {
+                    ""
+                }
             }
             )
             return fun(): Any? {
@@ -93,6 +108,7 @@ open class GenPagesMineIndex : BasePage {
                                 "猫咪爱好者"
                             }
                             ), 1),
+                            _cE("text", _uM("class" to "user-phone"), _tD(unref(phoneNum)), 1),
                             _cE("view", _uM("class" to "member-badge", "style" to _nS(_uM("backgroundColor" to if (unref(user).memberType === 2) {
                                 "#FFD700"
                             } else {
@@ -140,6 +156,9 @@ open class GenPagesMineIndex : BasePage {
                             _cE("text", _uM("class" to "menu-text"), "关于"),
                             _cE("text", _uM("class" to "arrow"), ">")
                         ))
+                    )),
+                    _cE("view", _uM("class" to "logout-btn", "onClick" to doLogout), _uA(
+                        _cE("text", _uM("class" to "logout-text"), "退出登录")
                     ))
                 ))
             }
@@ -151,7 +170,7 @@ open class GenPagesMineIndex : BasePage {
         }
         val styles0: Map<String, Map<String, Map<String, Any>>>
             get() {
-                return _uM("page-wrap" to _pS(_uM("backgroundColor" to "#FFF8F0", "flexGrow" to 1, "flexShrink" to 1, "flexBasis" to "0%", "flexDirection" to "column")), "profile-header" to _pS(_uM("flexDirection" to "row", "alignItems" to "center", "paddingTop" to "48rpx", "paddingRight" to "32rpx", "paddingBottom" to "24rpx", "paddingLeft" to "32rpx", "backgroundColor" to "#FF8C42")), "avatar-text" to _pS(_uM("fontSize" to "80rpx", "marginRight" to "24rpx")), "profile-info" to _pS(_uM("flexGrow" to 1, "flexShrink" to 1, "flexBasis" to "0%")), "nickname" to _pS(_uM("fontSize" to "36rpx", "fontWeight" to 700, "color" to "#FFFFFF")), "member-badge" to _pS(_uM("paddingTop" to "4rpx", "paddingRight" to "20rpx", "paddingBottom" to "4rpx", "paddingLeft" to "20rpx", "borderTopLeftRadius" to "24rpx", "borderTopRightRadius" to "24rpx", "borderBottomRightRadius" to "24rpx", "borderBottomLeftRadius" to "24rpx", "marginTop" to "8rpx")), "member-card" to _pS(_uM("flexDirection" to "row", "alignItems" to "center", "justifyContent" to "space-between", "marginTop" to "24rpx", "marginRight" to "24rpx", "marginBottom" to "24rpx", "marginLeft" to "24rpx", "paddingTop" to "28rpx", "paddingRight" to "28rpx", "paddingBottom" to "28rpx", "paddingLeft" to "28rpx", "backgroundColor" to "#FFFFFF", "borderTopLeftRadius" to "16rpx", "borderTopRightRadius" to "16rpx", "borderBottomRightRadius" to "16rpx", "borderBottomLeftRadius" to "16rpx")), "member-card-left" to _pS(_uM("flexDirection" to "row", "alignItems" to "center")), "member-card-icon" to _pS(_uM("fontSize" to "40rpx", "marginRight" to "16rpx")), "member-card-text" to _pS(_uM("flexDirection" to "column")), "member-card-title" to _pS(_uM("fontSize" to "28rpx", "fontWeight" to 600, "color" to "#333333")), "member-card-desc" to _pS(_uM("fontSize" to "24rpx", "color" to "#999999")), "member-card-action" to _pS(_uM("fontSize" to "26rpx", "color" to "#FF8C42", "fontWeight" to 600)), "menu-list" to _pS(_uM("marginTop" to "24rpx", "marginRight" to "24rpx", "marginBottom" to "24rpx", "marginLeft" to "24rpx", "backgroundColor" to "#FFFFFF", "borderTopLeftRadius" to "16rpx", "borderTopRightRadius" to "16rpx", "borderBottomRightRadius" to "16rpx", "borderBottomLeftRadius" to "16rpx")), "menu-item" to _pS(_uM("flexDirection" to "row", "justifyContent" to "space-between", "alignItems" to "center", "paddingTop" to "28rpx", "paddingRight" to "24rpx", "paddingBottom" to "28rpx", "paddingLeft" to "24rpx", "borderBottomWidth" to "1rpx", "borderBottomColor" to "#F5F5F5")), "menu-item-last" to _pS(_uM("borderBottomWidth" to 0)), "menu-text" to _pS(_uM("fontSize" to "28rpx", "color" to "#333333")), "arrow" to _pS(_uM("fontSize" to "36rpx", "color" to "#CCCCCC")))
+                return _uM("page-wrap" to _pS(_uM("backgroundColor" to "#FFF8F0", "flexGrow" to 1, "flexShrink" to 1, "flexBasis" to "0%", "flexDirection" to "column")), "profile-header" to _pS(_uM("flexDirection" to "row", "alignItems" to "center", "paddingTop" to "48rpx", "paddingRight" to "32rpx", "paddingBottom" to "24rpx", "paddingLeft" to "32rpx", "backgroundColor" to "#FF8C42")), "avatar-text" to _pS(_uM("fontSize" to "80rpx", "marginRight" to "24rpx")), "profile-info" to _pS(_uM("flexGrow" to 1, "flexShrink" to 1, "flexBasis" to "0%")), "nickname" to _pS(_uM("fontSize" to "36rpx", "fontWeight" to 700, "color" to "#FFFFFF")), "member-badge" to _pS(_uM("paddingTop" to "4rpx", "paddingRight" to "20rpx", "paddingBottom" to "4rpx", "paddingLeft" to "20rpx", "borderTopLeftRadius" to "24rpx", "borderTopRightRadius" to "24rpx", "borderBottomRightRadius" to "24rpx", "borderBottomLeftRadius" to "24rpx", "marginTop" to "8rpx")), "member-card" to _pS(_uM("flexDirection" to "row", "alignItems" to "center", "justifyContent" to "space-between", "marginTop" to "24rpx", "marginRight" to "24rpx", "marginBottom" to "24rpx", "marginLeft" to "24rpx", "paddingTop" to "28rpx", "paddingRight" to "28rpx", "paddingBottom" to "28rpx", "paddingLeft" to "28rpx", "backgroundColor" to "#FFFFFF", "borderTopLeftRadius" to "16rpx", "borderTopRightRadius" to "16rpx", "borderBottomRightRadius" to "16rpx", "borderBottomLeftRadius" to "16rpx")), "member-card-left" to _pS(_uM("flexDirection" to "row", "alignItems" to "center")), "member-card-icon" to _pS(_uM("fontSize" to "40rpx", "marginRight" to "16rpx")), "member-card-text" to _pS(_uM("flexDirection" to "column")), "member-card-title" to _pS(_uM("fontSize" to "28rpx", "fontWeight" to 600, "color" to "#333333")), "member-card-desc" to _pS(_uM("fontSize" to "24rpx", "color" to "#999999")), "member-card-action" to _pS(_uM("fontSize" to "26rpx", "color" to "#FF8C42", "fontWeight" to 600)), "menu-list" to _pS(_uM("marginTop" to "24rpx", "marginRight" to "24rpx", "marginBottom" to "24rpx", "marginLeft" to "24rpx", "backgroundColor" to "#FFFFFF", "borderTopLeftRadius" to "16rpx", "borderTopRightRadius" to "16rpx", "borderBottomRightRadius" to "16rpx", "borderBottomLeftRadius" to "16rpx")), "menu-item" to _pS(_uM("flexDirection" to "row", "justifyContent" to "space-between", "alignItems" to "center", "paddingTop" to "28rpx", "paddingRight" to "24rpx", "paddingBottom" to "28rpx", "paddingLeft" to "24rpx", "borderBottomWidth" to "1rpx", "borderBottomColor" to "#F5F5F5")), "menu-item-last" to _pS(_uM("borderBottomWidth" to 0)), "menu-text" to _pS(_uM("fontSize" to "28rpx", "color" to "#333333")), "arrow" to _pS(_uM("fontSize" to "36rpx", "color" to "#CCCCCC")), "user-phone" to _pS(_uM("fontSize" to "24rpx", "color" to "rgba(255,255,255,0.7)", "marginTop" to "4rpx")), "logout-btn" to _pS(_uM("marginTop" to "24rpx", "marginRight" to "24rpx", "marginBottom" to "24rpx", "marginLeft" to "24rpx", "paddingTop" to "20rpx", "paddingRight" to "20rpx", "paddingBottom" to "20rpx", "paddingLeft" to "20rpx", "backgroundColor" to "#FFFFFF", "borderTopLeftRadius" to "16rpx", "borderTopRightRadius" to "16rpx", "borderBottomRightRadius" to "16rpx", "borderBottomLeftRadius" to "16rpx", "alignItems" to "center")), "logout-text" to _pS(_uM("fontSize" to "28rpx", "color" to "#FF4444")))
             }
         var inheritAttrs = true
         var inject: Map<String, Map<String, Any?>> = _uM()

@@ -5,49 +5,57 @@
     "compiler_version": "5.15"
   },
   "files": {
-    "pages/pets/add.kt": {
-      "class": "GenPagesPetsAdd",
-      "md5": "6543b2e01441dff247c702a9cc0460ddc07b1729"
+    "pages/about/index.kt": {
+      "md5": "d45a91c625c196a3e69ee9331a41365d152fb8c9",
+      "class": "GenPagesAboutIndex"
+    },
+    "pages/subscription/index.kt": {
+      "md5": "e5c538b90fd10dbf66315810eb9f287acb902e5a",
+      "class": "GenPagesSubscriptionIndex"
+    },
+    "pages/auth/register.kt": {
+      "md5": "8c1a470c5405c29ad22abae652c34a4c57f2cf8d",
+      "class": "GenPagesAuthRegister"
+    },
+    "pages/pets/list.kt": {
+      "class": "GenPagesPetsList",
+      "md5": "b1d1030982ecd515eedc779dc502e6d8c7ac555f"
+    },
+    "pages/mine/index.kt": {
+      "class": "GenPagesMineIndex",
+      "md5": "069c5d4d2d570e0419338d2bdfdb2e5322bfe552"
+    },
+    "pages/knowledge/detail.kt": {
+      "md5": "bf04b93493c555c1402fb293d86f0fc8e4da75d9",
+      "class": "GenPagesKnowledgeDetail"
     },
     "index.kt": {
       "class": "",
-      "md5": "b7d45035b075a1920ceaee2a4ffdc7bee7acf7a8"
+      "md5": "38e085d2a57483e6958ae89e3061dc7fa174a9d3"
+    },
+    "pages/favorites/index.kt": {
+      "md5": "10fd365f64597a180520e00d210548f85e299752",
+      "class": "GenPagesFavoritesIndex"
+    },
+    "pages/index/index.kt": {
+      "class": "GenPagesIndexIndex",
+      "md5": "d0653a8063456e7a3b8fb03566830ab861b856ac"
     },
     "pages/knowledge/list.kt": {
-      "md5": "e806a653a8bb7b34bc0a7d13f18f9ba1c7ad1044",
+      "md5": "8f950d251d8c6c79cbdf8f9be391ae1645bd5ca6",
       "class": "GenPagesKnowledgeList"
     },
     "pages/reminder/index.kt": {
       "class": "GenPagesReminderIndex",
-      "md5": "8af0d80034d498d0f0d768a489ebb11feb794703"
+      "md5": "1bb4c07aa82e44d518f64be2baa51dd465c256dc"
     },
-    "pages/mine/index.kt": {
-      "md5": "0d3991de6ce6fefe293510b37ac7689f59281ae6",
-      "class": "GenPagesMineIndex"
+    "pages/pets/add.kt": {
+      "class": "GenPagesPetsAdd",
+      "md5": "ddef807a54ff7e9daf0c7b2075b21addf429ad16"
     },
-    "pages/subscription/index.kt": {
-      "md5": "e46c6fc710592932bad5bcf34343f2bb83929fbf",
-      "class": "GenPagesSubscriptionIndex"
-    },
-    "pages/about/index.kt": {
-      "md5": "8729833c38e8806b726f1ed2d1abe2d0458fda02",
-      "class": "GenPagesAboutIndex"
-    },
-    "pages/pets/list.kt": {
-      "class": "GenPagesPetsList",
-      "md5": "27a13909864419da6d2879069aad0a537633cb22"
-    },
-    "pages/index/index.kt": {
-      "class": "GenPagesIndexIndex",
-      "md5": "383070eac3a29890806c42969187fb4de8d70d0f"
-    },
-    "pages/knowledge/detail.kt": {
-      "md5": "2fce983688fed96cc30f2af5c7d3113fe9664e62",
-      "class": "GenPagesKnowledgeDetail"
-    },
-    "pages/favorites/index.kt": {
-      "md5": "a3791b7ac0db9bd64e880e8ac216a2073a08b5ed",
-      "class": "GenPagesFavoritesIndex"
+    "pages/auth/login.kt": {
+      "class": "GenPagesAuthLogin",
+      "md5": "6279cc6dec1f764f374fa79893a766d96a05e7ef"
     }
   }
 }

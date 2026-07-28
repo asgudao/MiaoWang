@@ -1,5 +1,5 @@
 @file:Suppress("UNCHECKED_CAST", "USELESS_CAST", "INAPPLICABLE_JVM_NAME", "UNUSED_ANONYMOUS_PARAMETER", "SENSELESS_COMPARISON", "NAME_SHADOWING", "UNNECESSARY_NOT_NULL_ASSERTION")
-package uni.UNI19DBD81
+package uni.UNIuniappx
 import io.dcloud.uniapp.*
 import io.dcloud.uniapp.extapi.*
 import io.dcloud.uniapp.framework.*
@@ -25,9 +25,14 @@ open class GenPagesKnowledgeList : BasePage {
             val _cache = __ins.renderCache
             val BASE = "http://localhost:8080"
             val keyword = ref("")
+            val activeSpecies = ref(1)
             val activeCategory = ref(0)
             val categories = ref(_uA<CT>())
             val list = ref(_uA<KI>())
+            val speciesOn = "padding:16rpx 48rpx;border-radius:36rpx;background-color:#FF8C42;margin-right:20rpx;"
+            val speciesOff = "padding:16rpx 48rpx;border-radius:36rpx;background-color:#F0F0F0;margin-right:20rpx;"
+            val speciesTextOn = "font-size:28rpx;color:#FFF;font-weight:600;"
+            val speciesTextOff = "font-size:28rpx;color:#666;"
             fun gen_getToken_fn(): String {
                 val t = uni_getStorageSync("token")
                 return if (t != null) {
@@ -39,7 +44,7 @@ open class GenPagesKnowledgeList : BasePage {
             val getToken = ::gen_getToken_fn
             fun gen_doRequest_fn(url: String, onOk: (data: UTSJSONObject) -> Unit): Unit {
                 val token = getToken()
-                val h = UTSJSONObject(UTSSourceMapPosition("h", "pages/knowledge/list.uvue", 38, 8))
+                val h = UTSJSONObject(UTSSourceMapPosition("h", "pages/knowledge/list.uvue", 54, 8))
                 h["Content-Type"] = "application/json"
                 if (token !== "") {
                     h["Authorization"] = "Bearer " + token
@@ -61,7 +66,7 @@ open class GenPagesKnowledgeList : BasePage {
             }
             val doRequest = ::gen_doRequest_fn
             fun gen_loadCats_fn(): Unit {
-                doRequest("/api/knowledge/categories", fun(data: UTSJSONObject): Unit {
+                doRequest("/api/knowledge/categories?species=" + activeSpecies.value, fun(data: UTSJSONObject): Unit {
                     val arr = data as Any as UTSArray<CT>
                     categories.value = arr
                 }
@@ -72,6 +77,8 @@ open class GenPagesKnowledgeList : BasePage {
                 var url = "/api/knowledge?page=1&size=20"
                 if (activeCategory.value > 0) {
                     url += "&categoryId=" + activeCategory.value
+                } else {
+                    url += "&species=" + activeSpecies.value
                 }
                 doRequest(url, fun(data: UTSJSONObject): Unit {
                     val records = data.get("records")
@@ -82,6 +89,13 @@ open class GenPagesKnowledgeList : BasePage {
                 )
             }
             val loadList = ::gen_loadList_fn
+            fun gen_switchSpecies_fn(s: Number): Unit {
+                activeSpecies.value = s
+                activeCategory.value = 0
+                loadCats()
+                loadList()
+            }
+            val switchSpecies = ::gen_switchSpecies_fn
             fun gen_selectCategory_fn(id: Number): Unit {
                 activeCategory.value = id
                 loadList()
@@ -108,6 +122,44 @@ open class GenPagesKnowledgeList : BasePage {
             )
             return fun(): Any? {
                 return _cE("view", _uM("class" to "kw-page"), _uA(
+                    _cE("view", _uM("class" to "kw-species-bar"), _uA(
+                        _cE("view", _uM("class" to "kw-species-chip", "style" to _nS(if (unref(activeSpecies) === 1) {
+                            speciesOn
+                        } else {
+                            speciesOff
+                        }
+                        ), "onClick" to fun(){
+                            switchSpecies(1)
+                        }
+                        ), _uA(
+                            _cE("text", _uM("style" to _nS(if (unref(activeSpecies) === 1) {
+                                speciesTextOn
+                            } else {
+                                speciesTextOff
+                            }
+                            )), "猫", 4)
+                        ), 12, _uA(
+                            "onClick"
+                        )),
+                        _cE("view", _uM("class" to "kw-species-chip", "style" to _nS(if (unref(activeSpecies) === 2) {
+                            speciesOn
+                        } else {
+                            speciesOff
+                        }
+                        ), "onClick" to fun(){
+                            switchSpecies(2)
+                        }
+                        ), _uA(
+                            _cE("text", _uM("style" to _nS(if (unref(activeSpecies) === 2) {
+                                speciesTextOn
+                            } else {
+                                speciesTextOff
+                            }
+                            )), "狗", 4)
+                        ), 12, _uA(
+                            "onClick"
+                        ))
+                    )),
                     _cE("input", _uM("class" to "kw-search", "modelValue" to unref(keyword), "onInput" to fun(`$event`: UniInputEvent){
                         trySetRefValue(keyword, `$event`.detail.value)
                     }
@@ -115,22 +167,24 @@ open class GenPagesKnowledgeList : BasePage {
                         "modelValue"
                     )),
                     _cE("scroll-view", _uM("scroll-x" to "true", "class" to "kw-cats"), _uA(
-                        _cE(Fragment, null, RenderHelpers.renderList(unref(categories), fun(cat, __key, __index, _cached): Any {
-                            return _cE("view", _uM("class" to "kw-tag", "key" to cat.id, "onClick" to fun(){
-                                selectCategory(cat.id)
-                            }
-                            ), _uA(
-                                _cE("text", _uM("style" to _nS(_uM("color" to if (unref(activeCategory) === cat.id) {
-                                    "#FFF"
-                                } else {
-                                    "#666"
+                        _cE("view", _uM("class" to "kw-cats-inner"), _uA(
+                            _cE(Fragment, null, RenderHelpers.renderList(unref(categories), fun(cat, __key, __index, _cached): Any {
+                                return _cE("view", _uM("class" to "kw-tag", "key" to cat.id, "onClick" to fun(){
+                                    selectCategory(cat.id)
                                 }
-                                ))), _tD(cat.name), 5)
-                            ), 8, _uA(
-                                "onClick"
-                            ))
-                        }
-                        ), 128)
+                                ), _uA(
+                                    _cE("text", _uM("style" to _nS(_uM("color" to if (unref(activeCategory) === cat.id) {
+                                        "#FFF"
+                                    } else {
+                                        "#666"
+                                    }
+                                    ))), _tD(cat.name), 5)
+                                ), 8, _uA(
+                                    "onClick"
+                                ))
+                            }
+                            ), 128)
+                        ))
                     )),
                     _cE("scroll-view", _uM("scroll-y" to "true", "class" to "kw-list"), _uA(
                         _cE(Fragment, null, RenderHelpers.renderList(unref(list), fun(item, __key, __index, _cached): Any {
@@ -159,7 +213,7 @@ open class GenPagesKnowledgeList : BasePage {
         }
         val styles0: Map<String, Map<String, Map<String, Any>>>
             get() {
-                return _uM("kw-page" to _pS(_uM("backgroundColor" to "#FFF8F0", "flexGrow" to 1, "flexShrink" to 1, "flexBasis" to "0%", "flexDirection" to "column")), "kw-search" to _pS(_uM("height" to "72rpx", "marginTop" to "16rpx", "marginRight" to "24rpx", "marginBottom" to "16rpx", "marginLeft" to "24rpx", "paddingTop" to 0, "paddingRight" to "24rpx", "paddingBottom" to 0, "paddingLeft" to "24rpx", "backgroundColor" to "#F5F5F5", "borderTopLeftRadius" to "36rpx", "borderTopRightRadius" to "36rpx", "borderBottomRightRadius" to "36rpx", "borderBottomLeftRadius" to "36rpx", "fontSize" to "28rpx", "color" to "#333333")), "kw-cats" to _pS(_uM("height" to "64rpx", "paddingTop" to "10rpx", "paddingRight" to "24rpx", "paddingBottom" to "10rpx", "paddingLeft" to "24rpx", "backgroundColor" to "#FFFFFF")), "kw-tag" to _pS(_uM("paddingTop" to "8rpx", "paddingRight" to "24rpx", "paddingBottom" to "8rpx", "paddingLeft" to "24rpx", "marginRight" to "14rpx", "borderTopLeftRadius" to "36rpx", "borderTopRightRadius" to "36rpx", "borderBottomRightRadius" to "36rpx", "borderBottomLeftRadius" to "36rpx", "backgroundColor" to "#F5F5F5", "alignItems" to "center", "justifyContent" to "center")), "kw-list" to _pS(_uM("flexGrow" to 1, "flexShrink" to 1, "flexBasis" to "0%", "paddingTop" to "8rpx", "paddingRight" to 0, "paddingBottom" to "8rpx", "paddingLeft" to 0)), "kw-item" to _pS(_uM("flexDirection" to "row", "alignItems" to "center", "paddingTop" to "20rpx", "paddingRight" to "20rpx", "paddingBottom" to "20rpx", "paddingLeft" to "20rpx", "marginTop" to "6rpx", "marginRight" to "20rpx", "marginBottom" to "6rpx", "marginLeft" to "20rpx", "backgroundColor" to "#FFFFFF", "borderTopLeftRadius" to "14rpx", "borderTopRightRadius" to "14rpx", "borderBottomRightRadius" to "14rpx", "borderBottomLeftRadius" to "14rpx")), "kw-cover" to _pS(_uM("width" to "110rpx", "height" to "110rpx", "borderTopLeftRadius" to "10rpx", "borderTopRightRadius" to "10rpx", "borderBottomRightRadius" to "10rpx", "borderBottomLeftRadius" to "10rpx", "backgroundColor" to "#FFE0CC", "marginRight" to "18rpx")), "kw-info" to _pS(_uM("flexGrow" to 1, "flexShrink" to 1, "flexBasis" to "0%")), "kw-title" to _pS(_uM("fontSize" to "28rpx", "color" to "#333333", "fontWeight" to 600)), "kw-meta" to _pS(_uM("fontSize" to "22rpx", "color" to "#999999", "marginTop" to "6rpx")))
+                return _uM("kw-page" to _pS(_uM("backgroundColor" to "#FFF8F0", "flexGrow" to 1, "flexShrink" to 1, "flexBasis" to "0%", "flexDirection" to "column")), "kw-species-bar" to _pS(_uM("flexDirection" to "row", "justifyContent" to "center", "paddingTop" to "20rpx", "paddingRight" to "24rpx", "paddingBottom" to "12rpx", "paddingLeft" to "24rpx", "backgroundColor" to "#FFFFFF")), "kw-species-chip" to _pS(_uM("alignItems" to "center", "justifyContent" to "center")), "kw-search" to _pS(_uM("height" to "72rpx", "marginTop" to "12rpx", "marginRight" to "24rpx", "marginBottom" to "12rpx", "marginLeft" to "24rpx", "paddingTop" to 0, "paddingRight" to "24rpx", "paddingBottom" to 0, "paddingLeft" to "24rpx", "backgroundColor" to "#F5F5F5", "borderTopLeftRadius" to "36rpx", "borderTopRightRadius" to "36rpx", "borderBottomRightRadius" to "36rpx", "borderBottomLeftRadius" to "36rpx", "fontSize" to "28rpx", "color" to "#333333")), "kw-cats" to _pS(_uM("height" to "66rpx", "paddingLeft" to "24rpx", "backgroundColor" to "#FFFFFF", "flexDirection" to "row")), "kw-cats-inner" to _pS(_uM("flexDirection" to "row")), "kw-tag" to _pS(_uM("paddingTop" to "8rpx", "paddingRight" to "24rpx", "paddingBottom" to "8rpx", "paddingLeft" to "24rpx", "marginRight" to "14rpx", "borderTopLeftRadius" to "36rpx", "borderTopRightRadius" to "36rpx", "borderBottomRightRadius" to "36rpx", "borderBottomLeftRadius" to "36rpx", "backgroundColor" to "#F5F5F5", "alignItems" to "center", "justifyContent" to "center")), "kw-list" to _pS(_uM("flexGrow" to 1, "flexShrink" to 1, "flexBasis" to "0%", "paddingTop" to "8rpx", "paddingRight" to 0, "paddingBottom" to "8rpx", "paddingLeft" to 0)), "kw-item" to _pS(_uM("flexDirection" to "row", "alignItems" to "center", "paddingTop" to "20rpx", "paddingRight" to "20rpx", "paddingBottom" to "20rpx", "paddingLeft" to "20rpx", "marginTop" to "6rpx", "marginRight" to "20rpx", "marginBottom" to "6rpx", "marginLeft" to "20rpx", "backgroundColor" to "#FFFFFF", "borderTopLeftRadius" to "14rpx", "borderTopRightRadius" to "14rpx", "borderBottomRightRadius" to "14rpx", "borderBottomLeftRadius" to "14rpx")), "kw-cover" to _pS(_uM("width" to "110rpx", "height" to "110rpx", "borderTopLeftRadius" to "10rpx", "borderTopRightRadius" to "10rpx", "borderBottomRightRadius" to "10rpx", "borderBottomLeftRadius" to "10rpx", "backgroundColor" to "#FFE0CC", "marginRight" to "18rpx")), "kw-info" to _pS(_uM("flexGrow" to 1, "flexShrink" to 1, "flexBasis" to "0%")), "kw-title" to _pS(_uM("fontSize" to "28rpx", "color" to "#333333", "fontWeight" to 600)), "kw-meta" to _pS(_uM("fontSize" to "22rpx", "color" to "#999999", "marginTop" to "6rpx")))
             }
         var inheritAttrs = true
         var inject: Map<String, Map<String, Any?>> = _uM()

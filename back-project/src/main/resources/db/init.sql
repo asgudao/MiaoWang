@@ -63,12 +63,14 @@ INSERT INTO t_breed (name, species, care_info) VALUES
 CREATE TABLE IF NOT EXISTS t_knowledge_category (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(50) NOT NULL COMMENT '分类名',
+    species TINYINT DEFAULT NULL COMMENT '1=猫 2=狗',
     sort_order INT DEFAULT 0 COMMENT '排序',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB COMMENT='知识分类表';
 
-INSERT INTO t_knowledge_category (name, sort_order) VALUES
-('疫苗', 1), ('驱虫', 2), ('饮食', 3), ('护理', 4), ('常见疾病', 5), ('体检', 6);
+INSERT INTO t_knowledge_category (name, species, sort_order) VALUES
+('叫声', 1, 1), ('肢体动作', 1, 2), ('病症', 1, 3), ('其他', 1, 4),
+('叫声', 2, 1), ('肢体动作', 2, 2), ('病症', 2, 3), ('其他', 2, 4);
 
 -- 知识表
 CREATE TABLE IF NOT EXISTS t_knowledge (
@@ -125,3 +127,4 @@ CREATE TABLE IF NOT EXISTS t_reminder_plan (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_pet_id (pet_id)
 ) ENGINE=InnoDB COMMENT='提醒计划表';
+

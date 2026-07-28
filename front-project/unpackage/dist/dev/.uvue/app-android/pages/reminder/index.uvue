@@ -19,9 +19,9 @@ const __sfc__ = defineComponent({
         const __ins = getCurrentInstance()!;
         const _ctx = __ins.proxy as InstanceType<typeof __sfc__>;
         const _cache = __ins.renderCache;
-        const BASE = "http://localhost:8080";
+        const BASE = "http://192.168.1.5:8080";
         const pets = ref<PetWithRem[]>([]);
-        const typeOptions = ["疫苗", "驱虫", "剪指甲", "洗澡", "体检"];
+        const typeOptions = ["鐤嫍", "椹辫櫕", "鍓寚鐢?, "娲楁尽", "浣撴"];
         const typeKeys = ["vaccine", "deworm", "nail", "bath", "checkup"];
         const showModal = ref(false);
         const addPetId = ref(0);
@@ -45,15 +45,15 @@ const __sfc__ = defineComponent({
         }
         function typeLabel(t: string): string {
             if (t === "vaccine")
-                return "💉 疫苗";
+                return "馃拤 鐤嫍";
             if (t === "deworm")
-                return "💊 驱虫";
+                return "馃拪 椹辫櫕";
             if (t === "nail")
-                return "✂️ 剪指甲";
+                return "鉁傦笍 鍓寚鐢?;
             if (t === "bath")
-                return "🛁 洗澡";
+                return "馃泚 娲楁尽";
             if (t === "checkup")
-                return "🏥 体检";
+                return "馃彞 浣撴";
             return t;
         }
         function statusColor(dateStr: string): string {
@@ -75,14 +75,14 @@ const __sfc__ = defineComponent({
             const diff = d - now;
             const dayMs: number = 86400000;
             if (diff < 0)
-                return "已过期";
+                return "宸茶繃鏈?;
             if (diff < dayMs)
-                return "今天";
+                return "浠婂ぉ";
             if (diff < 2 * dayMs)
-                return "明天";
+                return "鏄庡ぉ";
             if (diff < 7 * dayMs) {
                 const days: number = Math.ceil(diff / dayMs);
-                return days + "天后";
+                return days + "澶╁悗";
             }
             return "";
         }
@@ -193,7 +193,7 @@ const __sfc__ = defineComponent({
         }
         function doAdd(): void {
             if (addDate.value === "") {
-                uni.showToast({ title: "请输入日期", icon: "none" });
+                uni.showToast({ title: "璇疯緭鍏ユ棩鏈?, icon: "none" });
                 return;
             }
             const token = getToken();
@@ -218,16 +218,16 @@ const __sfc__ = defineComponent({
                         const resp = d as UTSJSONObject;
                         const code = resp.getNumber("code");
                         if (code === 200) {
-                            uni.showToast({ title: "添加成功", icon: "success" });
+                            uni.showToast({ title: "娣诲姞鎴愬姛", icon: "success" });
                             showModal.value = false;
                             loadData();
                         }
                         else {
-                            uni.showToast({ title: "添加失败", icon: "none" });
+                            uni.showToast({ title: "娣诲姞澶辫触", icon: "none" });
                         }
                     }
                 },
-                fail: (): void => { uni.showToast({ title: "网络错误", icon: "none" }); }
+                fail: (): void => { uni.showToast({ title: "缃戠粶閿欒", icon: "none" }); }
             });
         }
         onShow(() => { loadData(); });
@@ -244,7 +244,7 @@ const __sfc__ = defineComponent({
                             key: pet.id
                         }), [
                             _cE("view", _uM({ class: "rm-pet-header" }), [
-                                _cE("text", _uM({ class: "rm-pet-icon" }), _tD(pet.species === 1 ? '🐱' : '🐶'), 1 /* TEXT */),
+                                _cE("text", _uM({ class: "rm-pet-icon" }), _tD(pet.species === 1 ? '馃惐' : '馃惗'), 1 /* TEXT */),
                                 _cE("text", _uM({ class: "rm-pet-name" }), _tD(pet.name), 1 /* TEXT */)
                             ]),
                             _cE("view", _uM({ class: "rm-list" }), [
@@ -258,7 +258,7 @@ const __sfc__ = defineComponent({
                                             _cE("text", _uM({ class: "rm-date" }), _tD(r.nextDate), 1 /* TEXT */)
                                         ]),
                                         _cE("view", _uM({ class: "rm-right" }), [
-                                            _cE("text", _uM({ class: "rm-cycle" }), "每" + _tD(r.cycleDays) + "天", 1 /* TEXT */),
+                                            _cE("text", _uM({ class: "rm-cycle" }), "姣? + _tD(r.cycleDays) + "澶?, 1 /* TEXT */),
                                             _cE("view", _uM({
                                                 class: "rm-status",
                                                 style: _nS(_uM({ backgroundColor: statusColor(r.nextDate) }))
@@ -273,7 +273,7 @@ const __sfc__ = defineComponent({
                                 class: "rm-add-btn",
                                 onClick: () => { openAdd(pet.id, pet.name); }
                             }), [
-                                _cE("text", _uM({ class: "rm-add-text" }), "+ 添加提醒")
+                                _cE("text", _uM({ class: "rm-add-text" }), "+ 娣诲姞鎻愰啋")
                             ], 8 /* PROPS */, ["onClick"])
                         ]);
                     }), 128 /* KEYED_FRAGMENT */)
@@ -288,9 +288,9 @@ const __sfc__ = defineComponent({
                             onClick: () => { showModal.value = false; }
                         }), null, 8 /* PROPS */, ["onClick"]),
                         _cE("view", _uM({ class: "rm-form" }), [
-                            _cE("text", _uM({ class: "rm-form-title" }), "为 " + _tD(unref(addPetName)) + " 添加提醒", 1 /* TEXT */),
+                            _cE("text", _uM({ class: "rm-form-title" }), "涓?" + _tD(unref(addPetName)) + " 娣诲姞鎻愰啋", 1 /* TEXT */),
                             _cE("view", _uM({ class: "rm-field" }), [
-                                _cE("text", _uM({ class: "rm-label" }), "类型"),
+                                _cE("text", _uM({ class: "rm-label" }), "绫诲瀷"),
                                 _cV(_component_picker, _uM({
                                     range: typeOptions,
                                     onChange: onTypePick
@@ -304,7 +304,7 @@ const __sfc__ = defineComponent({
                                 }))
                             ]),
                             _cE("view", _uM({ class: "rm-field" }), [
-                                _cE("text", _uM({ class: "rm-label" }), "日期"),
+                                _cE("text", _uM({ class: "rm-label" }), "鏃ユ湡"),
                                 _cE("input", _uM({
                                     class: "rm-input",
                                     modelValue: unref(addDate),
@@ -313,13 +313,13 @@ const __sfc__ = defineComponent({
                                 }), null, 40 /* PROPS, NEED_HYDRATION */, ["modelValue"])
                             ]),
                             _cE("view", _uM({ class: "rm-field" }), [
-                                _cE("text", _uM({ class: "rm-label" }), "间隔天数"),
+                                _cE("text", _uM({ class: "rm-label" }), "闂撮殧澶╂暟"),
                                 _cE("input", _uM({
                                     class: "rm-input",
                                     modelValue: unref(addCycle),
                                     onInput: ($event: UniInputEvent) => { trySetRefValue(addCycle, $event.detail.value); },
                                     type: "number",
-                                    placeholder: "如90"
+                                    placeholder: "濡?0"
                                 }), null, 40 /* PROPS, NEED_HYDRATION */, ["modelValue"])
                             ]),
                             _cE("view", _uM({ class: "rm-actions" }), [
@@ -327,13 +327,13 @@ const __sfc__ = defineComponent({
                                     class: "rm-cancel",
                                     onClick: () => { showModal.value = false; }
                                 }), [
-                                    _cE("text", _uM({ class: "rm-cancel-text" }), "取消")
+                                    _cE("text", _uM({ class: "rm-cancel-text" }), "鍙栨秷")
                                 ], 8 /* PROPS */, ["onClick"]),
                                 _cE("view", _uM({
                                     class: "rm-confirm",
                                     onClick: doAdd
                                 }), [
-                                    _cE("text", _uM({ class: "rm-confirm-text" }), "确定")
+                                    _cE("text", _uM({ class: "rm-confirm-text" }), "纭畾")
                                 ])
                             ])
                         ])

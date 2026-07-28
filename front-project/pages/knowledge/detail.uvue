@@ -1,4 +1,4 @@
-﻿<template>
+<template>
 	<view class="kd-page">
 		<scroll-view scroll-y="true" class="kd-scroll">
 			<view class="kd-cover"></view>
@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="uts">
-const BASE = "http://localhost:8080"
+const BASE = "http://192.168.1.5:8080"
 
 type DetailData = { id: number; title: string; content: string; viewCount: number }
 

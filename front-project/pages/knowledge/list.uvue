@@ -1,9 +1,19 @@
-﻿<template>
+<template>
 	<view class="kw-page">
+		<view class="kw-species-bar">
+			<view class="kw-species-chip" :style="activeSpecies===1?speciesOn:speciesOff" @click="switchSpecies(1)">
+				<text :style="activeSpecies===1?speciesTextOn:speciesTextOff">猫</text>
+			</view>
+			<view class="kw-species-chip" :style="activeSpecies===2?speciesOn:speciesOff" @click="switchSpecies(2)">
+				<text :style="activeSpecies===2?speciesTextOn:speciesTextOff">狗</text>
+			</view>
+		</view>
 		<input class="kw-search" v-model="keyword" placeholder="搜索..." @confirm="doSearch" />
 		<scroll-view scroll-x="true" class="kw-cats">
-			<view class="kw-tag" v-for="cat in categories" :key="cat.id" @click="selectCategory(cat.id)">
-				<text :style="{ color: activeCategory === cat.id ? '#FFF' : '#666' }">{{ cat.name }}</text>
+			<view class="kw-cats-inner">
+				<view class="kw-tag" v-for="cat in categories" :key="cat.id" @click="selectCategory(cat.id)">
+					<text :style="{ color: activeCategory===cat.id ? '#FFF' : '#666' }">{{ cat.name }}</text>
+				</view>
 			</view>
 		</scroll-view>
 		<scroll-view scroll-y="true" class="kw-list">
@@ -19,14 +29,20 @@
 </template>
 
 <script setup lang="uts">
-const BASE = "http://localhost:8080"
+const BASE = "http://192.168.1.5:8080"
 type KI = { id: number; title: string; viewCount: number }
-type CT = { id: number; name: string }
+type CT = { id: number; name: string; species: number }
 
 const keyword = ref("")
+const activeSpecies = ref(1)
 const activeCategory = ref(0)
 const categories = ref<CT[]>([])
 const list = ref<KI[]>([])
+
+const speciesOn = "padding:16rpx 48rpx;border-radius:36rpx;background-color:#FF8C42;margin-right:20rpx;"
+const speciesOff = "padding:16rpx 48rpx;border-radius:36rpx;background-color:#F0F0F0;margin-right:20rpx;"
+const speciesTextOn = "font-size:28rpx;color:#FFF;font-weight:600;"
+const speciesTextOff = "font-size:28rpx;color:#666;"
 
 function getToken(): string {
 	const t = uni.getStorageSync("token")
@@ -58,7 +74,7 @@ function doRequest(url: string, onOk: (data: UTSJSONObject) => void): void {
 }
 
 function loadCats(): void {
-	doRequest("/api/knowledge/categories", (data: UTSJSONObject): void => {
+	doRequest("/api/knowledge/categories?species=" + activeSpecies.value, (data: UTSJSONObject): void => {
 		const arr = data as any as CT[]
 		categories.value = arr
 	})
@@ -66,11 +82,22 @@ function loadCats(): void {
 
 function loadList(): void {
 	let url = "/api/knowledge?page=1&size=20"
-	if (activeCategory.value > 0) url += "&categoryId=" + activeCategory.value
+	if (activeCategory.value > 0) {
+		url += "&categoryId=" + activeCategory.value
+	} else {
+		url += "&species=" + activeSpecies.value
+	}
 	doRequest(url, (data: UTSJSONObject): void => {
 		const records = data.get("records")
 		if (records != null) list.value = records as any as KI[]
 	})
+}
+
+function switchSpecies(s: number): void {
+	activeSpecies.value = s
+	activeCategory.value = 0
+	loadCats()
+	loadList()
 }
 
 function selectCategory(id: number): void { activeCategory.value = id; loadList() }
@@ -89,8 +116,11 @@ onShow(() => { loadCats(); loadList() })
 
 <style>
 .kw-page { background-color: #FFF8F0; flex: 1; flex-direction: column; }
-.kw-search { height: 72rpx; margin: 16rpx 24rpx; padding: 0 24rpx; background-color: #F5F5F5; border-radius: 36rpx; font-size: 28rpx; color: #333; }
-.kw-cats { height: 64rpx; padding: 10rpx 24rpx; background-color: #FFF; }
+.kw-species-bar { flex-direction: row; justify-content: center; padding: 20rpx 24rpx 12rpx; background-color: #FFF; }
+.kw-species-chip { align-items: center; justify-content: center; }
+.kw-search { height: 72rpx; margin: 12rpx 24rpx; padding: 0 24rpx; background-color: #F5F5F5; border-radius: 36rpx; font-size: 28rpx; color: #333; }
+.kw-cats { height: 66rpx; padding-left: 24rpx; background-color: #FFF; flex-direction: row; }
+.kw-cats-inner { flex-direction: row; }
 .kw-tag { padding: 8rpx 24rpx; margin-right: 14rpx; border-radius: 36rpx; background-color: #F5F5F5; align-items: center; justify-content: center; }
 .kw-list { flex: 1; padding: 8rpx 0; }
 .kw-item { flex-direction: row; align-items: center; padding: 20rpx; margin: 6rpx 20rpx; background-color: #FFF; border-radius: 14rpx; }

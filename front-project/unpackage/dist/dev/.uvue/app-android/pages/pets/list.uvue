@@ -13,7 +13,7 @@ const __sfc__ = defineComponent({
         const __ins = getCurrentInstance()!;
         const _ctx = __ins.proxy as InstanceType<typeof __sfc__>;
         const _cache = __ins.renderCache;
-        const BASE = "http://localhost:8080";
+        const BASE = "http://192.168.1.5:8080";
         const pets = ref<PetData[]>([]);
         function getToken(): string {
             const token = uni.getStorageSync("token");
@@ -51,7 +51,7 @@ const __sfc__ = defineComponent({
         return (): any | null => {
             return _cE("view", _uM({ class: "pl-page" }), [
                 _cE("view", _uM({ class: "pl-header" }), [
-                    _cE("text", _uM({ class: "pl-title" }), "我的萌宠")
+                    _cE("text", _uM({ class: "pl-title" }), "鎴戠殑钀屽疇")
                 ]),
                 _cE("scroll-view", _uM({
                     "scroll-y": "true",
@@ -63,11 +63,11 @@ const __sfc__ = defineComponent({
                             key: pet.id
                         }), [
                             _cE("view", _uM({ class: "pl-top" }), [
-                                _cE("text", _uM({ class: "pl-avatar" }), "🐱"),
+                                _cE("text", _uM({ class: "pl-avatar" }), "馃惐"),
                                 _cE("view", _uM({ class: "pl-info" }), [
                                     _cE("text", _uM({ class: "pl-name" }), _tD(pet.name), 1 /* TEXT */),
-                                    _cE("text", _uM({ class: "pl-breed" }), _tD(pet.breedName !== "" ? pet.breedName : "未知品种"), 1 /* TEXT */),
-                                    _cE("text", _uM({ class: "pl-detail" }), _tD(pet.gender === 1 ? "公" : "母") + " | " + _tD(pet.age) + " 岁 | " + _tD(pet.weight) + "kg", 1 /* TEXT */)
+                                    _cE("text", _uM({ class: "pl-breed" }), _tD(pet.breedName !== "" ? pet.breedName : "鏈煡鍝佺"), 1 /* TEXT */),
+                                    _cE("text", _uM({ class: "pl-detail" }), _tD(pet.gender === 1 ? "鍏? : "姣?) + " | " + _tD(pet.age) + " 宀?| " + _tD(pet.weight) + "kg", 1 /* TEXT */)
                                 ])
                             ])
                         ]);
@@ -77,7 +77,7 @@ const __sfc__ = defineComponent({
                     class: "pl-add",
                     onClick: addPet
                 }), [
-                    _cE("text", _uM({ class: "pl-add-text" }), "+ 添加宠物")
+                    _cE("text", _uM({ class: "pl-add-text" }), "+ 娣诲姞瀹犵墿")
                 ])
             ]);
         };

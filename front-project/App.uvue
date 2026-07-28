@@ -1,5 +1,17 @@
-<script setup lang="uts">
+﻿<script setup lang="uts">
 onLaunch(() => {
-	console.log("Pet App Launch")
+	const token = uni.getStorageSync("token")
+	if (token == null || token === "") {
+		uni.reLaunch({ url: "/pages/auth/login" })
+	}
 })
 </script>
+
+<template>
+	<view style="flex:1">
+		<slot />
+	</view>
+</template>
+
+<style>
+</style>

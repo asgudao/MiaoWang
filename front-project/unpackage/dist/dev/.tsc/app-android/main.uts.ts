@@ -16,7 +16,7 @@ export function main(app: IApp) {
 
 export class UniAppConfig extends io.dcloud.uniapp.appframe.AppConfig {
     override name: string = "喵汪"
-    override appid: string = "__UNI__19DBD81"
+    override appid: string = "__UNI__uniappx"
     override versionName: string = "1.0.0"
     override versionCode: string = "100"
     override uniCompilerVersion: string = "5.15"
@@ -33,6 +33,8 @@ import GenPagesReminderIndexClass from './pages/reminder/index.uvue'
 import GenPagesFavoritesIndexClass from './pages/favorites/index.uvue'
 import GenPagesAboutIndexClass from './pages/about/index.uvue'
 import GenPagesMineIndexClass from './pages/mine/index.uvue'
+import GenPagesAuthLoginClass from './pages/auth/login.uvue'
+import GenPagesAuthRegisterClass from './pages/auth/register.uvue'
 import GenPagesSubscriptionIndexClass from './pages/subscription/index.uvue'
 function definePageRoutes() {
 __uniRoutes.push({ path: "pages/index/index", component: GenPagesIndexIndexClass, meta: { isQuit: true } as UniPageMeta, style: _uM([["navigationBarTitleText","喵汪"]]) } as UniPageRoute)
@@ -44,6 +46,8 @@ __uniRoutes.push({ path: "pages/reminder/index", component: GenPagesReminderInde
 __uniRoutes.push({ path: "pages/favorites/index", component: GenPagesFavoritesIndexClass, meta: { isQuit: false } as UniPageMeta, style: _uM([["navigationBarTitleText","我的收藏"]]) } as UniPageRoute)
 __uniRoutes.push({ path: "pages/about/index", component: GenPagesAboutIndexClass, meta: { isQuit: false } as UniPageMeta, style: _uM([["navigationBarTitleText","关于喵汪"]]) } as UniPageRoute)
 __uniRoutes.push({ path: "pages/mine/index", component: GenPagesMineIndexClass, meta: { isQuit: false } as UniPageMeta, style: _uM([["navigationBarTitleText","我的"]]) } as UniPageRoute)
+__uniRoutes.push({ path: "pages/auth/login", component: GenPagesAuthLoginClass, meta: { isQuit: false } as UniPageMeta, style: _uM([["navigationBarTitleText","登录"]]) } as UniPageRoute)
+__uniRoutes.push({ path: "pages/auth/register", component: GenPagesAuthRegisterClass, meta: { isQuit: false } as UniPageMeta, style: _uM([["navigationBarTitleText","注册"]]) } as UniPageRoute)
 __uniRoutes.push({ path: "pages/subscription/index", component: GenPagesSubscriptionIndexClass, meta: { isQuit: false } as UniPageMeta, style: _uM([["navigationBarTitleText","订阅中心"]]) } as UniPageRoute)
 }
 const __uniTabBar: Map<string, any | null> | null = _uM([["color","#999999"],["selectedColor","#FF8C42"],["backgroundColor","#FFFFFF"],["borderStyle","white"],["list",[_uM([["pagePath","pages/index/index"],["text","喵汪"]]),_uM([["pagePath","pages/knowledge/list"],["text","知识库"]]),_uM([["pagePath","pages/pets/list"],["text","萌宠"]]),_uM([["pagePath","pages/mine/index"],["text","我的"]])]]])

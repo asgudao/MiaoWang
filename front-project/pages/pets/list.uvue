@@ -1,4 +1,4 @@
-﻿<template>
+<template>
 	<view class="pl-page">
 		<view class="pl-header"><text class="pl-title">我的萌宠</text></view>
 		<scroll-view scroll-y="true" class="pl-list">
@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="uts">
-const BASE = "http://localhost:8080"
+const BASE = "http://192.168.1.5:8080"
 
 type PetData = { id: number; name: string; breedName: string; gender: number; age: number; weight: number }
 

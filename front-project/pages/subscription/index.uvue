@@ -1,4 +1,4 @@
-﻿<template>
+<template>
 	<view class="sp-page">
 		<text class="sp-title">升级会员</text>
 		<text class="sp-sub">解锁更多萌宠</text>
@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="uts">
-const BASE = "http://localhost:8080"
+const BASE = "http://192.168.1.5:8080"
 
 type PlanData = { id: number; name: string; price: number; durationDays: number; petLimit: number }
 

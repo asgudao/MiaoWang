@@ -11,8 +11,8 @@ const __sfc__ = defineComponent({
         const __ins = getCurrentInstance()!;
         const _ctx = __ins.proxy as InstanceType<typeof __sfc__>;
         const _cache = __ins.renderCache;
-        const BASE = "http://localhost:8080";
-        const detail = ref<DetailData>({ id: 0, title: "加载中...", content: "", viewCount: 0 } as DetailData);
+        const BASE = "http://192.168.1.5:8080";
+        const detail = ref<DetailData>({ id: 0, title: "鍔犺浇涓?..", content: "", viewCount: 0 } as DetailData);
         const isFaved = ref(false);
         function getToken(): string {
             const t = uni.getStorageSync("token");
@@ -78,7 +78,7 @@ const __sfc__ = defineComponent({
                 }
                 uni.setStorageSync("favorites", JSON.stringify(filtered));
                 isFaved.value = false;
-                uni.showToast({ title: "已取消收藏", icon: "none" });
+                uni.showToast({ title: "宸插彇娑堟敹钘?, icon: "none" });
             }
             else {
                 const newItem = new UTSJSONObject(new UTSSourceMapPosition("newItem", "pages/knowledge/detail.uvue", 88, 9));
@@ -89,7 +89,7 @@ const __sfc__ = defineComponent({
                 arr.push(newItem);
                 uni.setStorageSync("favorites", JSON.stringify(arr));
                 isFaved.value = true;
-                uni.showToast({ title: "已收藏", icon: "success" });
+                uni.showToast({ title: "宸叉敹钘?, icon: "success" });
             }
         }
         onLoad((opt) => {
@@ -111,11 +111,11 @@ const __sfc__ = defineComponent({
                                 class: "kd-fav",
                                 onClick: toggleFav
                             }), [
-                                _cE("text", _uM({ class: "kd-fav-text" }), _tD(unref(isFaved) ? "★" : "☆"), 1 /* TEXT */)
+                                _cE("text", _uM({ class: "kd-fav-text" }), _tD(unref(isFaved) ? "鈽? : "鈽?), 1 /* TEXT */)
                             ])
                         ]),
                         _cE("view", _uM({ class: "kd-meta" }), [
-                            _cE("text", _uM({ class: "kd-meta-text" }), _tD(unref(detail).viewCount) + " 次浏览", 1 /* TEXT */)
+                            _cE("text", _uM({ class: "kd-meta-text" }), _tD(unref(detail).viewCount) + " 娆℃祻瑙?, 1 /* TEXT */)
                         ]),
                         _cE("text", _uM({ class: "kd-content" }), _tD(unref(detail).content), 1 /* TEXT */)
                     ])

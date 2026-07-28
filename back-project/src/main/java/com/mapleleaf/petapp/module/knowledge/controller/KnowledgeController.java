@@ -11,6 +11,7 @@ import com.mapleleaf.petapp.module.knowledge.service.KnowledgeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/knowledge")
@@ -53,7 +54,10 @@ public class KnowledgeController {
     }
 
     @GetMapping("/categories")
-    public Result<List<KnowledgeCategory>> listCategories() {
-        return Result.ok(categoryService.list(new LambdaQueryWrapper<KnowledgeCategory>().orderByAsc(KnowledgeCategory::getSortOrder)));
+    public Result<List<KnowledgeCategory>> listCategories(@RequestParam(required = false) Integer species) {
+        LambdaQueryWrapper<KnowledgeCategory> w = new LambdaQueryWrapper<>();
+        if (species != null) w.eq(KnowledgeCategory::getSpecies, species);
+        w.orderByAsc(KnowledgeCategory::getSortOrder);
+        return Result.ok(categoryService.list(w));
     }
 }

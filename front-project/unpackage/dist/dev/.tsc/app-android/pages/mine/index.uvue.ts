@@ -1,4 +1,4 @@
-type UserData = { __$originalPosition?: UTSSourceMapPosition<"UserData", "pages/mine/index.uvue", 42, 6>; id: number; nickname: string; memberType: number }
+type UserData = { __$originalPosition?: UTSSourceMapPosition<"UserData", "pages/mine/index.uvue", 44, 6>; id: number; nickname: string; memberType: number }
 
 
 const __sfc__ = defineComponent({
@@ -11,6 +11,7 @@ const _cache = __ins.renderCache;
 const BASE = "http://localhost:8080"
 
 const user = ref<UserData>({ id: 0, nickname: "", memberType: 0 })
+const phoneNum = ref("")
 
 function getToken(): string {
 	const t = uni.getStorageSync("token")
@@ -19,7 +20,7 @@ function getToken(): string {
 
 function loadProfile(): void {
 	const token = getToken()
-	const h = new UTSJSONObject(new UTSSourceMapPosition("h", "pages/mine/index.uvue", 53, 8))
+	const h = new UTSJSONObject(new UTSSourceMapPosition("h", "pages/mine/index.uvue", 56, 8))
 	h["Content-Type"] = "application/json"
 	if (token !== "") h["Authorization"] = "Bearer " + token
 	uni.request({
@@ -51,7 +52,17 @@ function goAbout(): void { uni.navigateTo({ url: "/pages/about/index" }) }
 
 function goSubscribe(): void { uni.navigateTo({ url: "/pages/subscription/index" }) }
 
-onShow(() => { loadProfile() })
+function doLogout(): void {
+	uni.removeStorageSync("token")
+	uni.removeStorageSync("phone")
+	uni.reLaunch({ url: "/pages/auth/login" })
+}
+
+onShow(() => {
+	loadProfile()
+	const p = uni.getStorageSync("phone")
+	phoneNum.value = p != null ? p as string : ""
+})
 
 return (): any | null => {
 
@@ -60,6 +71,7 @@ return (): any | null => {
       _cE("text", _uM({ class: "avatar-text" }), "😺"),
       _cE("view", _uM({ class: "profile-info" }), [
         _cE("text", _uM({ class: "nickname" }), _tD(unref(user).nickname !== "" ? unref(user).nickname : "猫咪爱好者"), 1 /* TEXT */),
+        _cE("text", _uM({ class: "user-phone" }), _tD(unref(phoneNum)), 1 /* TEXT */),
         _cE("view", _uM({
           class: "member-badge",
           style: _nS(_uM({ backgroundColor: unref(user).memberType === 2 ? '#FFD700' : 'rgba(255,255,255,0.3)' }))
@@ -112,6 +124,12 @@ return (): any | null => {
         _cE("text", _uM({ class: "menu-text" }), "关于"),
         _cE("text", _uM({ class: "arrow" }), ">")
       ])
+    ]),
+    _cE("view", _uM({
+      class: "logout-btn",
+      onClick: doLogout
+    }), [
+      _cE("text", _uM({ class: "logout-text" }), "退出登录")
     ])
   ])
 }
@@ -119,4 +137,4 @@ return (): any | null => {
 
 })
 export default __sfc__
-const GenPagesMineIndexStyles = [_uM([["page-wrap", _pS(_uM([["backgroundColor", "#FFF8F0"], ["flexGrow", 1], ["flexShrink", 1], ["flexBasis", "0%"], ["flexDirection", "column"]]))], ["profile-header", _pS(_uM([["flexDirection", "row"], ["alignItems", "center"], ["paddingTop", "48rpx"], ["paddingRight", "32rpx"], ["paddingBottom", "24rpx"], ["paddingLeft", "32rpx"], ["backgroundColor", "#FF8C42"]]))], ["avatar-text", _pS(_uM([["fontSize", "80rpx"], ["marginRight", "24rpx"]]))], ["profile-info", _pS(_uM([["flexGrow", 1], ["flexShrink", 1], ["flexBasis", "0%"]]))], ["nickname", _pS(_uM([["fontSize", "36rpx"], ["fontWeight", 700], ["color", "#FFFFFF"]]))], ["member-badge", _pS(_uM([["paddingTop", "4rpx"], ["paddingRight", "20rpx"], ["paddingBottom", "4rpx"], ["paddingLeft", "20rpx"], ["borderTopLeftRadius", "24rpx"], ["borderTopRightRadius", "24rpx"], ["borderBottomRightRadius", "24rpx"], ["borderBottomLeftRadius", "24rpx"], ["marginTop", "8rpx"]]))], ["member-card", _pS(_uM([["flexDirection", "row"], ["alignItems", "center"], ["justifyContent", "space-between"], ["marginTop", "24rpx"], ["marginRight", "24rpx"], ["marginBottom", "24rpx"], ["marginLeft", "24rpx"], ["paddingTop", "28rpx"], ["paddingRight", "28rpx"], ["paddingBottom", "28rpx"], ["paddingLeft", "28rpx"], ["backgroundColor", "#FFFFFF"], ["borderTopLeftRadius", "16rpx"], ["borderTopRightRadius", "16rpx"], ["borderBottomRightRadius", "16rpx"], ["borderBottomLeftRadius", "16rpx"]]))], ["member-card-left", _pS(_uM([["flexDirection", "row"], ["alignItems", "center"]]))], ["member-card-icon", _pS(_uM([["fontSize", "40rpx"], ["marginRight", "16rpx"]]))], ["member-card-text", _pS(_uM([["flexDirection", "column"]]))], ["member-card-title", _pS(_uM([["fontSize", "28rpx"], ["fontWeight", 600], ["color", "#333333"]]))], ["member-card-desc", _pS(_uM([["fontSize", "24rpx"], ["color", "#999999"]]))], ["member-card-action", _pS(_uM([["fontSize", "26rpx"], ["color", "#FF8C42"], ["fontWeight", 600]]))], ["menu-list", _pS(_uM([["marginTop", "24rpx"], ["marginRight", "24rpx"], ["marginBottom", "24rpx"], ["marginLeft", "24rpx"], ["backgroundColor", "#FFFFFF"], ["borderTopLeftRadius", "16rpx"], ["borderTopRightRadius", "16rpx"], ["borderBottomRightRadius", "16rpx"], ["borderBottomLeftRadius", "16rpx"]]))], ["menu-item", _pS(_uM([["flexDirection", "row"], ["justifyContent", "space-between"], ["alignItems", "center"], ["paddingTop", "28rpx"], ["paddingRight", "24rpx"], ["paddingBottom", "28rpx"], ["paddingLeft", "24rpx"], ["borderBottomWidth", "1rpx"], ["borderBottomColor", "#F5F5F5"]]))], ["menu-item-last", _pS(_uM([["borderBottomWidth", 0]]))], ["menu-text", _pS(_uM([["fontSize", "28rpx"], ["color", "#333333"]]))], ["arrow", _pS(_uM([["fontSize", "36rpx"], ["color", "#CCCCCC"]]))]])]
+const GenPagesMineIndexStyles = [_uM([["page-wrap", _pS(_uM([["backgroundColor", "#FFF8F0"], ["flexGrow", 1], ["flexShrink", 1], ["flexBasis", "0%"], ["flexDirection", "column"]]))], ["profile-header", _pS(_uM([["flexDirection", "row"], ["alignItems", "center"], ["paddingTop", "48rpx"], ["paddingRight", "32rpx"], ["paddingBottom", "24rpx"], ["paddingLeft", "32rpx"], ["backgroundColor", "#FF8C42"]]))], ["avatar-text", _pS(_uM([["fontSize", "80rpx"], ["marginRight", "24rpx"]]))], ["profile-info", _pS(_uM([["flexGrow", 1], ["flexShrink", 1], ["flexBasis", "0%"]]))], ["nickname", _pS(_uM([["fontSize", "36rpx"], ["fontWeight", 700], ["color", "#FFFFFF"]]))], ["member-badge", _pS(_uM([["paddingTop", "4rpx"], ["paddingRight", "20rpx"], ["paddingBottom", "4rpx"], ["paddingLeft", "20rpx"], ["borderTopLeftRadius", "24rpx"], ["borderTopRightRadius", "24rpx"], ["borderBottomRightRadius", "24rpx"], ["borderBottomLeftRadius", "24rpx"], ["marginTop", "8rpx"]]))], ["member-card", _pS(_uM([["flexDirection", "row"], ["alignItems", "center"], ["justifyContent", "space-between"], ["marginTop", "24rpx"], ["marginRight", "24rpx"], ["marginBottom", "24rpx"], ["marginLeft", "24rpx"], ["paddingTop", "28rpx"], ["paddingRight", "28rpx"], ["paddingBottom", "28rpx"], ["paddingLeft", "28rpx"], ["backgroundColor", "#FFFFFF"], ["borderTopLeftRadius", "16rpx"], ["borderTopRightRadius", "16rpx"], ["borderBottomRightRadius", "16rpx"], ["borderBottomLeftRadius", "16rpx"]]))], ["member-card-left", _pS(_uM([["flexDirection", "row"], ["alignItems", "center"]]))], ["member-card-icon", _pS(_uM([["fontSize", "40rpx"], ["marginRight", "16rpx"]]))], ["member-card-text", _pS(_uM([["flexDirection", "column"]]))], ["member-card-title", _pS(_uM([["fontSize", "28rpx"], ["fontWeight", 600], ["color", "#333333"]]))], ["member-card-desc", _pS(_uM([["fontSize", "24rpx"], ["color", "#999999"]]))], ["member-card-action", _pS(_uM([["fontSize", "26rpx"], ["color", "#FF8C42"], ["fontWeight", 600]]))], ["menu-list", _pS(_uM([["marginTop", "24rpx"], ["marginRight", "24rpx"], ["marginBottom", "24rpx"], ["marginLeft", "24rpx"], ["backgroundColor", "#FFFFFF"], ["borderTopLeftRadius", "16rpx"], ["borderTopRightRadius", "16rpx"], ["borderBottomRightRadius", "16rpx"], ["borderBottomLeftRadius", "16rpx"]]))], ["menu-item", _pS(_uM([["flexDirection", "row"], ["justifyContent", "space-between"], ["alignItems", "center"], ["paddingTop", "28rpx"], ["paddingRight", "24rpx"], ["paddingBottom", "28rpx"], ["paddingLeft", "24rpx"], ["borderBottomWidth", "1rpx"], ["borderBottomColor", "#F5F5F5"]]))], ["menu-item-last", _pS(_uM([["borderBottomWidth", 0]]))], ["menu-text", _pS(_uM([["fontSize", "28rpx"], ["color", "#333333"]]))], ["arrow", _pS(_uM([["fontSize", "36rpx"], ["color", "#CCCCCC"]]))], ["user-phone", _pS(_uM([["fontSize", "24rpx"], ["color", "rgba(255,255,255,0.7)"], ["marginTop", "4rpx"]]))], ["logout-btn", _pS(_uM([["marginTop", "24rpx"], ["marginRight", "24rpx"], ["marginBottom", "24rpx"], ["marginLeft", "24rpx"], ["paddingTop", "20rpx"], ["paddingRight", "20rpx"], ["paddingBottom", "20rpx"], ["paddingLeft", "20rpx"], ["backgroundColor", "#FFFFFF"], ["borderTopLeftRadius", "16rpx"], ["borderTopRightRadius", "16rpx"], ["borderBottomRightRadius", "16rpx"], ["borderBottomLeftRadius", "16rpx"], ["alignItems", "center"]]))], ["logout-text", _pS(_uM([["fontSize", "28rpx"], ["color", "#FF4444"]]))]])]

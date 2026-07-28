@@ -6,7 +6,10 @@ const _ctx = __ins.proxy as InstanceType<typeof __sfc__>;
 const _cache = __ins.renderCache;
 
 onLaunch(() => {
-	console.log("Pet App Launch", " at App.uvue:3")
+	const token = uni.getStorageSync("token")
+	if (token == null || token === "") {
+		uni.reLaunch({ url: "/pages/auth/login" })
+	}
 })
 return (): any | null => { return null } }
 })

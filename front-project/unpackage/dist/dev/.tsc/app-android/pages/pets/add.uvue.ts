@@ -32,11 +32,12 @@ function getToken(): string {
 
 function loadBreeds(): void {
 	const token = getToken()
-	const h = new UTSJSONObject(new UTSSourceMapPosition("h", "pages/pets/add.uvue", 68, 8))
+	if (token === "") { setTimeout(() => { loadBreeds() }, 1000); return }
+	const h = new UTSJSONObject(new UTSSourceMapPosition("h", "pages/pets/add.uvue", 69, 8))
 	h["Content-Type"] = "application/json"
-	if (token !== "") h["Authorization"] = "Bearer " + token
+	h["Authorization"] = "Bearer " + token
 	uni.request({
-		url: BASE + "/api/breeds",
+		url: BASE + "/api/breeds?species=" + species.value,
 		method: "GET",
 		header: h,
 		success: (res): void => {
@@ -66,6 +67,14 @@ function onBreedPick(e: UTSJSONObject): void {
 	selectedBreedId.value = breeds.value[idx].id
 }
 
+function switchSpecies(s: number): void {
+	species.value = s
+	selectedBreedIdx.value = -1
+	selectedBreedId.value = 0
+	breedNames.value = []
+	loadBreeds()
+}
+
 function submit(): void {
 	if (name.value === "") { uni.showToast({ title: "请输入宠物名字", icon: "none" }); return }
 	if (selectedBreedId.value === 0) { uni.showToast({ title: "请选择品种", icon: "none" }); return }
@@ -73,11 +82,11 @@ function submit(): void {
 	if (weight.value === "") { uni.showToast({ title: "请输入体重", icon: "none" }); return }
 
 	const token = getToken()
-	const h = new UTSJSONObject(new UTSSourceMapPosition("h", "pages/pets/add.uvue", 109, 8))
+	const h = new UTSJSONObject(new UTSSourceMapPosition("h", "pages/pets/add.uvue", 118, 8))
 	h["Content-Type"] = "application/json"
 	if (token !== "") h["Authorization"] = "Bearer " + token
 
-	const body = new UTSJSONObject(new UTSSourceMapPosition("body", "pages/pets/add.uvue", 113, 8))
+	const body = new UTSJSONObject(new UTSSourceMapPosition("body", "pages/pets/add.uvue", 122, 8))
 	body["userId"] = 1
 	body["name"] = name.value
 	body["species"] = species.value
@@ -133,7 +142,7 @@ const _component_picker = resolveComponent("picker")
           _cE("view", _uM({
             class: "ap-chip",
             style: _nS(unref(species)===1?chipOn:chipOff),
-            onClick: () => {species.value=1}
+            onClick: () => {switchSpecies(1)}
           }), [
             _cE("text", _uM({
               style: _nS(unref(species)===1?chipTextOn:chipTextOff)
@@ -142,7 +151,7 @@ const _component_picker = resolveComponent("picker")
           _cE("view", _uM({
             class: "ap-chip",
             style: _nS(unref(species)===2?chipOn:chipOff),
-            onClick: () => {species.value=2}
+            onClick: () => {switchSpecies(2)}
           }), [
             _cE("text", _uM({
               style: _nS(unref(species)===2?chipTextOn:chipTextOff)

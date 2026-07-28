@@ -1,9 +1,10 @@
-﻿<template>
+<template>
 	<view class="page-wrap">
 		<view class="profile-header">
-			<text class="avatar-text">😺</text>
+			<text class="avatar-text">馃樅</text>
 			<view class="profile-info">
-				<text class="nickname">{{ user.nickname !== "" ? user.nickname : "猫咪爱好者" }}</text>
+				<text class="nickname">{{ user.nickname !== "" ? user.nickname : "鐚挭鐖卞ソ鑰? }}</text>
+					<text class="user-phone">{{ phoneNum }}</text>
 				<view class="member-badge" :style="{ backgroundColor: user.memberType === 2 ? '#FFD700' : 'rgba(255,255,255,0.3)' }">
 					<text :style="{ color: user.memberType === 2 ? '#333' : '#FFF', fontSize: '22rpx', fontWeight: '600' }">{{ user.memberType === 2 ? 'VIP' : 'Free' }}</text>
 				</view>
@@ -11,37 +12,39 @@
 		</view>
 		<view class="member-card" @click="goSubscribe">
 			<view class="member-card-left">
-				<text class="member-card-icon">⭐</text>
+				<text class="member-card-icon">猸?/text>
 				<view class="member-card-text">
-					<text class="member-card-title">会员中心</text>
-					<text class="member-card-desc">升级解锁更多萌宠</text>
+					<text class="member-card-title">浼氬憳涓績</text>
+					<text class="member-card-desc">鍗囩骇瑙ｉ攣鏇村钀屽疇</text>
 				</view>
 			</view>
-			<text class="member-card-action">升级</text>
+			<text class="member-card-action">鍗囩骇</text>
 		</view>
 		<view class="menu-list">
-			<view class="menu-item" @click="goMyPets"><text class="menu-text">我的萌宠</text>
+			<view class="menu-item" @click="goMyPets"><text class="menu-text">鎴戠殑钀屽疇</text>
 				<text class="arrow">></text>
 			</view>
-			<view class="menu-item" @click="goReminder"><text class="menu-text">护理日历</text>
+			<view class="menu-item" @click="goReminder"><text class="menu-text">鎶ょ悊鏃ュ巻</text>
 				<text class="arrow">></text>
 			</view>
-			<view class="menu-item" @click="goFavorites"><text class="menu-text">收藏</text>
+			<view class="menu-item" @click="goFavorites"><text class="menu-text">鏀惰棌</text>
 				<text class="arrow">></text>
 			</view>
-			<view class="menu-item menu-item-last" @click="goAbout"><text class="menu-text">关于</text>
+			<view class="menu-item menu-item-last" @click="goAbout"><text class="menu-text">鍏充簬</text>
 				<text class="arrow">></text>
 			</view>
 		</view>
+	<view class="logout-btn" @click="doLogout"><text class="logout-text">閫€鍑虹櫥褰?/text></view>
 	</view>
 </template>
 
 <script setup lang="uts">
-const BASE = "http://localhost:8080"
+const BASE = "http://192.168.1.5:8080"
 
 type UserData = { id: number; nickname: string; memberType: number }
 
 const user = ref<UserData>({ id: 0, nickname: "", memberType: 0 })
+const phoneNum = ref("")
 
 function getToken(): string {
 	const t = uni.getStorageSync("token")
@@ -82,7 +85,17 @@ function goAbout(): void { uni.navigateTo({ url: "/pages/about/index" }) }
 
 function goSubscribe(): void { uni.navigateTo({ url: "/pages/subscription/index" }) }
 
-onShow(() => { loadProfile() })
+function doLogout(): void {
+	uni.removeStorageSync("token")
+	uni.removeStorageSync("phone")
+	uni.reLaunch({ url: "/pages/auth/login" })
+}
+
+onShow(() => {
+	loadProfile()
+	const p = uni.getStorageSync("phone")
+	phoneNum.value = p != null ? p as string : ""
+})
 </script>
 
 <style>
@@ -104,4 +117,7 @@ onShow(() => { loadProfile() })
 .menu-item-last { border-bottom-width: 0; }
 .menu-text { font-size: 28rpx; color: #333; }
 .arrow { font-size: 36rpx; color: #CCCCCC; }
+.user-phone { font-size: 24rpx; color: rgba(255,255,255,0.7); margin-top: 4rpx; }
+.logout-btn { margin: 24rpx; padding: 20rpx; background-color: #FFF; border-radius: 16rpx; align-items: center; }
+.logout-text { font-size: 28rpx; color: #FF4444; }
 </style>
