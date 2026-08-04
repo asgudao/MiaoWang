@@ -1,1 +1,0 @@
-{"version":3,"sources":["pages/index/index.uvue"],"names":[],"mappings":";;;;;;WACC,GAAA,CAAoD,mBAAA,EAAA,GAAA,CAAA,EAA1C,GAAG,EAAC,0BAA0B,EAAA,CAAA,CAAA,CAAA","file":"pages/index/index.uvue","sourcesContent":["<template>\n\t<web-view src=\"/hybrid/html/cat-3d.html\"></web-view>\n</template>\n\n<script setup lang=\"uts\">\n</script>\n\n<style>\n</style>\n"]}
