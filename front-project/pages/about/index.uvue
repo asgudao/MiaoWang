@@ -1,58 +1,59 @@
-﻿<template>
+<template>
 	<view class="ab-page">
 		<scroll-view scroll-y="true" class="ab-scroll">
-			<view class="ab-logo">
-				<text class="ab-logo-icon">🐱🐶</text>
-				<text class="ab-logo-text">喵汪</text>
-				<text class="ab-version">v1.0.0</text>
+			<!-- Logo 区 -->
+			<view class="ab-hero">
+				<view class="ab-hero-pets">
+					<text class="ab-hero-pet">🐱</text>
+					<text class="ab-hero-pet ab-hero-pet-center">🐶</text>
+					<text class="ab-hero-pet">🐱</text>
+				</view>
+				<text class="ab-hero-title">喵汪</text>
+				<text class="ab-hero-ver">v1.0.0</text>
 			</view>
 
+			<!-- 简介 -->
 			<view class="ab-card">
-				<text class="ab-card-title">关于喵汪</text>
-				<text class="ab-card-desc">喵汪是一款专为爱宠人士打造的宠物养护助手，帮助你科学管理萌宠的日常生活。</text>
+				<text class="ab-card-title">💡 关于喵汪</text>
+				<text class="ab-card-desc">喵汪是一款专为爱宠人士打造的宠物养护助手，帮助你科学管理萌宠的日常生活，让每一次呵护都恰到好处。</text>
 			</view>
 
+			<!-- 功能 -->
 			<view class="ab-card">
-				<text class="ab-card-title">主要功能</text>
-				<view class="ab-feature">
-					<text class="ab-feature-icon">🐾</text>
-					<view class="ab-feature-info">
-						<text class="ab-feature-name">萌宠管理</text>
-						<text class="ab-feature-desc">添加和管理你的爱宠信息，记录成长点滴</text>
-					</view>
+				<text class="ab-card-title">✨ 主要功能</text>
+				<view class="ab-feat">
+					<view class="ab-feat-icon-wrap"><text class="ab-feat-icon-text">🐾</text></view>
+					<view class="ab-feat-info"><text class="ab-feat-name">萌宠管理</text><text class="ab-feat-desc">添加和管理爱宠信息，记录成长点滴</text></view>
 				</view>
-				<view class="ab-feature">
-					<text class="ab-feature-icon">📅</text>
-					<view class="ab-feature-info">
-						<text class="ab-feature-name">护理日历</text>
-						<text class="ab-feature-desc">疫苗、驱虫、洗澡等护理提醒，不再遗忘</text>
-					</view>
+				<view class="ab-feat">
+					<view class="ab-feat-icon-wrap"><text class="ab-feat-icon-text">📅</text></view>
+					<view class="ab-feat-info"><text class="ab-feat-name">护理日历</text><text class="ab-feat-desc">疫苗、驱虫、洗澡等护理提醒，不再遗忘</text></view>
 				</view>
-				<view class="ab-feature">
-					<text class="ab-feature-icon">📚</text>
-					<view class="ab-feature-info">
-						<text class="ab-feature-name">知识库</text>
-						<text class="ab-feature-desc">丰富的养宠知识，科学养护每一天</text>
-					</view>
+				<view class="ab-feat">
+					<view class="ab-feat-icon-wrap"><text class="ab-feat-icon-text">📚</text></view>
+					<view class="ab-feat-info"><text class="ab-feat-name">知识库</text><text class="ab-feat-desc">丰富的养宠知识，科学养护每一天</text></view>
 				</view>
-				<view class="ab-feature">
-					<text class="ab-feature-icon">⭐</text>
-					<view class="ab-feature-info">
-						<text class="ab-feature-name">收藏夹</text>
-						<text class="ab-feature-desc">收藏有用的知识文章，随时回顾</text>
-					</view>
+				<view class="ab-feat">
+					<view class="ab-feat-icon-wrap"><text class="ab-feat-icon-text">⭐</text></view>
+					<view class="ab-feat-info"><text class="ab-feat-name">收藏夹</text><text class="ab-feat-desc">收藏有用文章，随时回顾</text></view>
 				</view>
 			</view>
 
+			<!-- 联系方式 -->
 			<view class="ab-card">
-				<text class="ab-card-title">联系我们</text>
+				<text class="ab-card-title">📬 联系我们</text>
 				<text class="ab-card-desc">如有问题或建议，欢迎通过以下方式联系：</text>
-				<text class="ab-contact">📧 邮箱：喵汪@pet.com</text>
-				<text class="ab-contact">🌐 官网：www.喵汪.com</text>
+				<view class="ab-contact-row">
+					<text>📧</text><text class="ab-contact-text">邮箱：miaowang@pet.com</text>
+				</view>
+				<view class="ab-contact-row">
+					<text>🌐</text><text class="ab-contact-text">官网：www.miaowang.com</text>
+				</view>
 			</view>
 
+			<!-- 底部 -->
 			<view class="ab-footer">
-				<text class="ab-footer-text">Made with ❤️ for pets</text>
+				<text class="ab-footer-love">Made with ❤️ for pets</text>
 				<text class="ab-footer-copy">© 2026 喵汪 All Rights Reserved</text>
 			</view>
 		</scroll-view>
@@ -63,22 +64,121 @@
 </script>
 
 <style>
-.ab-page { background-color: #FFF8F0; flex: 1; flex-direction: column; }
-.ab-scroll { flex: 1; padding: 24rpx; }
-.ab-logo { align-items: center; padding: 48rpx 0 32rpx; }
-.ab-logo-icon { font-size: 72rpx; }
-.ab-logo-text { font-size: 48rpx; font-weight: 700; color: #FF8C42; margin-top: 12rpx; }
-.ab-version { font-size: 24rpx; color: #CCC; margin-top: 6rpx; }
-.ab-card { margin-bottom: 20rpx; padding: 28rpx; background-color: #FFF; border-radius: 16rpx; }
-.ab-card-title { font-size: 30rpx; font-weight: 700; color: #333; margin-bottom: 14rpx; }
-.ab-card-desc { font-size: 26rpx; color: #666; }
-.ab-feature { flex-direction: row; align-items: flex-start; margin-bottom: 18rpx; }
-.ab-feature-icon { font-size: 36rpx; margin-right: 16rpx; margin-top: 4rpx; }
-.ab-feature-info { flex: 1; flex-direction: column; }
-.ab-feature-name { font-size: 26rpx; font-weight: 600; color: #333; }
-.ab-feature-desc { font-size: 22rpx; color: #999; margin-top: 4rpx; }
-.ab-contact { font-size: 24rpx; color: #666; margin-top: 8rpx; }
-.ab-footer { align-items: center; padding: 40rpx 0; }
-.ab-footer-text { font-size: 24rpx; color: #FF8C42; font-weight: 600; }
-.ab-footer-copy { font-size: 20rpx; color: #CCC; margin-top: 8rpx; }
+.ab-page {
+	flex: 1;
+	flex-direction: column;
+	background-color: #FFF5EC;
+}
+.ab-scroll {
+	flex: 1;
+	padding: 24rpx 28rpx;
+}
+
+/* -- hero -- */
+.ab-hero {
+	align-items: center;
+	padding: 48rpx 0 32rpx;
+}
+.ab-hero-pets {
+	flex-direction: row;
+	align-items: flex-end;
+	margin-bottom: 16rpx;
+}
+.ab-hero-pet {
+	font-size: 56rpx;
+}
+.ab-hero-pet-center {
+	font-size: 72rpx;
+	margin: 0 8rpx;
+}
+.ab-hero-title {
+	font-size: 52rpx;
+	font-weight: 800;
+	color: #FF8C42;
+}
+.ab-hero-ver {
+	font-size: 24rpx;
+	color: #D4C8C0;
+	margin-top: 6rpx;
+}
+
+/* -- 卡片 -- */
+.ab-card {
+	margin-bottom: 20rpx;
+	padding: 32rpx;
+	background-color: #FFFFFF;
+	border-radius: 22rpx;
+}
+.ab-card-title {
+	font-size: 30rpx;
+	font-weight: 700;
+	color: #3D2C2A;
+	margin-bottom: 16rpx;
+}
+.ab-card-desc {
+	font-size: 26rpx;
+	color: #8C7A70;
+	line-height: 40rpx;
+}
+
+/* -- 功能项 -- */
+.ab-feat {
+	flex-direction: row;
+	align-items: flex-start;
+	margin-bottom: 20rpx;
+}
+.ab-feat-icon-wrap {
+	width: 64rpx;
+	height: 64rpx;
+	border-radius: 16rpx;
+	background-color: #FFF0E5;
+	align-items: center;
+	justify-content: center;
+	margin-right: 18rpx;
+}
+.ab-feat-icon-text {
+	font-size: 32rpx;
+}
+.ab-feat-info {
+	flex: 1;
+	flex-direction: column;
+}
+.ab-feat-name {
+	font-size: 26rpx;
+	font-weight: 700;
+	color: #3D2C2A;
+}
+.ab-feat-desc {
+	font-size: 22rpx;
+	color: #B8A098;
+	margin-top: 4rpx;
+}
+
+/* -- 联系方式 -- */
+.ab-contact-row {
+	flex-direction: row;
+	align-items: center;
+	margin-top: 12rpx;
+}
+.ab-contact-text {
+	font-size: 24rpx;
+	color: #8C7A70;
+	margin-left: 10rpx;
+}
+
+/* -- 底部 -- */
+.ab-footer {
+	align-items: center;
+	padding: 40rpx 0 20rpx;
+}
+.ab-footer-love {
+	font-size: 24rpx;
+	color: #FF8C42;
+	font-weight: 600;
+}
+.ab-footer-copy {
+	font-size: 20rpx;
+	color: #D4C8C0;
+	margin-top: 8rpx;
+}
 </style>

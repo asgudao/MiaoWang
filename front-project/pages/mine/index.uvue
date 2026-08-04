@@ -1,45 +1,70 @@
 <template>
 	<view class="page-wrap">
-		<view class="profile-header">
-			<text class="avatar-text">馃樅</text>
-			<view class="profile-info">
-				<text class="nickname">{{ user.nickname !== "" ? user.nickname : "鐚挭鐖卞ソ鑰? }}</text>
-					<text class="user-phone">{{ phoneNum }}</text>
-				<view class="member-badge" :style="{ backgroundColor: user.memberType === 2 ? '#FFD700' : 'rgba(255,255,255,0.3)' }">
-					<text :style="{ color: user.memberType === 2 ? '#333' : '#FFF', fontSize: '22rpx', fontWeight: '600' }">{{ user.memberType === 2 ? 'VIP' : 'Free' }}</text>
+		<!-- 个人卡片 -->
+		<view class="my-profile">
+			<view class="my-avatar">
+				<text class="my-avatar-text">🐱</text>
+			</view>
+			<view class="my-profile-info">
+				<text class="my-nickname">{{ user.nickname !== "" ? user.nickname : "猫咕爱好者" }}</text>
+				<text class="my-phone">{{ phoneNum }}</text>
+				<view class="my-badge" :style="{ backgroundColor: user.memberType === 2 ? '#FFE0B0' : '#F0ECEA' }">
+					<text class="my-badge-text" :style="{ color: user.memberType === 2 ? '#C77A20' : '#9C9088' }">
+						{{ user.memberType === 2 ? '👑 VIP' : '普通用户' }}
+					</text>
 				</view>
 			</view>
 		</view>
-		<view class="member-card" @click="goSubscribe">
-			<view class="member-card-left">
-				<text class="member-card-icon">猸?/text>
-				<view class="member-card-text">
-					<text class="member-card-title">浼氬憳涓績</text>
-					<text class="member-card-desc">鍗囩骇瑙ｉ攣鏇村钀屽疇</text>
+
+		<!-- 会员卡 -->
+		<view class="my-member-card" @click="goSubscribe">
+			<view class="my-member-left">
+				<text class="my-member-icon">⭐</text>
+				<view class="my-member-info">
+					<text class="my-member-title">会员中心</text>
+					<text class="my-member-desc">{{ user.memberType === 2 ? '已享专属特权' : '升级解锁更多萌宠' }}</text>
 				</view>
 			</view>
-			<text class="member-card-action">鍗囩骇</text>
-		</view>
-		<view class="menu-list">
-			<view class="menu-item" @click="goMyPets"><text class="menu-text">鎴戠殑钀屽疇</text>
-				<text class="arrow">></text>
-			</view>
-			<view class="menu-item" @click="goReminder"><text class="menu-text">鎶ょ悊鏃ュ巻</text>
-				<text class="arrow">></text>
-			</view>
-			<view class="menu-item" @click="goFavorites"><text class="menu-text">鏀惰棌</text>
-				<text class="arrow">></text>
-			</view>
-			<view class="menu-item menu-item-last" @click="goAbout"><text class="menu-text">鍏充簬</text>
-				<text class="arrow">></text>
+			<view class="my-member-action">
+				<text class="my-member-action-text">{{ user.memberType === 2 ? '管理' : '升级' }}</text>
 			</view>
 		</view>
-	<view class="logout-btn" @click="doLogout"><text class="logout-text">閫€鍑虹櫥褰?/text></view>
+
+		<!-- 菜单 -->
+		<view class="my-menu">
+			<view class="my-menu-item" @click="goMyPets">
+				<text class="my-menu-icon">🐾</text>
+				<text class="my-menu-text">我的萌宠</text>
+				<text class="my-menu-arrow">›</text>
+			</view>
+			<view class="my-menu-item" @click="goReminder">
+				<text class="my-menu-icon">📅</text>
+				<text class="my-menu-text">护理日历</text>
+				<text class="my-menu-arrow">›</text>
+			</view>
+			<view class="my-menu-item" @click="goFavorites">
+				<text class="my-menu-icon">⭐</text>
+				<text class="my-menu-text">我的收藏</text>
+				<text class="my-menu-arrow">›</text>
+			</view>
+			<view class="my-menu-item my-menu-last" @click="goAbout">
+				<text class="my-menu-icon">ℹ️</text>
+				<text class="my-menu-text">关于喵汪</text>
+				<text class="my-menu-arrow">›</text>
+			</view>
+		</view>
+
+		<!-- 退出 -->
+		<view class="my-logout" @click="doLogout">
+			<text class="my-logout-text">退出登录</text>
+		</view>
+
+		<text class="my-footer">喵汪 v1.0 · 用爱陪伴每个毛孩子</text>
 	</view>
 </template>
 
 <script setup lang="uts">
-const BASE = "http://192.168.1.5:8080"
+const BASE = "http://192.168.178.183:8080"
 
 type UserData = { id: number; nickname: string; memberType: number }
 
@@ -67,7 +92,17 @@ function loadProfile(): void {
 				const code = body.getNumber("code")
 				if (code === 200) {
 					const inner = body.get("data")
-					if (inner != null) user.value = inner as any as UserData
+					if (inner != null) {
+						const obj = inner as UTSJSONObject
+						const uid = obj.getNumber("id")
+						const unick = obj.getString("nickname")
+						const umember = obj.getNumber("memberType")
+						user.value = {
+							id: uid != null ? uid : 0,
+							nickname: unick != null ? unick : "",
+							memberType: umember != null ? umember : 0
+						} as UserData
+					}
 				}
 			}
 		},
@@ -76,13 +111,9 @@ function loadProfile(): void {
 }
 
 function goMyPets(): void { uni.switchTab({ url: "/pages/pets/list" }) }
-
 function goReminder(): void { uni.navigateTo({ url: "/pages/reminder/index" }) }
-
 function goFavorites(): void { uni.navigateTo({ url: "/pages/favorites/index" }) }
-
 function goAbout(): void { uni.navigateTo({ url: "/pages/about/index" }) }
-
 function goSubscribe(): void { uni.navigateTo({ url: "/pages/subscription/index" }) }
 
 function doLogout(): void {
@@ -99,25 +130,150 @@ onShow(() => {
 </script>
 
 <style>
-.page-wrap { background-color: #FFF8F0; flex: 1; flex-direction: column; }
-.profile-header { flex-direction: row; align-items: center; padding: 48rpx 32rpx 24rpx; background-color: #FF8C42; }
-.avatar-text { font-size: 80rpx; margin-right: 24rpx; }
-.profile-info { flex: 1; }
-.nickname { font-size: 36rpx; font-weight: 700; color: #FFFFFF; }
-.member-badge { padding: 4rpx 20rpx; border-radius: 24rpx; margin-top: 8rpx; }
-.member-card { flex-direction: row; align-items: center; justify-content: space-between; margin: 24rpx; padding: 28rpx; background-color: #FFFFFF; border-radius: 16rpx; }
-.member-card-left { flex-direction: row; align-items: center; }
-.member-card-icon { font-size: 40rpx; margin-right: 16rpx; }
-.member-card-text { flex-direction: column; }
-.member-card-title { font-size: 28rpx; font-weight: 600; color: #333; }
-.member-card-desc { font-size: 24rpx; color: #999; }
-.member-card-action { font-size: 26rpx; color: #FF8C42; font-weight: 600; }
-.menu-list { margin: 24rpx; background-color: #FFFFFF; border-radius: 16rpx; }
-.menu-item { flex-direction: row; justify-content: space-between; align-items: center; padding: 28rpx 24rpx; border-bottom-width: 1rpx; border-bottom-color: #F5F5F5; }
-.menu-item-last { border-bottom-width: 0; }
-.menu-text { font-size: 28rpx; color: #333; }
-.arrow { font-size: 36rpx; color: #CCCCCC; }
-.user-phone { font-size: 24rpx; color: rgba(255,255,255,0.7); margin-top: 4rpx; }
-.logout-btn { margin: 24rpx; padding: 20rpx; background-color: #FFF; border-radius: 16rpx; align-items: center; }
-.logout-text { font-size: 28rpx; color: #FF4444; }
+.page-wrap {
+	flex: 1;
+	flex-direction: column;
+	background-color: #FFF5EC;
+}
+
+/* -- 个人信息卡 -- */
+.my-profile {
+	flex-direction: row;
+	align-items: center;
+	margin: 24rpx 28rpx;
+	padding: 36rpx 32rpx;
+	background-color: #FF8C42;
+	border-radius: 24rpx;
+}
+.my-avatar {
+	width: 112rpx;
+	height: 112rpx;
+	border-radius: 56rpx;
+	background-color: rgba(255,255,255,0.25);
+	align-items: center;
+	justify-content: center;
+	margin-right: 28rpx;
+}
+.my-avatar-text {
+	font-size: 60rpx;
+}
+.my-profile-info {
+	flex: 1;
+	flex-direction: column;
+}
+.my-nickname {
+	font-size: 38rpx;
+	font-weight: 800;
+	color: #FFFFFF;
+}
+.my-phone {
+	font-size: 24rpx;
+	color: rgba(255,255,255,0.75);
+	margin: 6rpx 0 10rpx;
+}
+.my-badge {
+	padding: 6rpx 22rpx;
+	border-radius: 24rpx;
+	align-self: flex-start;
+}
+.my-badge-text {
+	font-size: 22rpx;
+	font-weight: 700;
+}
+
+/* -- 会员卡 -- */
+.my-member-card {
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+	margin: 0 28rpx 20rpx;
+	padding: 28rpx;
+	background-color: #FFFFFF;
+	border-radius: 22rpx;
+}
+.my-member-left {
+	flex-direction: row;
+	align-items: center;
+}
+.my-member-icon {
+	font-size: 44rpx;
+	margin-right: 18rpx;
+}
+.my-member-info {
+	flex-direction: column;
+}
+.my-member-title {
+	font-size: 30rpx;
+	font-weight: 700;
+	color: #3D2C2A;
+}
+.my-member-desc {
+	font-size: 24rpx;
+	color: #B8A098;
+	margin-top: 4rpx;
+}
+.my-member-action {
+	padding: 12rpx 28rpx;
+	background-color: #FFF0E5;
+	border-radius: 36rpx;
+}
+.my-member-action-text {
+	font-size: 26rpx;
+	color: #FF8C42;
+	font-weight: 700;
+}
+
+/* -- 菜单 -- */
+.my-menu {
+	margin: 0 28rpx;
+	background-color: #FFFFFF;
+	border-radius: 22rpx;
+}
+.my-menu-item {
+	flex-direction: row;
+	align-items: center;
+	padding: 30rpx 28rpx;
+	border-bottom: 1rpx solid #F5F0EC;
+}
+.my-menu-last {
+	border-bottom: 0;
+}
+.my-menu-icon {
+	font-size: 36rpx;
+	margin-right: 20rpx;
+}
+.my-menu-text {
+	flex: 1;
+	font-size: 30rpx;
+	color: #3D2C2A;
+	font-weight: 600;
+}
+.my-menu-arrow {
+	font-size: 36rpx;
+	color: #D4C8C0;
+	font-weight: 300;
+}
+
+/* -- 退出 -- */
+.my-logout {
+	margin: 32rpx 28rpx;
+	padding: 24rpx 0;
+	background-color: #FFFFFF;
+	border-radius: 48rpx;
+	align-items: center;
+}
+.my-logout-text {
+	font-size: 28rpx;
+	color: #D4886A;
+	font-weight: 600;
+}
+
+/* -- 底部 -- */
+.my-footer {
+	text-align: center;
+	font-size: 22rpx;
+	color: #D4C8C0;
+	margin-top: auto;
+	padding-bottom: 24rpx;
+}
 </style>

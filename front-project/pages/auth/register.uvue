@@ -1,44 +1,44 @@
 <template>
 	<view class="rg-page">
-		<view class="rg-card">
-			<text class="rg-title">娉ㄥ唽璐﹀彿</text>
-			<text class="rg-sub">鍔犲叆鍠垫豹锛岀瀛﹀吇瀹?/text>
-
-			<view class="rg-field">
-				<text class="rg-label">鎵嬫満鍙?/text>
-				<input class="rg-input" v-model="phone" type="number" maxlength="11" placeholder="璇疯緭鍏ユ墜鏈哄彿" />
-			</view>
-
-			<view class="rg-field">
-				<text class="rg-label">鏄电О锛堥€夊～锛?/text>
-				<input class="rg-input" v-model="nickname" placeholder="缁欒嚜宸辫捣涓樀绉? />
-			</view>
-
-			<view class="rg-btn" @click="doRegister">
-				<text class="rg-btn-text">娉ㄥ唽</text>
-			</view>
-
-			<view class="rg-switch" @click="goLogin">
-				<text class="rg-switch-text">宸叉湁璐﹀彿锛熷幓鐧诲綍</text>
-			</view>
+		<image class="rg-bg" src="/static/home_background.png" mode="aspectFill" />
+		<!-- 顶部 -->
+		<view class="rg-hero">
+			<image class="rg-hero-logo" src="/static/logo.png" mode="aspectFit" />
+			<text class="rg-hero-title">加入喵汪</text>
+			<text class="rg-hero-sub">开始科学养宠之旅</text>
 		</view>
+
+		<!-- 表单 -->
+		<view class="rg-card">
+			<image class="rg-card-bg" src="/static/home_frame.png" mode="scaleToFill" />
+			<text class="rg-card-title">欢迎加入</text>
+			<text class="rg-card-sub">注册以开始养宠之旅</text>
+			<view class="rg-field">
+			<image class="rg-field-bg" src="/static/home_input.png" mode="scaleToFill" />
+				<input class="rg-input" v-model="phone" type="number" maxlength="11" placeholder="请输入手机号" />
+			</view>
+
+
+			<image class="rg-btn-img" src="/static/register.png" mode="widthFix" @click="doRegister" />
+
+			<image class="rg-gotoload-img" src="/static/gotoload.png" mode="widthFix" @click="goLogin" />
+		</view>
+		<view class="rg-page-spacer"></view>
 	</view>
 </template>
 
 <script setup lang="uts">
-const BASE = "http://192.168.1.5:8080"
+const BASE = "http://192.168.178.183:8080"
 const phone = ref("")
-const nickname = ref("")
 
 function doRegister(): void {
 	if (phone.value === "" || phone.value.length !== 11) {
-		uni.showToast({ title: "璇疯緭鍏ユ纭殑鎵嬫満鍙?, icon: "none" })
+		uni.showToast({ title: "请输入正确的手机号", icon: "none" })
 		return
 	}
 	const body = new UTSJSONObject()
 	body["phone"] = phone.value
 	body["code"] = "1234"
-	if (nickname.value !== "") body["nickname"] = nickname.value
 	uni.request({
 		url: BASE + "/api/auth/register",
 		method: "POST",
@@ -57,16 +57,16 @@ function doRegister(): void {
 						if (t != null) {
 							uni.setStorageSync("token", t)
 							uni.setStorageSync("phone", phone.value)
-							uni.showToast({ title: "娉ㄥ唽鎴愬姛", icon: "success" })
+							uni.showToast({ title: "注册成功", icon: "success" })
 							uni.reLaunch({ url: "/pages/index/index" })
 							return
 						}
 					}
 				}
-				uni.showToast({ title: "璇ユ墜鏈哄彿宸叉敞鍐?, icon: "none" })
+				uni.showToast({ title: "该手机号已注册", icon: "none" })
 			}
 		},
-		fail: (): void => { uni.showToast({ title: "缃戠粶閿欒", icon: "none" }) }
+		fail: (): void => { uni.showToast({ title: "网络错误", icon: "none" }) }
 	})
 }
 
@@ -76,15 +76,111 @@ function goLogin(): void {
 </script>
 
 <style>
-.rg-page { background-color: #FFF8F0; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 48rpx; }
-.rg-card { width: 640rpx; padding: 60rpx 48rpx; background-color: #FFF; border-radius: 24rpx; align-items: center; }
-.rg-title { font-size: 38rpx; font-weight: 700; color: #333; }
-.rg-sub { font-size: 26rpx; color: #999; margin: 8rpx 0 48rpx; }
-.rg-field { width: 100%; margin-bottom: 28rpx; }
-.rg-label { font-size: 26rpx; color: #666; margin-bottom: 10rpx; }
-.rg-input { height: 88rpx; padding: 0 24rpx; background-color: #F5F5F5; border-radius: 16rpx; font-size: 30rpx; color: #333; }
-.rg-btn { width: 100%; height: 88rpx; background-color: #FF8C42; border-radius: 44rpx; align-items: center; justify-content: center; margin-top: 16rpx; }
-.rg-btn-text { font-size: 32rpx; color: #FFF; font-weight: 600; }
-.rg-switch { margin-top: 28rpx; padding: 12rpx; }
-.rg-switch-text { font-size: 26rpx; color: #FF8C42; }
+.rg-page {
+	flex: 1;
+	flex-direction: column;
+	background-color: transparent;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+	overflow: hidden;
+}
+.rg-bg {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: -1;
+}
+
+.rg-hero {
+	align-items: center;
+	margin-bottom: 48rpx;
+}
+.rg-hero-logo {
+	width: 220rpx;
+	height: 220rpx;
+	margin-bottom: 16rpx;
+}
+.rg-hero-title {
+	font-size: 56rpx;
+	font-weight: 800;
+	color: #FF8C42;
+}
+.rg-hero-sub {
+	font-size: 26rpx;
+	color: #D4A082;
+	margin-top: 8rpx;
+}
+.rg-card {
+	width: 640rpx;
+	height: 685rpx;
+	padding: 44rpx 44rpx 40rpx;
+	background-color: transparent;
+	border-radius: 28rpx;
+	overflow: hidden;
+	position: relative;
+	align-items: center;
+}
+.rg-card-bg {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: -1;
+}
+.rg-card-title {
+	font-size: 36rpx;
+	font-weight: 700;
+	color: #3D2C2A;
+	margin-bottom: 8rpx;
+}
+.rg-card-sub {
+	font-size: 26rpx;
+	color: #B8A098;
+	margin-bottom: 40rpx;
+}
+.rg-page-spacer {
+	height: 70rpx;
+}
+.rg-field {
+	width: 100%;
+	flex-direction: row;
+	align-items: center;
+	height: 96rpx;
+	padding: 0 24rpx;
+	background-color: transparent;
+	border-radius: 48rpx;
+	position: relative;
+	overflow: hidden;
+	margin-bottom: 24rpx;
+}
+.rg-field-bg {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+}
+.rg-field-icon {
+	font-size: 36rpx;
+	margin-right: 14rpx;
+}
+.rg-input {
+	flex: 1;
+	height: 96rpx;
+	font-size: 30rpx;
+	color: #3D2C2A;
+}
+.rg-btn-img {
+	width: 400rpx;
+	margin-top: 16rpx;
+}
+
+.rg-gotoload-img {
+	width: 400rpx;
+	margin-top: 24rpx;
+}
 </style>

@@ -1,5 +1,5 @@
 <template>
-	<web-view src="/hybrid/html/cat-3d.html"></web-view>
+	<web-view src="/hybrid/html/pet-home.html"></web-view>
 </template>
 
 <script setup lang="uts">

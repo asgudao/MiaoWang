@@ -1,5 +1,9 @@
-﻿<script setup lang="uts">
+<script setup lang="uts">
+// 调试开关：true 时跳过登录校验，直接留在首页；发布前改回 false
+const DEBUG_SKIP_LOGIN = true
+
 onLaunch(() => {
+	if (DEBUG_SKIP_LOGIN) return
 	const token = uni.getStorageSync("token")
 	if (token == null || token === "") {
 		uni.reLaunch({ url: "/pages/auth/login" })

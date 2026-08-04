@@ -1,28 +1,63 @@
 <template>
 	<view class="sp-page">
-		<text class="sp-title">升级会员</text>
-		<text class="sp-sub">解锁更多萌宠</text>
+		<!-- 头部 -->
+		<view class="sp-hero">
+			<text class="sp-hero-emoji">👑</text>
+			<text class="sp-hero-title">升级会员</text>
+			<text class="sp-hero-sub">解锁更多萌宠，享受完整养护体验</text>
+		</view>
+
+		<!-- 套餐卡片 -->
 		<view class="sp-plans">
-			<view class="sp-card" v-for="p in plans" :key="p.id" @click="selectPlan(p.id)" :style="{ borderWidth: selectedPlanId === p.id ? '3rpx' : '2rpx', borderColor: selectedPlanId === p.id ? '#FF8C42' : '#E0E0E0' }">
+			<view class="sp-card" v-for="p in plans" :key="p.id"
+				:class="selectedPlanId===p.id?'sp-card-on':''"
+				@click="selectPlan(p.id)">
+				<!-- 推荐标签 -->
+				<view class="sp-recommend" v-if="p.id === plans[plans.length-1]?.id">
+					<text class="sp-recommend-text">推荐</text>
+				</view>
+
 				<text class="sp-name">{{ p.name }}</text>
-				<text class="sp-price">{{ priceText(p.price) }}</text>
-				<text class="sp-dur">{{ p.durationDays }} 天</text>
-				<text class="sp-limit">{{ p.petLimit }} 只萌宠</text>
+				<view class="sp-price-row">
+					<text class="sp-price-symbol">¥</text>
+					<text class="sp-price">{{ (p.price / 100).toFixed(0) }}</text>
+				</view>
+				<text class="sp-dur">{{ p.durationDays }} 天 · {{ p.petLimit }} 只萌宠</text>
+
+				<!-- 权益列表 -->
+				<view class="sp-features">
+					<view class="sp-feature">
+						<text class="sp-feature-check">✓</text>
+						<text class="sp-feature-text">最多 {{ p.petLimit }} 只宠物</text>
+					</view>
+					<view class="sp-feature">
+						<text class="sp-feature-check">✓</text>
+						<text class="sp-feature-text">完整知识库</text>
+					</view>
+					<view class="sp-feature">
+						<text class="sp-feature-check">✓</text>
+						<text class="sp-feature-text">护理提醒推送</text>
+					</view>
+				</view>
 			</view>
 		</view>
-		<view class="sp-buy" @click="buyNow"><text class="sp-buy-text">立即购买</text></view>
+
+		<!-- 购买按钮 -->
+		<view class="sp-buy" @click="buyNow">
+			<text class="sp-buy-text">立即购买</text>
+		</view>
+
+		<text class="sp-footer">已订阅用户可在会员中心管理</text>
 	</view>
 </template>
 
 <script setup lang="uts">
-const BASE = "http://192.168.1.5:8080"
+const BASE = "http://192.168.178.183:8080"
 
 type PlanData = { id: number; name: string; price: number; durationDays: number; petLimit: number }
 
 const plans = ref<PlanData[]>([])
 const selectedPlanId = ref(0)
-
-function priceText(price: number): string { return "¥" + (price / 100).toFixed(2) }
 
 function getToken(): string {
 	const t = uni.getStorageSync("token")
@@ -78,15 +113,132 @@ onShow(() => { loadPlans() })
 </script>
 
 <style>
-.sp-page { background-color: #FFF8F0; flex: 1; flex-direction: column; align-items: center; padding-top: 60rpx; }
-.sp-title { font-size: 38rpx; font-weight: 700; color: #333; }
-.sp-sub { font-size: 24rpx; color: #999; margin: 8rpx 0 40rpx; }
-.sp-plans { flex-direction: row; padding: 0 14rpx; }
-.sp-card { flex: 1; align-items: center; margin: 0 6rpx; padding: 28rpx 14rpx; background-color: #FFF; border-radius: 18rpx; }
-.sp-name { font-size: 26rpx; font-weight: 700; color: #333; margin-bottom: 12rpx; }
-.sp-price { font-size: 44rpx; font-weight: 700; color: #FF8C42; }
-.sp-dur { font-size: 22rpx; color: #999; margin: 4rpx 0 10rpx; }
-.sp-limit { font-size: 22rpx; color: #666; }
-.sp-buy { margin-top: 50rpx; width: 600rpx; padding: 22rpx; background-color: #FF8C42; border-radius: 44rpx; align-items: center; }
-.sp-buy-text { font-size: 30rpx; color: #FFF; font-weight: 600; }
+.sp-page {
+	flex: 1;
+	flex-direction: column;
+	background-color: #FFF5EC;
+	align-items: center;
+}
+
+/* -- hero -- */
+.sp-hero {
+	align-items: center;
+	padding-top: 80rpx;
+	padding-bottom: 48rpx;
+}
+.sp-hero-emoji {
+	font-size: 80rpx;
+	margin-bottom: 16rpx;
+}
+.sp-hero-title {
+	font-size: 44rpx;
+	font-weight: 800;
+	color: #3D2C2A;
+}
+.sp-hero-sub {
+	font-size: 26rpx;
+	color: #B8A098;
+	margin-top: 10rpx;
+}
+
+/* -- 套餐 -- */
+.sp-plans {
+	flex-direction: row;
+	padding: 0 28rpx;
+	width: 100%;
+}
+.sp-card {
+	flex: 1;
+	align-items: center;
+	padding: 32rpx 20rpx;
+	margin: 0 8rpx;
+	background-color: #FFFFFF;
+	border-radius: 24rpx;
+	border: 2rpx solid #F0E8E2;
+	position: relative;
+}
+.sp-card-on {
+	border: 3rpx solid #FF8C42;
+	background-color: #FFFBF8;
+}
+.sp-recommend {
+	position: absolute;
+	top: -16rpx;
+	background-color: #FF8C42;
+	padding: 6rpx 24rpx;
+	border-radius: 20rpx;
+}
+.sp-recommend-text {
+	font-size: 20rpx;
+	color: #FFFFFF;
+	font-weight: 700;
+}
+.sp-name {
+	font-size: 28rpx;
+	font-weight: 700;
+	color: #3D2C2A;
+	margin: 12rpx 0 16rpx;
+}
+.sp-price-row {
+	flex-direction: row;
+	align-items: flex-end;
+	margin-bottom: 4rpx;
+}
+.sp-price-symbol {
+	font-size: 32rpx;
+	font-weight: 700;
+	color: #FF8C42;
+}
+.sp-price {
+	font-size: 56rpx;
+	font-weight: 800;
+	color: #FF8C42;
+}
+.sp-dur {
+	font-size: 22rpx;
+	color: #B8A098;
+	margin-bottom: 20rpx;
+}
+
+/* -- 权益 -- */
+.sp-features {
+	width: 100%;
+	align-items: center;
+}
+.sp-feature {
+	flex-direction: row;
+	align-items: center;
+	margin-bottom: 8rpx;
+}
+.sp-feature-check {
+	font-size: 22rpx;
+	color: #7EC8A0;
+	font-weight: 700;
+	margin-right: 6rpx;
+}
+.sp-feature-text {
+	font-size: 22rpx;
+	color: #8C7A70;
+}
+
+/* -- 购买按钮 -- */
+.sp-buy {
+	width: 640rpx;
+	margin-top: 48rpx;
+	padding: 28rpx 0;
+	background-color: #FF8C42;
+	border-radius: 48rpx;
+	align-items: center;
+}
+.sp-buy-text {
+	font-size: 32rpx;
+	color: #FFFFFF;
+	font-weight: 700;
+}
+
+.sp-footer {
+	font-size: 22rpx;
+	color: #C8B8B0;
+	margin-top: 32rpx;
+}
 </style>

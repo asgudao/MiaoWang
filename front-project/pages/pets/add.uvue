@@ -1,45 +1,100 @@
 <template>
 	<view class="ap-page">
+		<!-- 头部 -->
+		<view class="ap-header">
+			<text class="ap-header-emoji">🐾</text>
+			<text class="ap-header-title">添加萌宠</text>
+			<text class="ap-header-sub">录入新伙伴的基本信息</text>
+		</view>
+
 		<scroll-view scroll-y="true" class="ap-scroll">
+			<!-- 宠物名称 -->
 			<view class="ap-field">
-				<text class="ap-label">瀹犵墿鍚嶅瓧</text>
-				<input class="ap-input" v-model="name" placeholder="缁欏疇鐗╄捣涓悕瀛? />
+				<view class="ap-field-header">
+					<text class="ap-field-icon">🐱</text>
+					<text class="ap-label">宠物名字</text>
+				</view>
+				<input class="ap-input" v-model="name" placeholder="给宠物起个名字" />
 			</view>
+
+			<!-- 种类 -->
 			<view class="ap-field">
-				<text class="ap-label">绉嶇被</text>
-				<view class="ap-row">
-					<view class="ap-chip" :style="species===1?chipOn:chipOff" @click="switchSpecies(1)"><text :style="species===1?chipTextOn:chipTextOff">鐚?/text></view>
-					<view class="ap-chip" :style="species===2?chipOn:chipOff" @click="switchSpecies(2)"><text :style="species===2?chipTextOn:chipTextOff">鐙?/text></view>
+				<view class="ap-field-header">
+					<text class="ap-field-icon">🐾</text>
+					<text class="ap-label">种类</text>
+				</view>
+				<view class="ap-chips">
+					<view class="ap-chip" :class="species===1?'ap-chip-on':''" @click="switchSpecies(1)">
+						<text class="ap-chip-emoji">🐱</text>
+						<text class="ap-chip-text">猫咪</text>
+					</view>
+					<view class="ap-chip" :class="species===2?'ap-chip-on':''" @click="switchSpecies(2)">
+						<text class="ap-chip-emoji">🐶</text>
+						<text class="ap-chip-text">狗狗</text>
+					</view>
 				</view>
 			</view>
+
+			<!-- 品种 -->
 			<view class="ap-field">
-				<text class="ap-label">鍝佺</text>
+				<view class="ap-field-header">
+					<text class="ap-field-icon">🏷️</text>
+					<text class="ap-label">品种</text>
+				</view>
 				<picker :range="breedNames" @change="onBreedPick">
-					<view class="ap-picker"><text>{{ breedNames.length>0&&selectedBreedIdx>=0 ? breedNames[selectedBreedIdx] : "璇烽€夋嫨鍝佺" }}</text></view>
+					<view class="ap-picker">
+						<text class="ap-picker-text" :class="selectedBreedIdx<0?'ap-picker-placeholder':''">
+							{{ breedNames.length>0&&selectedBreedIdx>=0 ? breedNames[selectedBreedIdx] : "请选择品种" }}
+						</text>
+						<text class="ap-picker-arrow">▼</text>
+					</view>
 				</picker>
 			</view>
+
+			<!-- 性别 -->
 			<view class="ap-field">
-				<text class="ap-label">鎬у埆</text>
-				<view class="ap-row">
-					<view class="ap-chip" :style="gender===1?chipOn:chipOff" @click="gender=1"><text :style="gender===1?chipTextOn:chipTextOff">鍏?/text></view>
-					<view class="ap-chip" :style="gender===2?chipOn:chipOff" @click="gender=2"><text :style="gender===2?chipTextOn:chipTextOff">姣?/text></view>
+				<view class="ap-field-header">
+					<text class="ap-field-icon">⚧</text>
+					<text class="ap-label">性别</text>
+				</view>
+				<view class="ap-chips">
+					<view class="ap-chip" :class="gender===1?'ap-chip-male':''" @click="gender=1">
+						<text class="ap-chip-text">♂ 公</text>
+					</view>
+					<view class="ap-chip" :class="gender===2?'ap-chip-female':''" @click="gender=2">
+						<text class="ap-chip-text">♀ 母</text>
+					</view>
 				</view>
 			</view>
-			<view class="ap-field">
-				<text class="ap-label">骞撮緞(鏈?</text>
-				<input class="ap-input" v-model="age" type="number" placeholder="杈撳叆鏈堥緞" />
+
+			<!-- 年龄 / 体重 -->
+			<view class="ap-row-fields">
+				<view class="ap-field ap-half">
+					<view class="ap-field-header">
+						<text class="ap-field-icon">📆</text>
+						<text class="ap-label">月龄</text>
+					</view>
+					<input class="ap-input" v-model="age" type="number" placeholder="月份" />
+				</view>
+				<view class="ap-field ap-half">
+					<view class="ap-field-header">
+						<text class="ap-field-icon">⚖️</text>
+						<text class="ap-label">体重</text>
+					</view>
+					<input class="ap-input" v-model="weight" type="number" placeholder="kg" />
+				</view>
 			</view>
-			<view class="ap-field">
-				<text class="ap-label">浣撻噸(kg)</text>
-				<input class="ap-input" v-model="weight" type="number" placeholder="杈撳叆浣撻噸" />
+
+			<!-- 提交按钮 -->
+			<view class="ap-submit" @click="submit">
+				<text class="ap-submit-text">🐾 添加宠物</text>
 			</view>
-			<view class="ap-submit" @click="submit"><text class="ap-submit-text">娣诲姞瀹犵墿</text></view>
 		</scroll-view>
 	</view>
 </template>
 
 <script setup lang="uts">
-const BASE = "http://192.168.1.5:8080"
+const BASE = "http://192.168.178.183:8080"
 
 type BreedItem = { id: number; name: string; species: number }
 
@@ -52,11 +107,6 @@ const breeds = ref<BreedItem[]>([])
 const breedNames = ref<string[]>([])
 const selectedBreedIdx = ref(-1)
 const selectedBreedId = ref(0)
-
-const chipOn = "padding:16rpx 36rpx;border-radius:32rpx;background-color:#FF8C42;margin-right:20rpx;"
-const chipOff = "padding:16rpx 36rpx;border-radius:32rpx;background-color:#F0F0F0;margin-right:20rpx;"
-const chipTextOn = "font-size:28rpx;color:#FFF;font-weight:600;"
-const chipTextOff = "font-size:28rpx;color:#666;"
 
 function getToken(): string {
 	const t = uni.getStorageSync("token")
@@ -109,10 +159,10 @@ function switchSpecies(s: number): void {
 }
 
 function submit(): void {
-	if (name.value === "") { uni.showToast({ title: "璇疯緭鍏ュ疇鐗╁悕瀛?, icon: "none" }); return }
-	if (selectedBreedId.value === 0) { uni.showToast({ title: "璇烽€夋嫨鍝佺", icon: "none" }); return }
-	if (age.value === "") { uni.showToast({ title: "璇疯緭鍏ュ勾榫?, icon: "none" }); return }
-	if (weight.value === "") { uni.showToast({ title: "璇疯緭鍏ヤ綋閲?, icon: "none" }); return }
+	if (name.value === "") { uni.showToast({ title: "请输入宠物名字", icon: "none" }); return }
+	if (selectedBreedId.value === 0) { uni.showToast({ title: "请选择品种", icon: "none" }); return }
+	if (age.value === "") { uni.showToast({ title: "请输入月龄", icon: "none" }); return }
+	if (weight.value === "") { uni.showToast({ title: "请输入体重", icon: "none" }); return }
 
 	const token = getToken()
 	const h = new UTSJSONObject()
@@ -138,14 +188,14 @@ function submit(): void {
 			if (d != null) {
 				const resp = d as UTSJSONObject
 				if (resp.getNumber("code") === 200) {
-					uni.showToast({ title: "娣诲姞鎴愬姛", icon: "success" })
+					uni.showToast({ title: "添加成功", icon: "success" })
 					uni.navigateBack()
 				} else {
-					uni.showToast({ title: "娣诲姞澶辫触", icon: "none" })
+					uni.showToast({ title: "添加失败", icon: "none" })
 				}
 			}
 		},
-		fail: (): void => { uni.showToast({ title: "缃戠粶閿欒", icon: "none" }) }
+		fail: (): void => { uni.showToast({ title: "网络错误", icon: "none" }) }
 	})
 }
 
@@ -153,14 +203,146 @@ onShow(() => { loadBreeds() })
 </script>
 
 <style>
-.ap-page { background-color: #FFF8F0; flex: 1; flex-direction: column; }
-.ap-scroll { flex: 1; padding: 24rpx; }
-.ap-field { margin-bottom: 32rpx; }
-.ap-label { font-size: 28rpx; font-weight: 600; color: #333; margin-bottom: 12rpx; }
-.ap-input { height: 80rpx; padding: 0 24rpx; background-color: #FFF; border-radius: 16rpx; font-size: 28rpx; color: #333; }
-.ap-row { flex-direction: row; }
-.ap-chip { align-items: center; justify-content: center; }
-.ap-picker { height: 80rpx; padding: 0 24rpx; background-color: #FFF; border-radius: 16rpx; justify-content: center; }
-.ap-submit { margin-top: 40rpx; height: 88rpx; background-color: #FF8C42; border-radius: 44rpx; align-items: center; justify-content: center; }
-.ap-submit-text { font-size: 32rpx; color: #FFF; font-weight: 600; }
+.ap-page {
+	flex: 1;
+	flex-direction: column;
+	background-color: #FFF5EC;
+}
+
+/* -- 头部 -- */
+.ap-header {
+	align-items: center;
+	padding: 48rpx 32rpx 16rpx;
+}
+.ap-header-emoji {
+	font-size: 60rpx;
+	margin-bottom: 8rpx;
+}
+.ap-header-title {
+	font-size: 40rpx;
+	font-weight: 800;
+	color: #3D2C2A;
+}
+.ap-header-sub {
+	font-size: 24rpx;
+	color: #B8A098;
+	margin-top: 6rpx;
+}
+
+/* -- 表单 -- */
+.ap-scroll {
+	flex: 1;
+	padding: 12rpx 28rpx;
+}
+.ap-field {
+	margin-bottom: 28rpx;
+}
+.ap-half {
+	flex: 1;
+	margin-right: 16rpx;
+}
+.ap-field-header {
+	flex-direction: row;
+	align-items: center;
+	margin-bottom: 12rpx;
+}
+.ap-field-icon {
+	font-size: 30rpx;
+	margin-right: 10rpx;
+}
+.ap-label {
+	font-size: 28rpx;
+	font-weight: 700;
+	color: #5C4033;
+}
+.ap-input {
+	height: 88rpx;
+	padding: 0 24rpx;
+	background-color: #FFFFFF;
+	border-radius: 20rpx;
+	font-size: 30rpx;
+	color: #3D2C2A;
+}
+.ap-input::placeholder {
+	color: #C8B8B0;
+}
+
+/* -- chips -- */
+.ap-chips {
+	flex-direction: row;
+}
+.ap-chip {
+	flex: 1;
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	height: 88rpx;
+	border-radius: 20rpx;
+	background-color: #FFFFFF;
+	margin-right: 16rpx;
+}
+.ap-chip-on {
+	background-color: #FF8C42;
+}
+.ap-chip-male {
+	background-color: #E8F4FD;
+}
+.ap-chip-female {
+	background-color: #FDE8EE;
+}
+.ap-chip-emoji {
+	font-size: 32rpx;
+	margin-right: 10rpx;
+}
+.ap-chip-text {
+	font-size: 28rpx;
+	color: #5C4033;
+	font-weight: 700;
+}
+.ap-chip-on .ap-chip-text {
+	color: #FFFFFF;
+}
+
+/* -- picker -- */
+.ap-picker {
+	flex-direction: row;
+	align-items: center;
+	height: 88rpx;
+	padding: 0 24rpx;
+	background-color: #FFFFFF;
+	border-radius: 20rpx;
+}
+.ap-picker-text {
+	flex: 1;
+	font-size: 30rpx;
+	color: #3D2C2A;
+}
+.ap-picker-placeholder {
+	color: #C8B8B0;
+}
+.ap-picker-arrow {
+	font-size: 22rpx;
+	color: #C8B8B0;
+}
+
+/* -- row fields -- */
+.ap-row-fields {
+	flex-direction: row;
+}
+
+/* -- submit -- */
+.ap-submit {
+	margin-top: 40rpx;
+	margin-bottom: 40rpx;
+	height: 96rpx;
+	background-color: #FF8C42;
+	border-radius: 48rpx;
+	align-items: center;
+	justify-content: center;
+}
+.ap-submit-text {
+	font-size: 32rpx;
+	color: #FFFFFF;
+	font-weight: 700;
+}
 </style>

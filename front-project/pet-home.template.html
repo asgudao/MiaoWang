@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>喵汪</title>
+<style>
+:root { --warm: #FF8C42; --ink: #3D2C2A; --mint: #7EC8A0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--ink);
+  background: linear-gradient(180deg, #FFE4C7 0%, #FFF3E7 52%, #FFDDBE 100%);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+#scene { position: relative; height: 100%; display: flex; flex-direction: column; }
+#embers { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.ember {
+  position: absolute; bottom: -12px; width: 4px; height: 4px; border-radius: 50%;
+  background: #FFB36B; box-shadow: 0 0 8px rgba(255, 140, 66, 0.85); opacity: 0;
+  animation-name: ember-rise; animation-timing-function: linear; animation-iteration-count: infinite;
+}
+@keyframes ember-rise {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  12% { opacity: 0.8; }
+  100% { transform: translateY(-105vh) translateX(18px); opacity: 0; }
+}
+.topbar {
+  position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 14px) 18px 4px;
+}
+.brand { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 800; letter-spacing: 0; color: #C25E1F; }
+.brand-mark { width: 22px; height: 22px; color: var(--warm); display: flex; }
+.brand-mark svg { width: 100%; height: 100%; }
+.status-badge {
+  display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.74); border: 1px solid rgba(255, 140, 66, 0.25);
+  font-size: 12px; font-weight: 600; color: #8A5A3C;
+}
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); }
+.scene-sick .status-dot { background: #E8666A; }
+.scene-low .status-dot { background: #F0A93B; }
+.stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; z-index: 1; }
+.pet3d { width: min(90vw, 440px); aspect-ratio: 1 / 1.35; position: relative; transition: filter 0.3s ease; touch-action: manipulation; cursor: default; }
+.pet3d canvas { width: 100% !important; height: 100% !important; display: block; touch-action: none; }
+.scene-sick .pet3d { filter: grayscale(0.9) saturate(0.55) brightness(0.95); }
+.scene-low .pet3d { filter: saturate(0.55) brightness(0.92); animation: low-pulse 2.4s ease-in-out infinite; }
+@keyframes low-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.72; } }
+.burst-dot {
+  position: fixed; width: 8px; height: 8px; border-radius: 50%; background: #FFB36B;
+  box-shadow: 0 0 6px rgba(255, 140, 66, 0.8); pointer-events: none; z-index: 5; animation: burst 0.7s ease-out forwards;
+}
+@keyframes burst {
+  0% { transform: translate(-50%, -50%) scale(0.6); opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0); opacity: 0; }
+}
+@media (max-height: 620px) { .pet3d { width: min(72vw, 330px); } }
+</style>
+</head>
+<body>
+<div id="scene" class="scene-normal">
+  <div id="embers"></div>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2.5c3.8 3 5.8 6.3 5.8 9.6 0 3.4-2.5 5.9-5.8 5.9S6.2 15.5 6.2 12.1C6.2 8.8 8.2 5.5 12 2.5z"/>
+          <path d="M12 5.2c2.3 2 3.4 4 3.4 6.2 0 2.3-1.5 3.9-3.4 3.9S8.6 13.7 8.6 11.4c0-2.2 1.1-4.2 3.4-6.2z" fill="#FFD166"/>
+        </svg>
+      </span>
+      喵汪
+    </div>
+    <div id="statusBadge" class="status-badge"><span class="status-dot"></span><span id="statusText">状态正常</span></div>
+  </header>
+  <main class="stage">
+    <div id="pet3d" class="pet3d" role="button" aria-label="宠物"></div>
+  </main>
+</div>
+<script src="lib/three-legacy/three.min.js"></script>
+<script src="lib/three-legacy/OrbitControls.js"></script>
+<script src="lib/three-legacy/GLTFLoader.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var GLB_BASE64 = "__PET_GLB__";
+  window.PET_CONFIG = { status: "normal" };
+  var STATUS_TEXT = { normal: "状态正常", sick: "状态不佳", low: "能量不足" };
+
+  var sceneEl = document.getElementById("scene");
+  var petEl = document.getElementById("pet3d");
+  var statusText = document.getElementById("statusText");
+  var renderer = null, camera = null, controls = null, mixer = null, clock = null;
+  var modelRoot = null, threeScene = null;
+
+  function fitModel(root) {
+    var box = new THREE.Box3().setFromObject(root);
+    var size = box.getSize(new THREE.Vector3());
+    var center = box.getCenter(new THREE.Vector3());
+    var maxDim = Math.max(size.x, size.y, size.z) || 1;
+    root.scale.setScalar(2.35 / maxDim);
+    root.position.sub(center.clone().multiplyScalar(2.35 / maxDim));
+    var b2 = new THREE.Box3().setFromObject(root);
+    root.position.y -= b2.min.y;
+  }
+
+  function resize() {
+    var w = petEl.clientWidth || 300;
+    var h = petEl.clientHeight || 300;
+    if (renderer) renderer.setSize(w, h, false);
+    if (camera) { camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  }
+
+  function initThree() {
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.3;
+      petEl.appendChild(renderer.domElement);
+    } catch (e) {
+      console.error("[pet] renderer failed", e);
+      return;
+    }
+
+    var w = petEl.clientWidth || 300;
+    var h = petEl.clientHeight || 300;
+    camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 100);
+    camera.position.set(0, 1.0, 3.4);
+
+    threeScene = new THREE.Scene();
+    threeScene.add(new THREE.AmbientLight(0xffffff, 0.85));
+    var key = new THREE.DirectionalLight(0xffffff, 1.05);
+    key.position.set(2, 4, 3);
+    threeScene.add(key);
+    var fill = new THREE.DirectionalLight(0xffe8d0, 0.35);
+    fill.position.set(-2, 1, -2);
+    threeScene.add(fill);
+
+    renderer.domElement.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
+    renderer.domElement.addEventListener('gesturechange', function (e) { e.preventDefault(); });
+    renderer.domElement.addEventListener('wheel', function (e) { e.preventDefault(); e.stopPropagation(); }, { passive: false, capture: true });
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enabled = false;
+    controls.enableZoom = false;
+    controls.zoomSpeed = 0;
+    controls.enablePan = false;
+    controls.enableDamping = true;
+    controls.autoRotate = false;
+    controls.rotateSpeed = 0.8;
+    controls.minPolarAngle = 1.15;
+    controls.maxPolarAngle = 2.05;
+    controls.minAzimuthAngle = -1.1;
+    controls.maxAzimuthAngle = 1.1;
+    controls.target.set(0, 0.85, 0);
+
+    clock = new THREE.Clock();
+
+    var bin = atob(GLB_BASE64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    var loader = new THREE.GLTFLoader();
+    loader.parse(bytes.buffer, "", function (gltf) {
+      modelRoot = gltf.scene;
+      var holder = new THREE.Group();
+      holder.add(modelRoot);
+      threeScene.add(holder);
+      fitModel(modelRoot);
+      modelRoot.position.y -= 1.0;
+      threeScene.updateMatrixWorld(true);
+      var box = new THREE.Box3().setFromObject(modelRoot);
+      var size = box.getSize(new THREE.Vector3());
+      var radius = Math.max(0.55, Math.max(size.x, size.z) * 0.5 * 1.35);
+      var platform = new THREE.Mesh(
+        new THREE.CylinderGeometry(radius, radius, 0.06, 64),
+        new THREE.MeshStandardMaterial({ color: 0xf4e7d3, roughness: 0.85, metalness: 0.05 })
+      );
+      platform.position.set(modelRoot.position.x, box.min.y + 1.35, modelRoot.position.z);
+      threeScene.add(platform);
+      controls.target.set(0, 1.0, 0);
+      camera.position.set(0, 2.7, 5.7);
+      controls.update();
+      if (gltf.animations && gltf.animations.length > 0) {
+        var clip = gltf.animations[0].clone();
+        clip.tracks = clip.tracks.filter(function (track) {
+          return track.name.indexOf('.position') === -1;
+        });
+        mixer = new THREE.AnimationMixer(modelRoot);
+        mixer.clipAction(clip).play();
+      }
+    }, function (err) {
+      console.error("[pet] model load failed", err);
+    });
+
+    resize();
+    window.addEventListener("resize", resize);
+    animate();
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    var dt = Math.min(clock.getDelta(), 0.05);
+    if (mixer) mixer.update(dt);
+
+    if (controls) controls.update();
+    if (renderer && threeScene) renderer.render(threeScene, camera);
+  }
+
+  function spawnBurst(x, y) {
+    for (var i = 0; i < 8; i++) {
+      var dot = document.createElement("span");
+      dot.className = "burst-dot";
+      var angle = (Math.PI * 2 * i) / 8 + Math.random() * 0.6;
+      var dist = 22 + Math.random() * 26;
+      dot.style.left = x + "px";
+      dot.style.top = y + "px";
+      dot.style.setProperty("--dx", Math.cos(angle) * dist + "px");
+      dot.style.setProperty("--dy", Math.sin(angle) * dist + "px");
+      document.body.appendChild(dot);
+      (function (el) { setTimeout(function () { el.remove(); }, 760); })(dot);
+    }
+  }
+
+  function setPetStatus(name) {
+    if (STATUS_TEXT[name] == null) name = "normal";
+    PET_CONFIG.status = name;
+    sceneEl.className = "scene-" + name;
+    statusText.textContent = STATUS_TEXT[name];
+  }
+
+  function makeEmbers() {
+    var wrap = document.getElementById("embers");
+    for (var i = 0; i < 14; i++) {
+      var e = document.createElement("span");
+      e.className = "ember";
+      var size = 3 + Math.random() * 3;
+      e.style.width = size + "px";
+      e.style.height = size + "px";
+      e.style.left = (2 + Math.random() * 96) + "%";
+      e.style.animationDuration = (7 + Math.random() * 6) + "s";
+      e.style.animationDelay = (Math.random() * 12) + "s";
+      wrap.appendChild(e);
+    }
+  }
+
+  petEl.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    spawnBurst(e.clientX || e.pageX, e.clientY || e.pageY);
+  });
+
+  window.setPetStatus = setPetStatus;
+
+  document.addEventListener('wheel', function (e) { e.preventDefault(); }, { passive: false });
+  document.addEventListener('keydown', function (e) { if (e.ctrlKey || e.metaKey) { if (e.key === '+' || e.key === '=' || e.key === '-' || e.key === '0') { e.preventDefault(); } } });
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+  document.addEventListener('gesturechange', function (e) { e.preventDefault(); });
+  function boot() {
+    var m = location.search.match(/[?&]status=([^&]+)/);
+    setPetStatus(m ? decodeURIComponent(m[1]) : PET_CONFIG.status);
+    makeEmbers();
+    initThree();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+</body>
+</html>

@@ -25,6 +25,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
+        @Override
     public LoginResponse login(String phone) {
         User user = getByPhone(phone);
         if (user == null) {
@@ -35,6 +36,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
+        @Override
     public User register(String phone, String nickname) {
         User exist = getByPhone(phone);
         if (exist != null) {

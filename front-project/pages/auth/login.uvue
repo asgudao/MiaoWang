@@ -1,33 +1,40 @@
 <template>
 	<view class="lg-page">
+		<image class="lg-bg" src="/static/home_background.png" mode="aspectFill" />
+		<!-- 顶部装饰区 -->
+		<view class="lg-hero">
+			<image class="lg-logo-img" src="/static/logo.png" mode="aspectFit" />
+			<text class="lg-logo">喵汪</text>
+			<text class="lg-slogan">科学养宠，温柔陪伴</text>
+		</view>
+
+		<!-- 表单卡片 -->
 		<view class="lg-card">
-			<text class="lg-logo">馃惐馃惗</text>
-			<text class="lg-title">鍠垫豹</text>
-			<text class="lg-sub">瀹犵墿鍏绘姢鍔╂墜</text>
+			<image class="lg-card-bg" src="/static/home_frame.png" mode="scaleToFill" />
+			<text class="lg-card-title">欢迎回来</text>
+			<text class="lg-card-sub">登录以管理你的萌宠</text>
 
 			<view class="lg-field">
-				<text class="lg-label">鎵嬫満鍙?/text>
-				<input class="lg-input" v-model="phone" type="number" maxlength="11" placeholder="璇疯緭鍏ユ墜鏈哄彿" />
+			<image class="lg-field-bg" src="/static/home_input.png" mode="scaleToFill" />
+				<input class="lg-input" v-model="phone" type="number" maxlength="11" placeholder="请输入手机号" />
 			</view>
 
-			<view class="lg-btn" @click="doLogin">
-				<text class="lg-btn-text">鐧诲綍</text>
-			</view>
+			<image class="lg-btn-img" src="/static/load.png" mode="widthFix" @click="doLogin" />
 
-			<view class="lg-switch" @click="goRegister">
-				<text class="lg-switch-text">娌℃湁璐﹀彿锛熷幓娉ㄥ唽</text>
-			</view>
+			<image class="lg-register-img" src="/static/register.png" mode="widthFix" @click="goRegister" />
 		</view>
+
+		<text class="lg-footer-note">喵汪 · 宠物养护助手</text>
 	</view>
 </template>
 
 <script setup lang="uts">
-const BASE = "http://192.168.1.5:8080"
+const BASE = "http://192.168.178.183:8080"
 const phone = ref("")
 
 function doLogin(): void {
 	if (phone.value === "" || phone.value.length !== 11) {
-		uni.showToast({ title: "璇疯緭鍏ユ纭殑鎵嬫満鍙?, icon: "none" })
+		uni.showToast({ title: "请输入正确的手机号", icon: "none" })
 		return
 	}
 	const body = new UTSJSONObject()
@@ -51,16 +58,16 @@ function doLogin(): void {
 						if (t != null) {
 							uni.setStorageSync("token", t)
 							uni.setStorageSync("phone", phone.value)
-							uni.showToast({ title: "鐧诲綍鎴愬姛", icon: "success" })
+							uni.showToast({ title: "登录成功", icon: "success" })
 							uni.reLaunch({ url: "/pages/index/index" })
 							return
 						}
 					}
 				}
-				uni.showToast({ title: "鎵嬫満鍙锋湭娉ㄥ唽", icon: "none" })
+				uni.showToast({ title: "手机号未注册", icon: "none" })
 			}
 		},
-		fail: (): void => { uni.showToast({ title: "缃戠粶閿欒", icon: "none" }) }
+		fail: (): void => { uni.showToast({ title: "网络错误", icon: "none" }) }
 	})
 }
 
@@ -70,16 +77,123 @@ function goRegister(): void {
 </script>
 
 <style>
-.lg-page { background-color: #FFF8F0; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 48rpx; }
-.lg-card { width: 640rpx; padding: 60rpx 48rpx; background-color: #FFF; border-radius: 24rpx; align-items: center; }
-.lg-logo { font-size: 80rpx; }
-.lg-title { font-size: 44rpx; font-weight: 700; color: #FF8C42; margin-top: 16rpx; }
-.lg-sub { font-size: 26rpx; color: #999; margin: 8rpx 0 48rpx; }
-.lg-field { width: 100%; margin-bottom: 32rpx; }
-.lg-label { font-size: 26rpx; color: #666; margin-bottom: 10rpx; }
-.lg-input { height: 88rpx; padding: 0 24rpx; background-color: #F5F5F5; border-radius: 16rpx; font-size: 30rpx; color: #333; }
-.lg-btn { width: 100%; height: 88rpx; background-color: #FF8C42; border-radius: 44rpx; align-items: center; justify-content: center; margin-top: 16rpx; }
-.lg-btn-text { font-size: 32rpx; color: #FFF; font-weight: 600; }
-.lg-switch { margin-top: 28rpx; padding: 12rpx; }
-.lg-switch-text { font-size: 26rpx; color: #FF8C42; }
+.lg-page {
+	flex: 1;
+	flex-direction: column;
+	background-color: transparent;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+	overflow: hidden;
+}
+.lg-bg {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: -1;
+}
+
+
+/* -- 顶部装饰 -- */
+.lg-hero {
+	align-items: center;
+	margin-bottom: 48rpx;
+}
+.lg-logo-img {
+	width: 220rpx;
+	height: 220rpx;
+	margin-bottom: 16rpx;
+}
+.lg-logo {
+	font-size: 56rpx;
+	font-weight: 800;
+	color: #FF8C42;
+}
+.lg-slogan {
+	font-size: 26rpx;
+	color: #D4A082;
+	margin-top: 8rpx;
+}
+
+/* -- 卡片 -- */
+.lg-card {
+	width: 640rpx;
+	height: 685rpx;
+	padding: 48rpx 44rpx 40rpx;
+	background-color: transparent;
+	border-radius: 24rpx;
+	overflow: hidden;
+	position: relative;
+	align-items: center;
+}
+.lg-card-bg {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: -1;
+}
+.lg-card-title {
+	font-size: 36rpx;
+	font-weight: 700;
+	color: #3D2C2A;
+	margin-bottom: 8rpx;
+}
+.lg-card-sub {
+	font-size: 26rpx;
+	color: #B8A098;
+	margin-bottom: 40rpx;
+}
+
+/* -- 输入框 -- */
+.lg-field {
+	width: 100%;
+	flex-direction: row;
+	align-items: center;
+	height: 96rpx;
+	padding: 0 24rpx;
+	background-color: transparent;
+	border-radius: 48rpx;
+	position: relative;
+	overflow: hidden;
+	margin-bottom: 32rpx;
+}
+.lg-field-bg {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+}
+.lg-field-icon {
+	font-size: 36rpx;
+	margin-right: 14rpx;
+}
+.lg-input {
+	flex: 1;
+	height: 96rpx;
+	font-size: 30rpx;
+	color: #3D2C2A;
+}
+
+/* -- 按钮 -- */
+.lg-btn-img {
+	width: 400rpx;
+	margin-top: 16rpx;
+}
+
+.lg-register-img {
+	width: 400rpx;
+	margin-top: 24rpx;
+}
+
+/* -- 底部 -- */
+.lg-footer-note {
+	font-size: 22rpx;
+	color: #D4C8C0;
+	margin-top: 48rpx;
+}
 </style>

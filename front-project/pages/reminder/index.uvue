@@ -1,35 +1,52 @@
 <template>
 	<view class="rm-page">
+		<!-- 头部 -->
+		<view class="rm-header">
+			<text class="rm-header-title">📅 护理日历</text>
+			<text class="rm-header-sub">不再错过每一次呵护</text>
+		</view>
+
 		<scroll-view scroll-y="true" class="rm-scroll">
 			<view class="rm-pet-section" v-for="pet in pets" :key="pet.id">
-				<view class="rm-pet-header">
-					<text class="rm-pet-icon">{{ pet.species === 1 ? '🐱' : '🐶' }}</text>
+				<!-- 宠物头部 -->
+				<view class="rm-pet-bar">
+					<view class="rm-pet-avatar">
+						<text class="rm-pet-icon">{{ pet.species === 1 ? '🐱' : '🐶' }}</text>
+					</view>
 					<text class="rm-pet-name">{{ pet.name }}</text>
 				</view>
+
+				<!-- 提醒列表 -->
 				<view class="rm-list">
 					<view class="rm-card" v-for="r in pet.reminders" :key="r.id">
-						<view class="rm-left">
-							<text class="rm-type">{{ typeLabel(r.ruleType) }}</text>
-							<text class="rm-date">{{ r.nextDate }}</text>
+						<view class="rm-card-icon" :style="{ backgroundColor: statusBgColor(r.nextDate) }">
+							<text>{{ typeEmoji(r.ruleType) }}</text>
 						</view>
-						<view class="rm-right">
-							<text class="rm-cycle">每{{ r.cycleDays }}天</text>
-							<view class="rm-status" :style="{ backgroundColor: statusColor(r.nextDate) }">
-								<text class="rm-status-text">{{ statusText(r.nextDate) }}</text>
-							</view>
+						<view class="rm-card-mid">
+							<text class="rm-card-type">{{ typeLabel(r.ruleType) }}</text>
+							<text class="rm-card-date">{{ r.nextDate }}</text>
+							<text class="rm-card-cycle">每隔 {{ r.cycleDays }} 天</text>
+						</view>
+						<view class="rm-card-status" :style="{ backgroundColor: statusColor(r.nextDate) }">
+							<text class="rm-status-text">{{ statusText(r.nextDate) }}</text>
 						</view>
 					</view>
 				</view>
-				<view class="rm-add-btn" @click="openAdd(pet.id, pet.name)"><text class="rm-add-text">+ 添加提醒</text></view>
+
+				<!-- 添加 -->
+				<view class="rm-add-btn" @click="openAdd(pet.id, pet.name)">
+					<text class="rm-add-text">＋ 添加提醒</text>
+				</view>
 			</view>
 		</scroll-view>
 
+		<!-- 弹窗 -->
 		<view class="rm-modal" v-if="showModal">
 			<view class="rm-mask" @click="showModal=false"></view>
 			<view class="rm-form">
 				<text class="rm-form-title">为 {{ addPetName }} 添加提醒</text>
 				<view class="rm-field">
-					<text class="rm-label">类型</text>
+					<text class="rm-label">提醒类型</text>
 					<picker :range="typeOptions" @change="onTypePick">
 						<view class="rm-picker"><text>{{ typeOptions[addTypeIdx] }}</text></view>
 					</picker>
@@ -40,11 +57,11 @@
 				</view>
 				<view class="rm-field">
 					<text class="rm-label">间隔天数</text>
-					<input class="rm-input" v-model="addCycle" type="number" placeholder="如90" />
+					<input class="rm-input" v-model="addCycle" type="number" placeholder="如 90" />
 				</view>
 				<view class="rm-actions">
-					<view class="rm-cancel" @click="showModal=false"><text class="rm-cancel-text">取消</text></view>
-					<view class="rm-confirm" @click="doAdd"><text class="rm-confirm-text">确定</text></view>
+					<view class="rm-cancel" @click="showModal=false"><text>取消</text></view>
+					<view class="rm-confirm" @click="doAdd"><text>确定</text></view>
 				</view>
 			</view>
 		</view>
@@ -52,7 +69,7 @@
 </template>
 
 <script setup lang="uts">
-const BASE = "http://192.168.1.5:8080"
+const BASE = "http://192.168.178.183:8080"
 
 type RemData = { id: number; ruleType: string; nextDate: string; cycleDays: number; enabled: boolean }
 type PetWithRem = { id: number; name: string; species: number; reminders: RemData[] }
@@ -68,8 +85,6 @@ const addTypeIdx = ref(0)
 const addDate = ref("")
 const addCycle = ref("90")
 
-/* ---- helper functions ---- */
-
 function getToken(): string {
 	const t = uni.getStorageSync("token")
 	return t != null ? t as string : ""
@@ -84,12 +99,21 @@ function parseDate(s: string): number {
 	return new Date(y, m, d).getTime()
 }
 
+function typeEmoji(t: string): string {
+	if (t === "vaccine") return "💉"
+	if (t === "deworm") return "💊"
+	if (t === "nail") return "✂️"
+	if (t === "bath") return "🛁"
+	if (t === "checkup") return "🏥"
+	return "📋"
+}
+
 function typeLabel(t: string): string {
-	if (t === "vaccine") return "💉 疫苗"
-	if (t === "deworm") return "💊 驱虫"
-	if (t === "nail") return "✂️ 剪指甲"
-	if (t === "bath") return "🛁 洗澡"
-	if (t === "checkup") return "🏥 体检"
+	if (t === "vaccine") return "疫苗"
+	if (t === "deworm") return "驱虫"
+	if (t === "nail") return "剪指甲"
+	if (t === "bath") return "洗澡"
+	if (t === "checkup") return "体检"
 	return t
 }
 
@@ -98,10 +122,21 @@ function statusColor(dateStr: string): string {
 	const now = Date.now()
 	const diff = d - now
 	const dayMs: number = 86400000
-	if (diff < 0) return "#FF4444"
-	if (diff < 3 * dayMs) return "#FF8C42"
-	if (diff < 7 * dayMs) return "#FFD700"
-	return "#4CAF50"
+	if (diff < 0) return "#FFE0E0"
+	if (diff < 3 * dayMs) return "#FFF0E0"
+	if (diff < 7 * dayMs) return "#FFF8E0"
+	return "#E8F6E8"
+}
+
+function statusBgColor(dateStr: string): string {
+	const d = parseDate(dateStr)
+	const now = Date.now()
+	const diff = d - now
+	const dayMs: number = 86400000
+	if (diff < 0) return "#FFF0F0"
+	if (diff < 3 * dayMs) return "#FFF5EC"
+	if (diff < 7 * dayMs) return "#FFFBE8"
+	return "#F0FAF0"
 }
 
 function statusText(dateStr: string): string {
@@ -116,10 +151,8 @@ function statusText(dateStr: string): string {
 		const days: number = Math.ceil(diff / dayMs)
 		return days + "天后"
 	}
-	return ""
+	return "还早"
 }
-
-/* ---- data functions ---- */
 
 function loadReminders(petId: number, idx: number): void {
 	const token = getToken()
@@ -210,8 +243,6 @@ function loadData(): void {
 	})
 }
 
-/* ---- modal functions ---- */
-
 function openAdd(petId: number, petName: string): void {
 	addPetId.value = petId
 	addPetName.value = petName
@@ -268,34 +299,205 @@ onShow(() => { loadData() })
 </script>
 
 <style>
-.rm-page { background-color: #FFF8F0; flex: 1; flex-direction: column; }
-.rm-scroll { flex: 1; padding: 20rpx 24rpx; }
-.rm-pet-section { margin-bottom: 28rpx; }
-.rm-pet-header { flex-direction: row; align-items: center; margin-bottom: 12rpx; }
-.rm-pet-icon { font-size: 40rpx; margin-right: 12rpx; }
-.rm-pet-name { font-size: 34rpx; font-weight: 700; color: #333; }
-.rm-list { flex-direction: column; }
-.rm-card { flex-direction: row; justify-content: space-between; align-items: center; padding: 20rpx; margin-bottom: 8rpx; background-color: #FFF; border-radius: 14rpx; }
-.rm-left { flex-direction: column; }
-.rm-type { font-size: 26rpx; color: #333; font-weight: 600; }
-.rm-date { font-size: 22rpx; color: #999; margin-top: 4rpx; }
-.rm-right { align-items: flex-end; }
-.rm-cycle { font-size: 22rpx; color: #999; }
-.rm-status { padding: 4rpx 16rpx; border-radius: 20rpx; margin-top: 6rpx; }
-.rm-status-text { font-size: 20rpx; color: #FFF; font-weight: 600; }
-.rm-add-btn { padding: 16rpx; background-color: #FF8C42; border-radius: 12rpx; align-items: center; margin-top: 8rpx; }
-.rm-add-text { font-size: 24rpx; color: #FFF; font-weight: 600; }
-.rm-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; align-items: center; justify-content: center; }
-.rm-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.4); }
-.rm-form { width: 600rpx; padding: 36rpx; background-color: #FFF; border-radius: 20rpx; }
-.rm-form-title { font-size: 30rpx; font-weight: 700; color: #333; margin-bottom: 28rpx; text-align: center; }
-.rm-field { margin-bottom: 20rpx; }
-.rm-label { font-size: 26rpx; color: #666; margin-bottom: 8rpx; }
-.rm-input { height: 72rpx; padding: 0 20rpx; background-color: #F5F5F5; border-radius: 12rpx; font-size: 26rpx; color: #333; }
-.rm-picker { height: 72rpx; padding: 0 20rpx; background-color: #F5F5F5; border-radius: 12rpx; justify-content: center; font-size: 26rpx; color: #333; }
-.rm-actions { flex-direction: row; justify-content: space-between; margin-top: 28rpx; }
-.rm-cancel { flex: 1; height: 72rpx; background-color: #F5F5F5; border-radius: 12rpx; align-items: center; justify-content: center; margin-right: 16rpx; }
-.rm-cancel-text { font-size: 26rpx; color: #666; }
-.rm-confirm { flex: 1; height: 72rpx; background-color: #FF8C42; border-radius: 12rpx; align-items: center; justify-content: center; }
-.rm-confirm-text { font-size: 26rpx; color: #FFF; font-weight: 600; }
+.rm-page {
+	flex: 1;
+	flex-direction: column;
+	background-color: #FFF5EC;
+}
+
+/* -- 头部 -- */
+.rm-header {
+	padding: 48rpx 32rpx 12rpx;
+}
+.rm-header-title {
+	font-size: 38rpx;
+	font-weight: 800;
+	color: #3D2C2A;
+}
+.rm-header-sub {
+	font-size: 24rpx;
+	color: #B8A098;
+	margin-top: 6rpx;
+}
+
+/* -- 滚动区 -- */
+.rm-scroll {
+	flex: 1;
+	padding: 8rpx 28rpx;
+}
+
+/* -- 宠物区块 -- */
+.rm-pet-section {
+	margin-bottom: 32rpx;
+}
+.rm-pet-bar {
+	flex-direction: row;
+	align-items: center;
+	margin-bottom: 14rpx;
+}
+.rm-pet-avatar {
+	width: 64rpx;
+	height: 64rpx;
+	border-radius: 32rpx;
+	background-color: #FFF0E5;
+	align-items: center;
+	justify-content: center;
+	margin-right: 16rpx;
+}
+.rm-pet-icon {
+	font-size: 36rpx;
+}
+.rm-pet-name {
+	font-size: 32rpx;
+	font-weight: 700;
+	color: #3D2C2A;
+}
+
+/* -- 提醒卡片 -- */
+.rm-card {
+	flex-direction: row;
+	align-items: center;
+	margin-bottom: 10rpx;
+	padding: 22rpx 24rpx;
+	background-color: #FFFFFF;
+	border-radius: 20rpx;
+}
+.rm-card-icon {
+	width: 80rpx;
+	height: 80rpx;
+	border-radius: 18rpx;
+	align-items: center;
+	justify-content: center;
+	margin-right: 20rpx;
+	font-size: 36rpx;
+}
+.rm-card-mid {
+	flex: 1;
+	flex-direction: column;
+}
+.rm-card-type {
+	font-size: 28rpx;
+	font-weight: 700;
+	color: #3D2C2A;
+}
+.rm-card-date {
+	font-size: 24rpx;
+	color: #8C7A70;
+	margin-top: 4rpx;
+}
+.rm-card-cycle {
+	font-size: 22rpx;
+	color: #B8A098;
+	margin-top: 2rpx;
+}
+.rm-card-status {
+	padding: 8rpx 20rpx;
+	border-radius: 24rpx;
+}
+.rm-status-text {
+	font-size: 22rpx;
+	font-weight: 700;
+	color: #8C7A70;
+}
+
+/* -- 添加按钮 -- */
+.rm-add-btn {
+	padding: 18rpx 0;
+	border-radius: 40rpx;
+	border: 2rpx dashed #FFD4B8;
+	align-items: center;
+	margin-top: 8rpx;
+}
+.rm-add-text {
+	font-size: 24rpx;
+	color: #FF8C42;
+	font-weight: 600;
+}
+
+/* -- 弹窗 -- */
+.rm-modal {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	align-items: center;
+	justify-content: center;
+}
+.rm-mask {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-color: rgba(0,0,0,0.35);
+}
+.rm-form {
+	width: 600rpx;
+	padding: 40rpx 36rpx;
+	background-color: #FFFFFF;
+	border-radius: 28rpx;
+}
+.rm-form-title {
+	font-size: 32rpx;
+	font-weight: 700;
+	color: #3D2C2A;
+	margin-bottom: 32rpx;
+	text-align: center;
+}
+.rm-field {
+	margin-bottom: 22rpx;
+}
+.rm-label {
+	font-size: 26rpx;
+	color: #8C7A70;
+	margin-bottom: 10rpx;
+	font-weight: 600;
+}
+.rm-input {
+	height: 80rpx;
+	padding: 0 22rpx;
+	background-color: #FFF8F2;
+	border-radius: 16rpx;
+	font-size: 28rpx;
+	color: #3D2C2A;
+	border: 2rpx solid #FFE8D6;
+}
+.rm-picker {
+	height: 80rpx;
+	padding: 0 22rpx;
+	background-color: #FFF8F2;
+	border-radius: 16rpx;
+	justify-content: center;
+	font-size: 28rpx;
+	color: #3D2C2A;
+	border: 2rpx solid #FFE8D6;
+}
+.rm-actions {
+	flex-direction: row;
+	margin-top: 32rpx;
+}
+.rm-cancel {
+	flex: 1;
+	height: 80rpx;
+	background-color: #F5F0EC;
+	border-radius: 40rpx;
+	align-items: center;
+	justify-content: center;
+	margin-right: 16rpx;
+	font-size: 28rpx;
+	color: #8C7A70;
+	font-weight: 600;
+}
+.rm-confirm {
+	flex: 1;
+	height: 80rpx;
+	background-color: #FF8C42;
+	border-radius: 40rpx;
+	align-items: center;
+	justify-content: center;
+	font-size: 28rpx;
+	color: #FFFFFF;
+	font-weight: 700;
+}
 </style>

@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="uts">
-const BASE = "http://192.168.1.5:8080"
+const BASE = "http://192.168.178.183:8080"
 
 type DetailData = { id: number; title: string; content: string; viewCount: number }
 

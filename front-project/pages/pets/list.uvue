@@ -1,24 +1,59 @@
 <template>
 	<view class="pl-page">
-		<view class="pl-header"><text class="pl-title">我的萌宠</text></view>
-		<scroll-view scroll-y="true" class="pl-list">
+		<!-- 顶部 -->
+		<view class="pl-header">
+			<view class="pl-header-left">
+				<text class="pl-header-emoji">🐾</text>
+				<text class="pl-header-title">我的萌宠</text>
+			</view>
+			<text class="pl-header-count" v-if="pets.length > 0">{{ pets.length }} 只小伙伴</text>
+		</view>
+
+		<!-- 空状态 -->
+		<view class="pl-empty" v-if="pets.length === 0">
+			<text class="pl-empty-emoji">🐱</text>
+			<text class="pl-empty-title">还没有添加萌宠</text>
+			<text class="pl-empty-desc">点击下方按钮，添加你的第一个小伙伴吧</text>
+		</view>
+
+		<!-- 宠物列表 -->
+		<scroll-view scroll-y="true" class="pl-list" v-if="pets.length > 0">
 			<view class="pl-card" v-for="pet in pets" :key="pet.id">
-				<view class="pl-top">
-					<text class="pl-avatar">🐱</text>
+				<view class="pl-card-left">
+					<view class="pl-avatar-wrap">
+						<text class="pl-avatar">{{ pet.breedName !== "" && pet.breedName.includes("猫") ? "🐱" : "🐶" }}</text>
+					</view>
 					<view class="pl-info">
 						<text class="pl-name">{{ pet.name }}</text>
-						<text class="pl-breed">{{ pet.breedName !== "" ? pet.breedName : "未知品种" }}</text>
-						<text class="pl-detail">{{ pet.gender === 1 ? "公" : "母" }} | {{ pet.age }} 岁 | {{ pet.weight }}kg</text>
+						<view class="pl-tags">
+							<text class="pl-breed-tag">{{ pet.breedName !== "" ? pet.breedName : "未知品种" }}</text>
+							<text class="pl-gender-tag">{{ pet.gender === 1 ? "♂ 公" : "♀ 母" }}</text>
+						</view>
+					</view>
+				</view>
+				<view class="pl-card-right">
+					<view class="pl-stat">
+						<text class="pl-stat-val">{{ pet.age }}</text>
+						<text class="pl-stat-label">岁</text>
+					</view>
+					<view class="pl-stat">
+						<text class="pl-stat-val">{{ pet.weight }}</text>
+						<text class="pl-stat-label">kg</text>
 					</view>
 				</view>
 			</view>
 		</scroll-view>
-		<view class="pl-add" @click="addPet"><text class="pl-add-text">+ 添加宠物</text></view>
+
+		<!-- 添加按钮 -->
+		<view class="pl-add" @click="addPet">
+			<text class="pl-add-icon">＋</text>
+			<text class="pl-add-text">添加宠物</text>
+		</view>
 	</view>
 </template>
 
 <script setup lang="uts">
-const BASE = "http://192.168.1.5:8080"
+const BASE = "http://192.168.178.183:8080"
 
 type PetData = { id: number; name: string; breedName: string; gender: number; age: number; weight: number }
 
@@ -61,17 +96,163 @@ onShow(() => { loadPets() })
 </script>
 
 <style>
-.pl-page { background-color: #FFF8F0; flex: 1; flex-direction: column; }
-.pl-header { padding: 32rpx 28rpx 16rpx; }
-.pl-title { font-size: 40rpx; font-weight: 700; color: #333; }
-.pl-list { flex: 1; padding: 8rpx 0; }
-.pl-card { margin: 12rpx 24rpx; padding: 24rpx; background-color: #FFF; border-radius: 18rpx; }
-.pl-top { flex-direction: row; align-items: center; }
-.pl-avatar { font-size: 72rpx; margin-right: 20rpx; }
-.pl-info { flex: 1; flex-direction: column; }
-.pl-name { font-size: 32rpx; font-weight: 700; color: #333; }
-.pl-breed { font-size: 24rpx; color: #999; margin-top: 4rpx; }
-.pl-detail { font-size: 22rpx; color: #666; margin-top: 4rpx; }
-.pl-add { margin: 20rpx 24rpx; padding: 20rpx; background-color: #FF8C42; border-radius: 16rpx; align-items: center; }
-.pl-add-text { font-size: 28rpx; color: #FFF; font-weight: 600; }
+.pl-page {
+	flex: 1;
+	flex-direction: column;
+	background-color: #FFF5EC;
+}
+
+/* -- 头部 -- */
+.pl-header {
+	flex-direction: row;
+	justify-content: space-between;
+	align-items: center;
+	padding: 48rpx 32rpx 24rpx;
+}
+.pl-header-left {
+	flex-direction: row;
+	align-items: center;
+}
+.pl-header-emoji {
+	font-size: 40rpx;
+	margin-right: 14rpx;
+}
+.pl-header-title {
+	font-size: 40rpx;
+	font-weight: 800;
+	color: #3D2C2A;
+}
+.pl-header-count {
+	font-size: 24rpx;
+	color: #C8B0A0;
+	background-color: #FFF0E5;
+	padding: 8rpx 20rpx;
+	border-radius: 24rpx;
+}
+
+/* -- 空状态 -- */
+.pl-empty {
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+	padding-bottom: 120rpx;
+}
+.pl-empty-emoji {
+	font-size: 120rpx;
+	margin-bottom: 24rpx;
+}
+.pl-empty-title {
+	font-size: 32rpx;
+	font-weight: 700;
+	color: #5C4033;
+	margin-bottom: 12rpx;
+}
+.pl-empty-desc {
+	font-size: 26rpx;
+	color: #B8A098;
+}
+
+/* -- 列表 -- */
+.pl-list {
+	flex: 1;
+	padding: 8rpx 28rpx;
+}
+.pl-card {
+	flex-direction: row;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 16rpx;
+	padding: 28rpx 28rpx;
+	background-color: #FFFFFF;
+	border-radius: 22rpx;
+}
+.pl-card-left {
+	flex-direction: row;
+	align-items: center;
+	flex: 1;
+}
+.pl-avatar-wrap {
+	width: 96rpx;
+	height: 96rpx;
+	border-radius: 48rpx;
+	background-color: #FFF0E5;
+	align-items: center;
+	justify-content: center;
+	margin-right: 22rpx;
+}
+.pl-avatar {
+	font-size: 48rpx;
+}
+.pl-info {
+	flex: 1;
+	flex-direction: column;
+}
+.pl-name {
+	font-size: 34rpx;
+	font-weight: 700;
+	color: #3D2C2A;
+	margin-bottom: 8rpx;
+}
+.pl-tags {
+	flex-direction: row;
+}
+.pl-breed-tag {
+	font-size: 22rpx;
+	color: #FF8C42;
+	background-color: #FFF0E5;
+	padding: 4rpx 16rpx;
+	border-radius: 20rpx;
+	margin-right: 10rpx;
+	font-weight: 600;
+}
+.pl-gender-tag {
+	font-size: 22rpx;
+	color: #8C7A70;
+	background-color: #F5F0EC;
+	padding: 4rpx 16rpx;
+	border-radius: 20rpx;
+}
+
+/* -- 右侧数据 -- */
+.pl-card-right {
+	flex-direction: row;
+	align-items: center;
+}
+.pl-stat {
+	align-items: center;
+	margin-left: 24rpx;
+	width: 72rpx;
+}
+.pl-stat-val {
+	font-size: 32rpx;
+	font-weight: 700;
+	color: #FF8C42;
+}
+.pl-stat-label {
+	font-size: 20rpx;
+	color: #B8A098;
+	margin-top: 2rpx;
+}
+
+/* -- 添加按钮 -- */
+.pl-add {
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	margin: 24rpx 28rpx 20rpx;
+	padding: 28rpx 0;
+	background-color: #FF8C42;
+	border-radius: 48rpx;
+}
+.pl-add-icon {
+	font-size: 36rpx;
+	color: #FFFFFF;
+	font-weight: 300;
+	margin-right: 10rpx;
+}
+.pl-add-text {
+	font-size: 30rpx;
+	color: #FFFFFF;
+	font-weight: 700;
+}
 </style>

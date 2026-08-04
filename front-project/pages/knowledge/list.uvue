@@ -1,27 +1,59 @@
 <template>
 	<view class="kw-page">
+		<!-- 头部 -->
+		<view class="kw-header">
+			<text class="kw-header-title">📚 养宠知识</text>
+			<text class="kw-header-sub">学会更多，更懂它</text>
+		</view>
+
+		<!-- 物种切换 -->
 		<view class="kw-species-bar">
-			<view class="kw-species-chip" :style="activeSpecies===1?speciesOn:speciesOff" @click="switchSpecies(1)">
-				<text :style="activeSpecies===1?speciesTextOn:speciesTextOff">猫</text>
+			<view class="kw-species-item" :class="activeSpecies===1?'kw-species-on':''" @click="switchSpecies(1)">
+				<text class="kw-species-emoji">🐱</text>
+				<text class="kw-species-label">猫咪</text>
 			</view>
-			<view class="kw-species-chip" :style="activeSpecies===2?speciesOn:speciesOff" @click="switchSpecies(2)">
-				<text :style="activeSpecies===2?speciesTextOn:speciesTextOff">狗</text>
+			<view class="kw-species-item" :class="activeSpecies===2?'kw-species-on':''" @click="switchSpecies(2)">
+				<text class="kw-species-emoji">🐶</text>
+				<text class="kw-species-label">狗狗</text>
 			</view>
 		</view>
-		<input class="kw-search" v-model="keyword" placeholder="搜索..." @confirm="doSearch" />
-		<scroll-view scroll-x="true" class="kw-cats">
+
+		<!-- 搜索 -->
+		<view class="kw-search-wrap">
+			<text class="kw-search-icon">🔍</text>
+			<input class="kw-search" v-model="keyword" placeholder="搜索养宠知识..." @confirm="doSearch" />
+		</view>
+
+		<!-- 分类标签 -->
+		<scroll-view scroll-x="true" class="kw-cats" v-if="categories.length > 0">
 			<view class="kw-cats-inner">
-				<view class="kw-tag" v-for="cat in categories" :key="cat.id" @click="selectCategory(cat.id)">
-					<text :style="{ color: activeCategory===cat.id ? '#FFF' : '#666' }">{{ cat.name }}</text>
+				<view class="kw-tag" :class="activeCategory===0?'kw-tag-on':''" @click="selectCategory(0)">
+					<text class="kw-tag-text">全部</text>
+				</view>
+				<view class="kw-tag" v-for="cat in categories" :key="cat.id" :class="activeCategory===cat.id?'kw-tag-on':''" @click="selectCategory(cat.id)">
+					<text class="kw-tag-text">{{ cat.name }}</text>
 				</view>
 			</view>
 		</scroll-view>
-		<scroll-view scroll-y="true" class="kw-list">
+
+		<!-- 空状态 -->
+		<view class="kw-empty" v-if="list.length === 0">
+			<text class="kw-empty-icon">📖</text>
+			<text class="kw-empty-text">暂无内容</text>
+		</view>
+
+		<!-- 文章列表 -->
+		<scroll-view scroll-y="true" class="kw-list" v-if="list.length > 0">
 			<view class="kw-item" v-for="item in list" :key="item.id" @click="goDetail(item.id)">
-				<view class="kw-cover"></view>
-				<view class="kw-info">
-					<text class="kw-title">{{ item.title }}</text>
-					<text class="kw-meta">{{ item.viewCount }} 次浏览</text>
+				<view class="kw-item-cover">
+					<text class="kw-cover-emoji">{{ activeSpecies === 1 ? '🐱' : '🐶' }}</text>
+				</view>
+				<view class="kw-item-body">
+					<text class="kw-item-title">{{ item.title }}</text>
+					<view class="kw-item-footer">
+						<text class="kw-item-views">👁 {{ item.viewCount }} 次浏览</text>
+						<text class="kw-item-arrow">查看 →</text>
+					</view>
 				</view>
 			</view>
 		</scroll-view>
@@ -29,7 +61,7 @@
 </template>
 
 <script setup lang="uts">
-const BASE = "http://192.168.1.5:8080"
+const BASE = "http://192.168.178.183:8080"
 type KI = { id: number; title: string; viewCount: number }
 type CT = { id: number; name: string; species: number }
 
@@ -39,17 +71,12 @@ const activeCategory = ref(0)
 const categories = ref<CT[]>([])
 const list = ref<KI[]>([])
 
-const speciesOn = "padding:16rpx 48rpx;border-radius:36rpx;background-color:#FF8C42;margin-right:20rpx;"
-const speciesOff = "padding:16rpx 48rpx;border-radius:36rpx;background-color:#F0F0F0;margin-right:20rpx;"
-const speciesTextOn = "font-size:28rpx;color:#FFF;font-weight:600;"
-const speciesTextOff = "font-size:28rpx;color:#666;"
-
 function getToken(): string {
 	const t = uni.getStorageSync("token")
 	return t != null ? t as string : ""
 }
 
-function doRequest(url: string, onOk: (data: UTSJSONObject) => void): void {
+function doRequest(url: string, onOk: (data: any) => void): void {
 	const token = getToken()
 	const h = new UTSJSONObject()
 	h["Content-Type"] = "application/json"
@@ -65,7 +92,7 @@ function doRequest(url: string, onOk: (data: UTSJSONObject) => void): void {
 				const code = body.getNumber("code")
 				if (code === 200) {
 					const inner = body.get("data")
-					if (inner != null) onOk(inner as UTSJSONObject)
+					if (inner != null) onOk(inner as any)
 				}
 			}
 		},
@@ -74,9 +101,17 @@ function doRequest(url: string, onOk: (data: UTSJSONObject) => void): void {
 }
 
 function loadCats(): void {
-	doRequest("/api/knowledge/categories?species=" + activeSpecies.value, (data: UTSJSONObject): void => {
-		const arr = data as any as CT[]
-		categories.value = arr
+	doRequest("/api/knowledge/categories?species=" + activeSpecies.value, (data: any): void => {
+		const arr = data as any as any[]
+		const result: CT[] = []
+		for (let i = 0; i < arr.length; i++) {
+			const item = arr[i] as UTSJSONObject
+			const cid = item.getNumber("id")
+			const cname = item.getString("name")
+			const cspecies = item.getNumber("species")
+			result.push({ id: cid != null ? cid : 0, name: cname != null ? cname : "", species: cspecies != null ? cspecies : 0 } as CT)
+		}
+		categories.value = result
 	})
 }
 
@@ -87,9 +122,20 @@ function loadList(): void {
 	} else {
 		url += "&species=" + activeSpecies.value
 	}
-	doRequest(url, (data: UTSJSONObject): void => {
-		const records = data.get("records")
-		if (records != null) list.value = records as any as KI[]
+	doRequest(url, (data: any): void => {
+		const records = (data as UTSJSONObject).get("records")
+		if (records != null) {
+			const arr = records as any as any[]
+			const result: KI[] = []
+			for (let i = 0; i < arr.length; i++) {
+				const item = arr[i] as UTSJSONObject
+				const kid = item.getNumber("id")
+				const ktitle = item.getString("title")
+				const kviews = item.getNumber("viewCount")
+				result.push({ id: kid != null ? kid : 0, title: ktitle != null ? ktitle : "", viewCount: kviews != null ? kviews : 0 } as KI)
+			}
+			list.value = result
+		}
 	})
 }
 
@@ -100,32 +146,201 @@ function switchSpecies(s: number): void {
 	loadList()
 }
 
-function selectCategory(id: number): void { activeCategory.value = id; loadList() }
+function selectCategory(id: number): void {
+	activeCategory.value = id
+	loadList()
+}
 
 function doSearch(): void {
-	doRequest("/api/knowledge/search?keyword=" + keyword.value + "&page=1&size=20", (data: UTSJSONObject): void => {
-		const records = data.get("records")
-		if (records != null) list.value = records as any as KI[]
+	doRequest("/api/knowledge/search?keyword=" + keyword.value + "&page=1&size=20", (data: any): void => {
+		const records = (data as UTSJSONObject).get("records")
+		if (records != null) {
+			const arr = records as any as any[]
+			const result: KI[] = []
+			for (let i = 0; i < arr.length; i++) {
+				const item = arr[i] as UTSJSONObject
+				const kid = item.getNumber("id")
+				const ktitle = item.getString("title")
+				const kviews = item.getNumber("viewCount")
+				result.push({ id: kid != null ? kid : 0, title: ktitle != null ? ktitle : "", viewCount: kviews != null ? kviews : 0 } as KI)
+			}
+			list.value = result
+		}
 	})
 }
 
-function goDetail(id: number): void { uni.navigateTo({ url: "/pages/knowledge/detail?id=" + id }) }
+function goDetail(id: number): void {
+	uni.navigateTo({ url: "/pages/knowledge/detail?id=" + id })
+}
 
 onShow(() => { loadCats(); loadList() })
 </script>
 
 <style>
-.kw-page { background-color: #FFF8F0; flex: 1; flex-direction: column; }
-.kw-species-bar { flex-direction: row; justify-content: center; padding: 20rpx 24rpx 12rpx; background-color: #FFF; }
-.kw-species-chip { align-items: center; justify-content: center; }
-.kw-search { height: 72rpx; margin: 12rpx 24rpx; padding: 0 24rpx; background-color: #F5F5F5; border-radius: 36rpx; font-size: 28rpx; color: #333; }
-.kw-cats { height: 66rpx; padding-left: 24rpx; background-color: #FFF; flex-direction: row; }
-.kw-cats-inner { flex-direction: row; }
-.kw-tag { padding: 8rpx 24rpx; margin-right: 14rpx; border-radius: 36rpx; background-color: #F5F5F5; align-items: center; justify-content: center; }
-.kw-list { flex: 1; padding: 8rpx 0; }
-.kw-item { flex-direction: row; align-items: center; padding: 20rpx; margin: 6rpx 20rpx; background-color: #FFF; border-radius: 14rpx; }
-.kw-cover { width: 110rpx; height: 110rpx; border-radius: 10rpx; background-color: #FFE0CC; margin-right: 18rpx; }
-.kw-info { flex: 1; }
-.kw-title { font-size: 28rpx; color: #333; font-weight: 600; }
-.kw-meta { font-size: 22rpx; color: #999; margin-top: 6rpx; }
+.kw-page {
+	flex: 1;
+	flex-direction: column;
+	background-color: #FFF5EC;
+}
+
+/* -- 头部 -- */
+.kw-header {
+	padding: 48rpx 32rpx 12rpx;
+}
+.kw-header-title {
+	font-size: 38rpx;
+	font-weight: 800;
+	color: #3D2C2A;
+}
+.kw-header-sub {
+	font-size: 24rpx;
+	color: #B8A098;
+	margin-top: 6rpx;
+}
+
+/* -- 物种切换 -- */
+.kw-species-bar {
+	flex-direction: row;
+	padding: 0 28rpx 20rpx;
+}
+.kw-species-item {
+	flex: 1;
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	height: 80rpx;
+	border-radius: 40rpx;
+	background-color: #FFFFFF;
+	margin-right: 16rpx;
+}
+.kw-species-on {
+	background-color: #FF8C42;
+}
+.kw-species-emoji {
+	font-size: 36rpx;
+	margin-right: 10rpx;
+}
+.kw-species-label {
+	font-size: 28rpx;
+	font-weight: 700;
+	color: #5C4033;
+}
+.kw-species-on .kw-species-label {
+	color: #FFFFFF;
+}
+
+/* -- 搜索 -- */
+.kw-search-wrap {
+	flex-direction: row;
+	align-items: center;
+	height: 80rpx;
+	margin: 0 28rpx 16rpx;
+	padding: 0 24rpx;
+	background-color: #FFFFFF;
+	border-radius: 40rpx;
+}
+.kw-search-icon {
+	font-size: 30rpx;
+	margin-right: 12rpx;
+}
+.kw-search {
+	flex: 1;
+	height: 80rpx;
+	font-size: 28rpx;
+	color: #3D2C2A;
+}
+
+/* -- 分类标签 -- */
+.kw-cats {
+	height: 64rpx;
+	padding-left: 28rpx;
+}
+.kw-cats-inner {
+	flex-direction: row;
+}
+.kw-tag {
+	padding: 10rpx 28rpx;
+	margin-right: 12rpx;
+	border-radius: 32rpx;
+	background-color: #FFFFFF;
+}
+.kw-tag-on {
+	background-color: #FFF0E5;
+}
+.kw-tag-text {
+	font-size: 24rpx;
+	color: #8C7A70;
+	font-weight: 600;
+}
+.kw-tag-on .kw-tag-text {
+	color: #FF8C42;
+}
+
+/* -- 空状态 -- */
+.kw-empty {
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+	padding-bottom: 120rpx;
+}
+.kw-empty-icon {
+	font-size: 80rpx;
+	margin-bottom: 16rpx;
+}
+.kw-empty-text {
+	font-size: 26rpx;
+	color: #B8A098;
+}
+
+/* -- 文章列表 -- */
+.kw-list {
+	flex: 1;
+	padding: 12rpx 28rpx;
+}
+.kw-item {
+	flex-direction: row;
+	align-items: center;
+	margin-bottom: 14rpx;
+	padding: 24rpx;
+	background-color: #FFFFFF;
+	border-radius: 20rpx;
+}
+.kw-item-cover {
+	width: 116rpx;
+	height: 116rpx;
+	border-radius: 18rpx;
+	background-color: #FFF0E5;
+	align-items: center;
+	justify-content: center;
+	margin-right: 22rpx;
+}
+.kw-cover-emoji {
+	font-size: 56rpx;
+}
+.kw-item-body {
+	flex: 1;
+	flex-direction: column;
+	justify-content: space-between;
+}
+.kw-item-title {
+	font-size: 30rpx;
+	font-weight: 700;
+	color: #3D2C2A;
+	line-height: 42rpx;
+}
+.kw-item-footer {
+	flex-direction: row;
+	justify-content: space-between;
+	align-items: center;
+	margin-top: 16rpx;
+}
+.kw-item-views {
+	font-size: 22rpx;
+	color: #B8A098;
+}
+.kw-item-arrow {
+	font-size: 24rpx;
+	color: #FF8C42;
+	font-weight: 600;
+}
 </style>
