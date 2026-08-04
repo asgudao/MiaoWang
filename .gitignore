@@ -10,6 +10,28 @@ desktop.ini
 *.swo
 *~
 
+# Maven 本地仓库（绝对不要提交）
+.m2/
+
+# 前端构建缓存和输出
+front-project/unpackage/
+front-project/dist/
+
+# 其他工具目录（如果有）
+.codex-pet-runs/
+.workbuddy-ai/
+
+# IDE 配置
+.idea/
+*.iml
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 临时图片（如果不想提交）
+tmp-*.png
+
 # ==========================
 # IDE / 编辑器
 # ==========================
