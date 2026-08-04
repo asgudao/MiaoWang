@@ -204,6 +204,7 @@ onShow(() => { loadBreeds() })
 
 <style>
 .ap-page {
+	padding-top: 30rpx;
 	flex: 1;
 	flex-direction: column;
 	background-color: #FFF5EC;

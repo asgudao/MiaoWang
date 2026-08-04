@@ -30,6 +30,7 @@ body {
 }
 .topbar {
   position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: center;
+  margin-top: 4vw;
   padding: calc(env(safe-area-inset-top, 0px) + 14px) 18px 4px;
 }
 .brand { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 800; letter-spacing: 0; color: #C25E1F; }
@@ -44,7 +45,7 @@ body {
 .scene-sick .status-dot { background: #E8666A; }
 .scene-low .status-dot { background: #F0A93B; }
 .stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; z-index: 1; }
-.pet3d { width: min(90vw, 440px); aspect-ratio: 1 / 1.35; position: relative; transition: filter 0.3s ease; touch-action: manipulation; cursor: default; }
+.pet3d { width: min(90vw, 440px); aspect-ratio: 1 / 1.35; position: relative; margin-top: 160px; transition: filter 0.3s ease; touch-action: manipulation; cursor: default; }
 .pet3d canvas { width: 100% !important; height: 100% !important; display: block; touch-action: none; }
 .scene-sick .pet3d { filter: grayscale(0.9) saturate(0.55) brightness(0.95); }
 .scene-low .pet3d { filter: saturate(0.55) brightness(0.92); animation: low-pulse 2.4s ease-in-out infinite; }
@@ -146,17 +147,14 @@ body {
     renderer.domElement.addEventListener('gesturechange', function (e) { e.preventDefault(); });
     renderer.domElement.addEventListener('wheel', function (e) { e.preventDefault(); e.stopPropagation(); }, { passive: false, capture: true });
     controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enabled = false;
     controls.enableZoom = false;
     controls.zoomSpeed = 0;
     controls.enablePan = false;
     controls.enableDamping = true;
     controls.autoRotate = false;
     controls.rotateSpeed = 0.8;
-    controls.minPolarAngle = 1.15;
-    controls.maxPolarAngle = 2.05;
-    controls.minAzimuthAngle = -1.1;
-    controls.maxAzimuthAngle = 1.1;
+    controls.minPolarAngle = 1.12;
+    controls.maxPolarAngle = 1.12;
     controls.target.set(0, 0.85, 0);
 
     clock = new THREE.Clock();
@@ -171,7 +169,7 @@ body {
       holder.add(modelRoot);
       threeScene.add(holder);
       fitModel(modelRoot);
-      modelRoot.position.y -= 1.0;
+      modelRoot.position.y -= 2.0;
       threeScene.updateMatrixWorld(true);
       var box = new THREE.Box3().setFromObject(modelRoot);
       var size = box.getSize(new THREE.Vector3());
@@ -180,10 +178,11 @@ body {
         new THREE.CylinderGeometry(radius, radius, 0.06, 64),
         new THREE.MeshStandardMaterial({ color: 0xf4e7d3, roughness: 0.85, metalness: 0.05 })
       );
-      platform.position.set(modelRoot.position.x, box.min.y + 1.35, modelRoot.position.z);
+      var baseCenter = new THREE.Vector3(modelRoot.position.x, box.min.y + 1.35, modelRoot.position.z);
+      platform.position.copy(baseCenter);
       threeScene.add(platform);
-      controls.target.set(0, 1.0, 0);
-      camera.position.set(0, 2.7, 5.7);
+      controls.target.copy(baseCenter);
+      camera.position.copy(baseCenter).add(new THREE.Vector3(0, 1.95, 4.0));
       controls.update();
       if (gltf.animations && gltf.animations.length > 0) {
         var clip = gltf.animations[0].clone();

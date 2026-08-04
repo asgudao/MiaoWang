@@ -104,7 +104,8 @@ onLoad((opt) => {
 </script>
 
 <style>
-.kd-page { background-color: #FFF; flex: 1; flex-direction: column; }
+.kd-page {
+	padding-top: 30rpx; background-color: #FFF; flex: 1; flex-direction: column; }
 .kd-scroll { flex: 1; }
 .kd-cover { height: 360rpx; background-color: #FFE0CC; }
 .kd-body { padding: 28rpx; }

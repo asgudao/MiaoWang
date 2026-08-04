@@ -131,6 +131,7 @@ onShow(() => {
 
 <style>
 .page-wrap {
+	padding-top: 50rpx;
 	flex: 1;
 	flex-direction: column;
 	background-color: #FFF5EC;

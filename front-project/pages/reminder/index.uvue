@@ -300,6 +300,7 @@ onShow(() => { loadData() })
 
 <style>
 .rm-page {
+	padding-top: 30rpx;
 	flex: 1;
 	flex-direction: column;
 	background-color: #FFF5EC;
