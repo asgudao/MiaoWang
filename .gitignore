@@ -1,0 +1,106 @@
+# ==========================
+# 操作系统 / 通用
+# ==========================
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+*.log
+*.swp
+*.swo
+*~
+
+# ==========================
+# IDE / 编辑器
+# ==========================
+# HBuilderX
+.unpackage/
+.hbuilderx/
+.project
+.classpath
+.settings/
+*.iml
+
+# IntelliJ IDEA
+.idea/
+*.iws
+*.ipr
+out/
+target/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# ==========================
+# 前端 (uni-app / Vue / Node)
+# ==========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# 打包输出
+dist/
+build/
+.unpackage/
+.weweb/
+.uni-app/
+unpackage/
+
+# 环境变量（敏感信息）
+.env
+.env.local
+.env.*.local
+
+# ==========================
+# 后端 (Spring Boot / Maven)
+# ==========================
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# 日志
+*.log
+logs/
+
+# 应用配置（若包含敏感信息，建议用环境变量代替）
+application-local.properties
+application-dev.properties
+application-prod.properties
+# 如果你将所有配置都提交，则忽略掉包含敏感信息的文件，否则不忽略
+# 这里给出示例，你可以按需调整
+
+# ==========================
+# 数据库 / 本地数据
+# ==========================
+*.db
+*.sqlite
+*.h2.db
+*.lock
+*.wal
+
+# ==========================
+# 临时文件 / 缓存
+# ==========================
+*.cache
+*.tmp
+*.temp
+*.swp
+*~
+
+
+
+# ==========================
+# 其他
+# ==========================
+# 如果你有自定义的脚本或输出目录，可以按需添加
+# /custom-output/
