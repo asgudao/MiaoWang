@@ -3,6 +3,8 @@
   <component name="Encoding" defaultCharsetForPropertiesFiles="UTF-8">
     <file url="file://$PROJECT_DIR$/MiaoWang-common/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/MiaoWang-common/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/MiaoWang-gateway/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/MiaoWang-gateway/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/MiaoWang-pet/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/MiaoWang-pet/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/MiaoWang-user/src/main/java" charset="UTF-8" />
