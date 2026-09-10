@@ -33,10 +33,12 @@
         <spring-cloud-alibaba.version>2025.0.0.0</spring-cloud-alibaba.version>
         <spring-cloud.version>2025.0.0</spring-cloud.version>
         <fastjson.version>2.0.57</fastjson.version>
+        <transmittable-thread-loacl.version>2.14.2</transmittable-thread-loacl.version>
         <mybatis-plus-boot3-starter.version>3.5.14</mybatis-plus-boot3-starter.version>
         <pagehelper-spring-boot-starter.version>2.1.1</pagehelper-spring-boot-starter.version>
         <commons-lang3.version>3.19.0</commons-lang3.version>
         <kryo-serializers.version>0.45</kryo-serializers.version>
+
         <hutool-all.version>5.8.47</hutool-all.version>
     </properties>
 
@@ -64,6 +66,11 @@
                 <version>${spring-cloud-alibaba.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>transmittable-thread-local</artifactId>
+                <version>${transmittable-thread-loacl.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.alibaba</groupId>
