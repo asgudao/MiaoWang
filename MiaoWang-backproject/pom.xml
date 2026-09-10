@@ -6,7 +6,7 @@
 
     <groupId>com.MapleLeaf.MiaoWang</groupId>
     <artifactId>MiaoWang-backproject</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>${revision}</version>
     <packaging>pom</packaging>
     <modules>
         <module>MiaoWang-user</module>
@@ -15,10 +15,90 @@
         <module>MiaoWang-gateway</module>
     </modules>
 
+    <!--springboot依赖-->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.0</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+
     <properties>
-        <maven.compiler.source>24</maven.compiler.source>
-        <maven.compiler.target>24</maven.compiler.target>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!--项目统一管理版本号-->
+        <revision>1.0.0.0</revision>
+        <!--第三方依赖统一管理版本号-->
+        <spring-cloud-alibaba.version>2025.0.0.0</spring-cloud-alibaba.version>
+        <spring-cloud.version>2025.0.0</spring-cloud.version>
+        <fastjson.version>2.0.57</fastjson.version>
+        <mybatis-plus-boot3-starter.version>3.5.14</mybatis-plus-boot3-starter.version>
+        <pagehelper-spring-boot-starter.version>2.1.1</pagehelper-spring-boot-starter.version>
+        <commons-lang3.version>3.19.0</commons-lang3.version>
+        <kryo-serializers.version>0.45</kryo-serializers.version>
+        <hutool-all.version>5.8.47</hutool-all.version>
     </properties>
+
+    <!--父模块统一管理组件的版本，子模块引用组件时候不用写版本号-->
+    <!--但是子模块必须引入依赖，只不过不写版本号-->
+    <dependencyManagement>
+        <dependencies>
+            <!--项目本身的模块-->
+            <dependency>
+                <groupId>com.MapleLeaf.MiaoWang</groupId>
+                <artifactId>MiaoWang-common</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <!--第三方库依赖模块-->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+                <version>${spring-cloud-alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>fastjson</artifactId>
+                <version>${fastjson.version}</version>
+            </dependency>
+            <!--mybatis-plus依赖 springboot3-->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+                <version>${mybatis-plus-boot3-starter.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.pagehelper</groupId>
+                <artifactId>pagehelper-spring-boot-starter</artifactId>
+                <version>${pagehelper-spring-boot-starter.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${commons-lang3.version}</version>
+            </dependency>
+            <!--seate的undo_log 默认的序列化方式jackson，在seata中使用jackson序列化方式会有问题，kryo 序列化方式就可以解决这个问题-->
+            <dependency>
+                <groupId>de.javakaffee</groupId>
+                <artifactId>kryo-serializers</artifactId>
+                <version>${kryo-serializers.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-all</artifactId>
+                <version>${hutool-all.version}</version>
+                <scope>compile</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
 </project>
