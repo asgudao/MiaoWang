@@ -1,0 +1,23 @@
+server:
+  port: 7000
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    nacos:
+      server-addr: 192.168.137.128:8848 #nacos服务器地址
+    gateway:
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: true #让gateway可以发现nacos中的运行微服务
+
+#不用登录就能访问（白名单）
+gateway:
+  auth:
+    white-list:
+      - /MiaoWang-user/MapleLeaf/MiaoWang/v1/user/login
+      - /MiaoWang-user/MapleLeaf/MiaoWang/v1/user/register
+      #- /service-product/product/**
+      - /favicon.ico

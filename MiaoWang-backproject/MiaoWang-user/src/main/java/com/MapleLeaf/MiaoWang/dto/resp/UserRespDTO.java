@@ -36,4 +36,9 @@ public class UserRespDTO {
      */
     private String mail;
 
+    /**
+     * 主人称呼：宠物对主人的称呼，数据库默认值"主人"
+     */
+    private String ownerCallName;
+
 }
