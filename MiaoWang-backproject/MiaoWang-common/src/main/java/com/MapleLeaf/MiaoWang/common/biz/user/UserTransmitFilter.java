@@ -1,6 +1,7 @@
 package com.MapleLeaf.MiaoWang.common.biz.user;
 
 import com.alibaba.fastjson2.JSON;
+import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -18,9 +19,9 @@ public class UserTransmitFilter implements Filter {
     @Override
     public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
         HttpServletRequest httpServletRequest = (HttpServletRequest) servletRequest;
-        String userId = httpServletRequest.getHeader("username");
+        String userName = httpServletRequest.getHeader("username");
         String token = httpServletRequest.getHeader("token");
-        Object userInfoJsonStr = stringRedisTemplate.opsForHash().get("login_"+ userId, token);
+        Object userInfoJsonStr = stringRedisTemplate.opsForHash().get("MiaoWang_login_"+ userName, token);
         if(userInfoJsonStr!=null) {
             UserInfoDTO userInfoDTO = JSON.parseObject(userInfoJsonStr.toString(), UserInfoDTO.class);
             UserContext.setUser(userInfoDTO);

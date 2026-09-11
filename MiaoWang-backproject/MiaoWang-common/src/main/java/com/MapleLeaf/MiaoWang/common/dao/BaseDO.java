@@ -22,7 +22,7 @@ public class BaseDO {
     private Date updateTime;
 
     /**
-     * 删除标识：未删除：0 已删除：1
+     * 删除标识：未删除：1 已删除：0
      */
     @TableField(fill = FieldFill.INSERT)
     private Integer delFlag;

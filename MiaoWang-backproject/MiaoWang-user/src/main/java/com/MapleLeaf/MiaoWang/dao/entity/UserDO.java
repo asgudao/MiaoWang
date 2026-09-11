@@ -13,7 +13,7 @@ public class UserDO extends BaseDO {
     /**
      * id
      */
-    private Long id;
+    private Long uid;
 
     /**
      * 用户名

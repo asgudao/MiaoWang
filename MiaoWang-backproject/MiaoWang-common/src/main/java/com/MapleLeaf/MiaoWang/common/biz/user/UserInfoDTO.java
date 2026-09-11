@@ -15,7 +15,7 @@ public class UserInfoDTO {
     /**
      * 用户 ID
      */
-    @JSONField(name = "id")
+    @JSONField(name = "uid")
     private String userId;
 
     /**

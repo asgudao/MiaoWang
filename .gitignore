@@ -1,4 +1,4 @@
-﻿# Obsidian 编辑器配置
+# Obsidian 编辑器配置
 .obsidian/
 
 # 私人笔记文件夹
@@ -16,3 +16,7 @@ desktop.ini
 
 # 日志
 *.log
+
+# 沙箱验证用的本地 Maven 仓库（非项目产物）
+.m2-sandbox-repo/
+.m2-sandbox-settings.xml

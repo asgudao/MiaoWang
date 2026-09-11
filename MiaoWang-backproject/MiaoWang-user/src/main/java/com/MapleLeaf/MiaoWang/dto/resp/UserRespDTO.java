@@ -1,13 +1,15 @@
 package com.MapleLeaf.MiaoWang.dto.resp;
 
 
+import com.MapleLeaf.MiaoWang.common.serialize.PhoneDesensitizationSerializer;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import lombok.Data;
 
 /**
  * 用户返回参数响应
  */
 @Data
-public class UserActualRespDTO {
+public class UserRespDTO {
     /**
      * id
      */
@@ -26,6 +28,7 @@ public class UserActualRespDTO {
     /**
      * 手机号
      */
+    @JsonSerialize(using = PhoneDesensitizationSerializer.class)
     private String phone;
 
     /**

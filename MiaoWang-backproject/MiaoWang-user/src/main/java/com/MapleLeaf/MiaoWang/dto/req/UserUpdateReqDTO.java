@@ -1,22 +1,19 @@
-package com.MapleLeaf.MiaoWang.dto.resp;
+package com.MapleLeaf.MiaoWang.dto.req;
 
 
 import lombok.Data;
 
-/**
- * 用户返回参数响应
- */
 @Data
-public class UserActualRespDTO {
-    /**
-     * id
-     */
-    private Long id;
-
+public class UserUpdateReqDTO {
     /**
      * 用户名
      */
     private String username;
+
+    /**
+     * 密码
+     */
+    private String password;
 
     /**
      * 真实姓名
