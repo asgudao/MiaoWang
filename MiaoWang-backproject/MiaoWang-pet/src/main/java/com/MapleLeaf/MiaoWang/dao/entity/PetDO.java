@@ -1,6 +1,7 @@
 package com.MapleLeaf.MiaoWang.dao.entity;
 
 
+import com.MapleLeaf.MiaoWang.common.dao.BaseDO;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -8,7 +9,7 @@ import lombok.EqualsAndHashCode;
 @Data
 @TableName("miaowang_pet")
 @EqualsAndHashCode(callSuper = false)
-public class PetDO {
+public class PetDO extends BaseDO {
     /**
      * pid 宠物id
      */
@@ -27,12 +28,12 @@ public class PetDO {
     /**
      * 宠物名
      */
-    private String p_name;
+    private String pName;
 
     /**
      * 对主人的称呼
      */
-    private String owner_call_name;
+    private String ownerCallName;
 
     /**
      * 年龄

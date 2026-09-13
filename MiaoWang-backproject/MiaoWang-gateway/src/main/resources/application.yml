@@ -17,7 +17,7 @@ spring:
 gateway:
   auth:
     white-list:
-      - /MiaoWang-user/MapleLeaf/MiaoWang/v1/user/login
-      - /MiaoWang-user/MapleLeaf/MiaoWang/v1/user/register
+      - /MiaoWang-user/mapleleaf/miaowang/v1/user/login
+      - /MiaoWang-user/mapleleaf/miaowang/v1/user/register
       #- /service-product/product/**
       - /favicon.ico

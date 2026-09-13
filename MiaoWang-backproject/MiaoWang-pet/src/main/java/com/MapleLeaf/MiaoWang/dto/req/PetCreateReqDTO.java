@@ -8,12 +8,17 @@ public class PetCreateReqDTO {
     /**
      * 宠物名
      */
-    private String p_name;
+    private String pName;
+
+    /**
+     * 用户名
+     */
+    private String username;
 
     /**
      * 对主人的称呼
      */
-    private String owner_call_name;
+    private String ownerCallName;
 
     /**
      * 年龄

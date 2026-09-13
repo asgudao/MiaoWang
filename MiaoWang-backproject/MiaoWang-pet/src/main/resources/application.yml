@@ -11,14 +11,15 @@ spring:
         #namespace: #命名空间的id值，不写就是默认public命名空间
         #group: DEFAULT_GROUP
 
-seata:
-  tx-service-group: default_tx_group
-  service:
-    vgroup-mapping:
-      default_tx_group: default
-  registry:
-    type: nacos
-    nacos:
-      server-addr: 192.168.137.128:8848
-      application: seata-server
-      group: SEATA_GROUP
+# seata 暂时注释：等订阅支付跨服务事务场景时再启用（需要 seata-server 注册到 Nacos + 客户端版本对齐）
+#seata:
+#  tx-service-group: default_tx_group
+#  service:
+#    vgroup-mapping:
+#      default_tx_group: default
+#  registry:
+#    type: nacos
+#    nacos:
+#      server-addr: 192.168.137.128:8848
+#      application: seata-server
+#      group: SEATA_GROUP
