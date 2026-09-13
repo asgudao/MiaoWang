@@ -31,7 +31,7 @@ public class JwtTokenUtil {
         Date expirationDate = new Date(now.getTime() + expiration);
         // 使用 Hutool 的 JWT 构建器
         return JWT.create()
-                .setPayload("clainms", claims) // 设置自定义载荷
+                .setPayload("claims", claims) // 设置自定义载荷
                 .setSubject(subject)                // 设置 subject（会覆盖 payload 中的 "sub" 字段）
                 .setIssuedAt(now)                   // 签发时间
                 .setExpiresAt(expirationDate)       // 过期时间
