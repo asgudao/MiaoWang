@@ -3,6 +3,7 @@ package com.MapleLeaf.MiaoWang.service.Impl;
 import cn.hutool.core.bean.BeanUtil;
 import com.MapleLeaf.MiaoWang.common.convention.exception.ClientException;
 import com.MapleLeaf.MiaoWang.common.enums.UserErrorCodeEnum;
+import com.MapleLeaf.MiaoWang.common.jwt.JwtTokenUtil;
 import com.MapleLeaf.MiaoWang.dao.entity.UserDO;
 import com.MapleLeaf.MiaoWang.dao.mapper.UserMapper;
 import com.MapleLeaf.MiaoWang.dto.req.UserLoginReqDTO;
@@ -21,9 +22,12 @@ import org.redisson.api.RBloomFilter;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-import java.util.UUID;
+
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import static com.MapleLeaf.MiaoWang.common.constant.RedisCacheConstant.LOCK_USER_REGISTER_KEY;
 import static com.MapleLeaf.MiaoWang.common.enums.UserErrorCodeEnum.USER_NAME_EXIST;
@@ -36,6 +40,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
     private final RBloomFilter<String> userRegisterCachePenetrationBloomFilter;
     private final RedissonClient redissonClient;
     private final StringRedisTemplate stringRedisTemplate;
+
+    /**
+     * JWT token 有效期，单位毫秒，默认 1 小时
+     */
+    @Value("${jwt.token.expired:3600000}")
+    private Integer tokenExpired;
 
     @Override
     public UserRespDTO getUserByUsername(String username) {
@@ -95,22 +105,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
         if(userDO == null){
             throw new ClientException("用户不存在");
         }
-        Boolean hasLogin = stringRedisTemplate.hasKey("MiaoWang_login_"+requestParam.getUsername());
-        if(hasLogin != null && hasLogin){
-            throw new ClientException("用户已登录");
-        }
+        // 单会话策略：不拦截重复登录，新登录直接顶掉旧会话（会话有效期与 JWT 保持一致）
+        String sessionKey = "MiaoWang_login_" + requestParam.getUsername();
+        stringRedisTemplate.delete(sessionKey);
 
         /**
          * Hash
-         * Key：login_用户名
+         * Key：MiaoWang_login_用户名
          * Value:
-         *  Key:token标识
+         *  Key:JWT token
          *  Val:JSON 字符串（用户信息）
          */
-        String uuid = UUID.randomUUID().toString();
-        stringRedisTemplate.opsForHash().put("MiaoWang_login_"+ requestParam.getUsername(), uuid, JSON.toJSONString(userDO));
-        stringRedisTemplate.expire("MiaoWang_login_"+ requestParam.getUsername(), 30L, TimeUnit.DAYS);
-        return new UserLoginRespDTO(uuid);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("uid", userDO.getUid());
+        claims.put("username", userDO.getUsername());
+        String token = JwtTokenUtil.generateToken(claims, "user", tokenExpired);
+        stringRedisTemplate.opsForHash().put(sessionKey, token, JSON.toJSONString(userDO));
+        stringRedisTemplate.expire(sessionKey, tokenExpired, TimeUnit.MILLISECONDS);
+        return new UserLoginRespDTO(token);
     }
 
     @Override
