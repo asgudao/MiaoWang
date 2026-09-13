@@ -1,4 +1,4 @@
-package com.MapleLeaf.MiaoWang.service.Impl;
+package com.MapleLeaf.MiaoWang.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import com.MapleLeaf.MiaoWang.common.convention.exception.ClientException;
