@@ -33,12 +33,21 @@
         </dependency>
         <dependency>
             <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-seata</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
         </dependency>
         <!--nacos配置中心客户端-->
         <dependency>
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+        </dependency>
+        <!--seate的undo_log 默认的序列化方式 jackson，在seata中使用jackson序列化方式会有问题，kryo序列化方式就可以解决这个问题-->
+        <dependency>
+            <groupId>de.javakaffee</groupId>
+            <artifactId>kryo-serializers</artifactId>
         </dependency>
     </dependencies>
     <!--添加maven插件，项目的打包工具，打成jar包，否则在打包运行时报错   -->

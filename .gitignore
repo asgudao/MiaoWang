@@ -20,3 +20,9 @@ desktop.ini
 # 沙箱验证用的本地 Maven 仓库（非项目产物）
 .m2-sandbox-repo/
 .m2-sandbox-settings.xml
+
+# IntelliJ IDEA / JetBrains 系列 IDE
+.idea/
+*.iml
+*.iws
+*.ipr

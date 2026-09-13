@@ -1,0 +1,24 @@
+spring:
+  config:
+    #读取哪个配置文件（配置中心上的）
+    import:
+      - optional:nacos:MiaoWang-all-service.yaml
+      - optional:nacos:MiaoWang-service-pet-dev.yaml
+  cloud:
+    nacos:
+      config:
+        server-addr: 192.168.137.128:8848 #配置中心地址
+        #namespace: #命名空间的id值，不写就是默认public命名空间
+        #group: DEFAULT_GROUP
+
+seata:
+  tx-service-group: default_tx_group
+  service:
+    vgroup-mapping:
+      default_tx_group: default
+  registry:
+    type: nacos
+    nacos:
+      server-addr: 192.168.137.128:8848
+      application: seata-server
+      group: SEATA_GROUP
