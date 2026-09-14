@@ -13,6 +13,7 @@
         <module>MiaoWang-pet</module>
         <module>MiaoWang-common</module>
         <module>MiaoWang-gateway</module>
+        <module>MiaoWang-ai-pet</module>
     </modules>
 
     <!--springboot依赖-->
