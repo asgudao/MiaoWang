@@ -9,7 +9,7 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>MiaoWang-ai-pet</artifactId>
+    <artifactId>MiaoWang-knowledge</artifactId>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
