@@ -1,0 +1,114 @@
+{
+  "remarkJoin": "；",
+  "tagOpen": "【",
+  "tagClose": "】",
+  "warningKeywords": ["禁忌", "致命"],
+  "categories": {
+    "diet": "饮食安全",
+    "behavior": "行为解读",
+    "care": "日常养护",
+    "health": "健康自查"
+  },
+  "speciesName": {
+    "1": "猫",
+    "2": "狗"
+  },
+  "files": [
+    {
+      "key": "dog",
+      "species": 2,
+      "batch": "SEED-DOG-MANUAL",
+      "path": "C:\\Users\\Administrator\\.dsh\\attachments\\v1\\files\\fe\\fe15dead8308f545453ad6693a7d1c6ea00fee7419ec67f08ed808a051d9b8e6\\狗狗行为与健康手册.xlsx",
+      "sheets": [
+        {
+          "name": "狗的叫声",
+          "category": "behavior",
+          "type": "guide",
+          "title": "B",
+          "content": "C",
+          "remark": ["D", "E"],
+          "skipTitles": ["叫声（拟声词）"]
+        },
+        {
+          "name": "狗的肢体动作",
+          "category": "behavior",
+          "type": "guide",
+          "title": "B",
+          "content": "C",
+          "remark": ["D"],
+          "skipTitles": ["肢体动作"]
+        },
+        {
+          "name": "饮食注意",
+          "mode": "dog-diet",
+          "category": "diet",
+          "title": "A",
+          "content": "B",
+          "sectionMarkers": { "✅": "guide", "❌": "warning" },
+          "skipTitles": ["食物"]
+        },
+        {
+          "name": "日常养护注意事项",
+          "category": "care",
+          "type": "care_schedule",
+          "title": "B",
+          "content": "C",
+          "remark": ["D"],
+          "skipTitles": ["项目"]
+        },
+        {
+          "name": "症状自查表",
+          "category": "health",
+          "type": "medical",
+          "title": "B",
+          "content": "C",
+          "remark": ["D"],
+          "skipTitles": ["症状表现"]
+        }
+      ]
+    },
+    {
+      "key": "cat",
+      "species": 1,
+      "batch": "SEED-CAT-MANUAL",
+      "path": "C:\\Users\\Administrator\\.dsh\\attachments\\v1\\files\\58\\58eba5c5a3c7cac7e7d051341bdff735ab0d8bc0bf9c6ba6a18d7cbb39d28171\\养猫知识手册.xlsx",
+      "sheets": [
+        {
+          "name": "肢体动作",
+          "category": "behavior",
+          "type": "guide",
+          "title": "A",
+          "content": "B",
+          "remark": ["C"],
+          "skipTitles": ["肢体动作"]
+        },
+        {
+          "name": "叫声含义",
+          "category": "behavior",
+          "type": "guide",
+          "title": "A",
+          "content": "B",
+          "remark": ["C"],
+          "skipTitles": ["叫声"]
+        },
+        {
+          "name": "病症预警",
+          "category": "health",
+          "type": "medical",
+          "title": "A",
+          "content": "B",
+          "remark": ["C"],
+          "skipTitles": ["异常行为/表现"]
+        },
+        {
+          "name": "饮食注意",
+          "mode": "cat-diet",
+          "category": "diet",
+          "title": "B",
+          "content": "C",
+          "skipTitles": ["食物/项目"]
+        }
+      ]
+    }
+  ]
+}
