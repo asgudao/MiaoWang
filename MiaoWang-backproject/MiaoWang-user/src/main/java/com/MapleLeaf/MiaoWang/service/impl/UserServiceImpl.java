@@ -1,6 +1,7 @@
 package com.MapleLeaf.MiaoWang.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import com.MapleLeaf.MiaoWang.common.biz.user.UserInfoDTO;
 import com.MapleLeaf.MiaoWang.common.convention.exception.ClientException;
 import com.MapleLeaf.MiaoWang.common.enums.UserErrorCodeEnum;
 import com.MapleLeaf.MiaoWang.common.jwt.JwtTokenUtil;
@@ -115,12 +116,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
          * Value:
          *  Key:JWT token
          *  Val:JSON 字符串（用户信息）
+         *
+         * 存 UserInfoDTO 而非 UserDO：凭据（密码）不进入 Redis，
+         * 且与 UserTransmitFilter 读取的 UserInfoDTO 类型完全对齐
          */
         Map<String, Object> claims = new HashMap<>();
         claims.put("uid", userDO.getUid());
         claims.put("username", userDO.getUsername());
         String token = JwtTokenUtil.generateToken(claims, "user", tokenExpired);
-        stringRedisTemplate.opsForHash().put(sessionKey, token, JSON.toJSONString(userDO));
+        UserInfoDTO userInfoDTO = UserInfoDTO.builder()
+                .userId(String.valueOf(userDO.getUid()))
+                .username(userDO.getUsername())
+                .realName(userDO.getRealName())
+                .build();
+        stringRedisTemplate.opsForHash().put(sessionKey, token, JSON.toJSONString(userInfoDTO));
         stringRedisTemplate.expire(sessionKey, tokenExpired, TimeUnit.MILLISECONDS);
         return new UserLoginRespDTO(token);
     }
