@@ -3,20 +3,16 @@ spring:
     #读取哪个配置文件（配置中心上的）
     import:
       - optional:nacos:MiaoWang-all-service.yaml
-      - optional:nacos:MiaoWang-service-user-dev.yaml
+      - optional:nacos:MiaoWang-service-knowledge-dev.yaml
   cloud:
     nacos:
       config:
         server-addr: 192.168.137.128:8848 #配置中心地址
         username: nacos
-        password: nacos
         #namespace: #命名空间的id值，不写就是默认public命名空间
         #group: DEFAULT_GROUP
+        password: nacos
       discovery:
         server-addr: 192.168.137.128:8848
         username: nacos
         password: nacos
-
-jwt:
-  token:
-    expired: 3600000 #token有效期，单位毫秒
