@@ -2,6 +2,8 @@ package com.MapleLeaf.MiaoWang.dao.entity;
 
 
 import com.MapleLeaf.MiaoWang.common.dao.BaseDO;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -13,6 +15,7 @@ public class PetDO extends BaseDO {
     /**
      * pid 宠物id
      */
+    @TableId(type = IdType.AUTO)
     private Long pid;
 
     /**
