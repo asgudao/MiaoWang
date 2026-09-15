@@ -16,6 +16,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -69,5 +70,44 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeFragmentMapper, K
             throw new ClientException("知识条目不存在");
         }
         return BeanUtil.toBean(fragmentDO, KnowledgeFragmentRespDTO.class);
+    }
+
+    @Override
+    public List<KnowledgeFragmentRespDTO> searchFragments(String keyword, Integer species, String categoryCode) {
+        LambdaQueryWrapper<KnowledgeFragmentDO> queryWrapper = Wrappers.lambdaQuery(KnowledgeFragmentDO.class)
+                .eq(KnowledgeFragmentDO::getStatus, 2)
+                .eq(KnowledgeFragmentDO::getDelFlag, 0)
+                .orderByDesc(KnowledgeFragmentDO::getId)
+                .last("LIMIT 30");
+        if (species != null) {
+            queryWrapper.eq(KnowledgeFragmentDO::getSpecies, species);
+        }
+        if (StrUtil.isNotBlank(categoryCode)) {
+            queryWrapper.eq(KnowledgeFragmentDO::getCategoryCode, categoryCode);
+        }
+        if (StrUtil.isNotBlank(keyword)) {
+            List<String> terms = Arrays.stream(keyword.trim().split("\\s+"))
+                    .filter(StrUtil::isNotBlank)
+                    .distinct()
+                    .limit(8)
+                    .collect(Collectors.toList());
+            if (!terms.isEmpty()) {
+                queryWrapper.and(w -> {
+                    for (int i = 0; i < terms.size(); i++) {
+                        String term = terms.get(i);
+                        if (i > 0) {
+                            w.or();
+                        }
+                        // 每个词：title LIKE %词% OR content LIKE %词%
+                        w.and(o -> o.like(KnowledgeFragmentDO::getTitle, term)
+                                .or()
+                                .like(KnowledgeFragmentDO::getContent, term));
+                    }
+                });
+            }
+        }
+        return baseMapper.selectList(queryWrapper).stream()
+                .map(fragmentDO -> BeanUtil.toBean(fragmentDO, KnowledgeFragmentRespDTO.class))
+                .collect(Collectors.toList());
     }
 }

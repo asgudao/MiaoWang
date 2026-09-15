@@ -52,4 +52,16 @@ public class KnowledgeController {
     public Result<KnowledgeFragmentRespDTO> getFragmentById(@PathVariable("id") Long id) {
         return Results.success(knowledgeService.getFragmentById(id));
     }
+
+    /**
+     * 关键词搜索已发布知识碎片（RAG 关键词召回路）
+     *
+     * @param keyword 关键词，空格分隔多词
+     */
+    @GetMapping("/mapleleaf/miaowang/v1/knowledge/fragment/search")
+    public Result<List<KnowledgeFragmentRespDTO>> searchFragments(@RequestParam String keyword,
+                                                                  @RequestParam(required = false) Integer species,
+                                                                  @RequestParam(required = false) String categoryCode) {
+        return Results.success(knowledgeService.searchFragments(keyword, species, categoryCode));
+    }
 }

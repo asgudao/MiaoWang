@@ -29,4 +29,15 @@ public interface KnowledgeService {
      * 知识碎片详情
      */
     KnowledgeFragmentRespDTO getFragmentById(Long id);
+
+    /**
+     * 关键词搜索已发布知识碎片（RAG 关键词召回路）
+     * <p>
+     * keyword 支持空格分隔多词，任意词命中 title/content 即返回；LIMIT 30
+     *
+     * @param keyword      关键词（空格分隔多词）
+     * @param species      物种：1=猫 2=狗，可为空
+     * @param categoryCode 分类编码，可为空
+     */
+    List<KnowledgeFragmentRespDTO> searchFragments(String keyword, Integer species, String categoryCode);
 }
