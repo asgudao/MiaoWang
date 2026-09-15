@@ -15,6 +15,7 @@
         <module>MiaoWang-gateway</module>
         <module>MiaoWang-ai-pet</module>
         <module>MiaoWang-knowledge</module>
+        <module>MiaoWang-ai-knowledge</module>
     </modules>
 
     <!--springboot依赖-->
@@ -35,15 +36,23 @@
         <spring-cloud-alibaba.version>2025.0.0.0</spring-cloud-alibaba.version>
         <spring-cloud.version>2025.0.0</spring-cloud.version>
         <fastjson.version>2.0.57</fastjson.version>
-        <redisson.version>3.52.0</redisson.version>
+        <redisson-spring-boot-starter.version>4.7.0</redisson-spring-boot-starter.version>
         <jakarta.servlet-api.version>6.1.0</jakarta.servlet-api.version>
-        <transmittable-thread-loacl.version>2.14.2</transmittable-thread-loacl.version>
+        <transmittable-thread-local.version>2.14.2</transmittable-thread-local.version>
         <mybatis-plus-boot3-starter.version>3.5.14</mybatis-plus-boot3-starter.version>
         <pagehelper-spring-boot-starter.version>2.1.1</pagehelper-spring-boot-starter.version>
         <commons-lang3.version>3.19.0</commons-lang3.version>
         <kryo-serializers.version>0.45</kryo-serializers.version>
-
         <hutool-all.version>5.8.47</hutool-all.version>
+        <!-- 打包跳过单元测试 -->
+        <skipTests>true</skipTests>
+        <spring-boot.version>3.5.0</spring-boot.version>
+        <spring-ai-alibaba-bom.version>1.1.2.3</spring-ai-alibaba-bom.version>
+        <spring-ai-bom.version>1.1.2</spring-ai-bom.version>
+        <spring-ai-alibaba-extensions-bom.version>1.1.2.3</spring-ai-alibaba-extensions-bom.version>
+        <graalvm.polyglot.version>25.3.4.1</graalvm.polyglot.version>
+        <selenium-java.version>4.47.0</selenium-java.version>
+        <webdrivermanager.version>6.3.4</webdrivermanager.version>
     </properties>
 
     <!--父模块统一管理组件的版本，子模块引用组件时候不用写版本号-->
@@ -55,6 +64,62 @@
                 <groupId>com.MapleLeaf.MiaoWang</groupId>
                 <artifactId>MiaoWang-common</artifactId>
                 <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-bom</artifactId>
+                <version>${spring-ai-alibaba-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-extensions-bom</artifactId>
+                <version>${spring-ai-alibaba-extensions-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- GraalVM 提供的一个多语言编程 API，它允许开发者在 Java 应用中嵌入和执行多种编程语言的代码-->
+            <dependency>
+                <groupId>org.graalvm.polyglot</groupId>
+                <artifactId>polyglot</artifactId>
+                <version>${graalvm.polyglot.version}</version>
+            </dependency>
+            <!-- Source: https://mvnrepository.com/artifact/org.graalvm.polyglot/python-community -->
+            <dependency>
+                <groupId>org.graalvm.polyglot</groupId>
+                <artifactId>python-community</artifactId>
+                <version>${graalvm.polyglot.version}</version>
+                <type>pom</type>
+                <scope>runtime</scope>
+            </dependency>
+
+            <!--  浏览器自动化  -->
+            <dependency>
+                <groupId>org.seleniumhq.selenium</groupId>
+                <artifactId>selenium-java</artifactId>
+                <version>${selenium-java.version}</version>
+            </dependency>
+
+            <!-- WebDriver Manager for automatic driver download -->
+            <dependency>
+                <groupId>io.github.bonigarcia</groupId>
+                <artifactId>webdrivermanager</artifactId>
+                <version>${webdrivermanager.version}</version>
             </dependency>
             <!--第三方库依赖模块-->
             <dependency>
@@ -74,7 +139,7 @@
             <dependency>
                 <groupId>com.alibaba</groupId>
                 <artifactId>transmittable-thread-local</artifactId>
-                <version>${transmittable-thread-loacl.version}</version>
+                <version>${transmittable-thread-local.version}</version>
             </dependency>
             <dependency>
                 <groupId>jakarta.servlet</groupId>
@@ -89,7 +154,7 @@
             <dependency>
                 <groupId>org.redisson</groupId>
                 <artifactId>redisson-spring-boot-starter</artifactId>
-                <version>${redisson.version}</version>
+                <version>${redisson-spring-boot-starter.version}</version>
             </dependency>
             <!--mybatis-plus依赖 springboot3-->
             <dependency>
