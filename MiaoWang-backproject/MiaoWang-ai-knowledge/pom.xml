@@ -22,16 +22,17 @@
             <groupId>com.MapleLeaf.MiaoWang</groupId>
             <artifactId>MiaoWang-common</artifactId>
         </dependency>
+        <!-- Nacos 服务发现（Feign 按服务名调用 knowledge 服务） -->
         <dependency>
-            <groupId>com.alibaba.cloud.ai</groupId>
-            <artifactId>spring-ai-alibaba-agent-framework</artifactId>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
         </dependency>
-        <!--聊天页面-->
+        <!-- Nacos 配置中心客户端（spring.config.import 才会生效，否则配置全部读不到） -->
         <dependency>
-            <groupId>com.alibaba.cloud.ai</groupId>
-            <artifactId>spring-ai-alibaba-studio</artifactId>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
         </dependency>
-        <!-- DashScope ChatModel 支持（如果使用其他模型，请跳转 Spring AI 文档选择对应的 starter） -->
+        <!-- DashScope ChatModel / EmbeddingModel（RAG 的对话生成与文本向量化） -->
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>
             <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
@@ -53,7 +54,7 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
         </dependency>
-        <!--把llm断点信息存储redis中-->
+        <!-- Redis：项目基础设施（common 的登录态透传过滤器依赖 StringRedisTemplate） -->
         <dependency>
             <groupId>org.redisson</groupId>
             <artifactId>redisson-spring-boot-starter</artifactId>
