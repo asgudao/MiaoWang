@@ -16,6 +16,8 @@
         <module>MiaoWang-ai-pet</module>
         <module>MiaoWang-knowledge</module>
         <module>MiaoWang-ai-knowledge</module>
+        <module>MiaoWang-community</module>
+        <module>MiaoWang-vip</module>
     </modules>
 
     <!--springboot依赖-->
