@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.MapleLeaf.MiaoWang</groupId>
+        <artifactId>MiaoWang-backproject</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>MiaoWang-community</artifactId>
+
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!--MinIO 对象存储客户端（社区帖子图片）-->
+        <minio.version>8.5.17</minio.version>
+        <!--MyBatis-Plus 3.5.9 起分页插件依赖 jsqlparser，需单独引入，版本与 mybatis-plus 保持一致-->
+        <mybatis-plus-jsqlparser.version>3.5.14</mybatis-plus-jsqlparser.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.MapleLeaf.MiaoWang</groupId>
+            <artifactId>MiaoWang-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
+            <scope>compile</scope>
+        </dependency>
+        <!--MinIO 对象存储：图片存 MinIO，MySQL 只存 URL 与 objectKey-->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>${minio.version}</version>
+        </dependency>
+        <!--MyBatis-Plus 分页插件（PaginationInnerInterceptor 需要 jsqlparser）-->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+            <version>${mybatis-plus-jsqlparser.version}</version>
+        </dependency>
+        <!--seata 暂时注释：等订阅支付跨服务事务场景时再启用（需要 seata-server 注册到 Nacos + 版本对齐）-->
+        <!--
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-seata</artifactId>
+        </dependency>
+        -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
+        <!--nacos配置中心客户端-->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+        </dependency>
+        <!--seate的undo_log 默认的序列化方式 jackson，在seata中使用jackson序列化方式会有问题，kryo序列化方式就可以解决这个问题（随 seata 一起启用）-->
+        <!--
+        <dependency>
+            <groupId>de.javakaffee</groupId>
+            <artifactId>kryo-serializers</artifactId>
+        </dependency>
+        -->
+    </dependencies>
+    <!--添加maven插件，项目的打包工具，打成jar包，否则在打包运行时报错   -->
+    <build>
+        <plugins>
+            <!--springboot插件，把项目打包jar，通过java -jar的命令运行项目，就可启动web项目-->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

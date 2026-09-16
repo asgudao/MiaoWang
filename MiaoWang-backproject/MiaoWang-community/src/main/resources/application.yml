@@ -1,0 +1,38 @@
+spring:
+  config:
+    #读取哪个配置文件（配置中心上的）
+    import:
+      - optional:nacos:MiaoWang-all-service.yaml
+      # 社区服务自己的配置（Nacos 上的 dataId：MiaoWang-service-community.yaml）
+      - optional:nacos:MiaoWang-service-community.yaml
+  cloud:
+    nacos:
+      config:
+        server-addr: 192.168.137.128:8848 #配置中心地址
+        username: nacos
+        #namespace: #命名空间的id值，不写就是默认public命名空间
+        #group: DEFAULT_GROUP
+        password: nacos
+      discovery:
+        server-addr: 192.168.137.128:8848
+        username: nacos
+        password: nacos
+  application:
+    name: miaowang-community
+  servlet:
+    multipart:
+      # 容器层的图片大小限制，与 MinioProperties.maxSizeMb(50) 对齐；
+      # 不配的话 Spring Boot 默认只允许 1MB，超过 1MB 的图片在进 Controller 之前就被拒了。
+      # 单请求 60MB 够用：图片接口是"一次传一张"，不是把 9 张塞进同一个请求
+      max-file-size: 50MB
+      max-request-size: 60MB
+# 本地兜底端口：Nacos 的 MiaoWang-service-community 里配的是 8101，读到会覆盖这里
+server:
+  port: 8101
+# 注意：数据库、Redis、MyBatis-Plus 来自 Nacos 共享配置 MiaoWang-all-service.yaml
+# MinIO：
+#   endpoint   http://192.168.137.128:9000
+#   accessKey  minioadmin
+#   secretKey  minioadmin
+#   bucket     miaowang-community（首次上传自动创建并设为公共读）
+# 真实配置写在 Nacos 的 MiaoWang-service-community 里，见 MinioProperties 的兜底默认值
