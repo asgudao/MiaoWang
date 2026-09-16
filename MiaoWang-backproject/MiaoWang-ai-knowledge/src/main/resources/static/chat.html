@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>喵汪 · AI 宠物助手</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f6f7fb; color: #222; height: 100vh;
+    display: flex; flex-direction: column;
+  }
+  header {
+    background: linear-gradient(135deg, #ff9a8b, #ff6a88);
+    color: #fff; padding: 14px 20px; display: flex;
+    align-items: center; justify-content: space-between;
+  }
+  header h1 { font-size: 18px; }
+  header .sub { font-size: 12px; opacity: .9; }
+  #indexBtn {
+    background: rgba(255,255,255,.25); color: #fff; border: 1px solid rgba(255,255,255,.6);
+    border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px;
+  }
+  #indexBtn:disabled { opacity: .5; cursor: not-allowed; }
+  #chat {
+    flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .msg { max-width: 78%; padding: 10px 14px; border-radius: 12px; line-height: 1.6; font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+  .user { align-self: flex-end; background: #ff6a88; color: #fff; border-top-right-radius: 4px; }
+  .ai { align-self: flex-start; background: #fff; border: 1px solid #eee; border-top-left-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+  .sources { margin-bottom: 10px; border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 12px; }
+  .sources .title { color: #999; margin-bottom: 5px; }
+  /* 来源做成小胶囊，比一行行纯文本更好扫读 */
+  .sources .src {
+    display: inline-block; margin: 0 6px 5px 0; padding: 2px 8px;
+    background: #fff5f7; color: #c9455f; border: 1px solid #ffd9e1; border-radius: 10px;
+  }
+  /* 正文用 HTML 排版（段落/列表/加粗），所以要关掉 .msg 的 pre-wrap，否则行距翻倍 */
+  .answer { white-space: normal; }
+  .answer p { margin: 0 0 6px; }
+  .answer p:last-child { margin-bottom: 0; }
+  .answer ul, .answer ol { margin: 4px 0 6px; padding-left: 20px; }
+  .answer li { margin: 2px 0; }
+  .answer strong { color: #c9455f; }
+  .hint { align-self: center; color: #999; font-size: 12px; }
+  #inputBar {
+    padding: 12px 16px; background: #fff; border-top: 1px solid #eee;
+    display: flex; gap: 10px; align-items: center;
+  }
+  #question {
+    flex: 1; border: 1px solid #ddd; border-radius: 20px; padding: 10px 16px;
+    font-size: 14px; outline: none;
+  }
+  #question:focus { border-color: #ff6a88; }
+  #sendBtn {
+    background: #ff6a88; color: #fff; border: none; border-radius: 20px;
+    padding: 10px 22px; font-size: 14px; cursor: pointer;
+  }
+  #sendBtn:disabled { opacity: .5; cursor: not-allowed; }
+  .typing::after { content: "▍"; animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🐾 喵汪 · AI 宠物助手</h1>
+    <div class="sub">RAG：Milvus 向量 + 关键词混合检索 · 流式输出</div>
+  </div>
+  <button id="indexBtn">🔄 重建知识索引</button>
+</header>
+<div id="chat">
+  <div class="hint">第一次使用请先点右上角「重建知识索引」把知识库灌入 Milvus，然后就可以提问啦～</div>
+</div>
+<div id="inputBar">
+  <input id="question" placeholder="例：三个月大的猫该打什么疫苗？狗狗一直呕吐怎么办？" autocomplete="off">
+  <button id="sendBtn">发送</button>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const chatEl = $('chat'), inputEl = $('question'), sendBtn = $('sendBtn'), indexBtn = $('indexBtn');
+const streamUrl = '/mapleleaf/miaowang/v1/ai/rag/ask/stream';
+const buildUrl = '/mapleleaf/miaowang/v1/ai/rag/index/build';
+
+function addMsg(text, cls) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + cls;
+  div.textContent = text;
+  chatEl.appendChild(div);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  return div;
+}
+function addSources(container, list) {
+  if (!list || !list.length) return;
+  container.innerHTML = '';
+  const title = document.createElement('div');
+  title.className = 'title';
+  title.textContent = '📚 检索到的知识碎片（' + list.length + ' 条）';
+  container.appendChild(title);
+  list.forEach((s, i) => {
+    const pill = document.createElement('span');
+    pill.className = 'src';
+    const sp = s.species === 1 ? '猫' : s.species === 2 ? '狗' : '通用';
+    pill.textContent = '[' + (i + 1) + '] ' + (s.title || '无标题') + ' · ' + sp;
+    container.appendChild(pill);
+  });
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+// 极简 Markdown 渲染：模型爱用 **加粗**、•/- 无序列表、1. 编号列表和换行。
+// 如果直接 textContent 塞进去，** 和 • 会原样显示，可读性差，所以这里转成 HTML。
+// 注意必须先做 HTML 转义，避免知识碎片里的尖括号被浏览器当成标签。
+function renderMarkdown(src) {
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const bold = s => s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  let html = '';
+  let list = null;                                   // 记录当前是否在列表内：'ul' | 'ol' | null
+  const closeList = () => { if (list) { html += '</' + list + '>'; list = null; } };
+  for (const raw of esc(src).split('\n')) {
+    const line = raw.trim();
+    if (/^([•·]|[-*])\s+/.test(line)) {               // 无序列表项
+      if (list !== 'ul') { closeList(); html += '<ul>'; list = 'ul'; }
+      html += '<li>' + bold(line.replace(/^([•·]|[-*])\s+/, '')) + '</li>';
+    } else if (/^\d+[.、)]\s*/.test(line)) {          // 有序列表项
+      if (list !== 'ol') { closeList(); html += '<ol>'; list = 'ol'; }
+      html += '<li>' + bold(line.replace(/^\d+[.、)]\s*/, '')) + '</li>';
+    } else {
+      closeList();                                   // 普通段落（空行只用来断开列表）
+      if (line) html += '<p>' + bold(line) + '</p>';
+    }
+  }
+  closeList();
+  return html;
+}
+
+// 重建索引
+indexBtn.onclick = async () => {
+  indexBtn.disabled = true; indexBtn.textContent = '⏳ 正在灌库...';
+  const div = addMsg('正在重建向量索引（把知识库碎片写入 Milvus）...', 'ai');
+  try {
+    const res = await fetch(buildUrl, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      div.textContent = '✅ 索引重建完成，共灌入 ' + data.data + ' 条知识碎片，现在可以提问了！';
+    } else {
+      // 失败时 data 为 null，直接拼 data.data 会显示成"共灌入 null 条"，误导排查
+      div.textContent = '❌ 灌库失败：' + (data.message || data.code) + '（具体原因看 ai-knowledge 控制台的 ERROR 日志）';
+    }
+  } catch (e) {
+    div.textContent = '❌ 灌库失败：' + e.message;
+  }
+  indexBtn.disabled = false; indexBtn.textContent = '🔄 重建知识索引';
+  chatEl.scrollTop = chatEl.scrollHeight;
+};
+
+// 流式问答
+async function ask() {
+  const question = inputEl.value.trim();
+  if (!question) return;
+  inputEl.value = ''; sendBtn.disabled = true;
+  addMsg(question, 'user');
+  const aiDiv = addMsg('', 'ai');
+  aiDiv.classList.add('typing');
+  // 一个气泡分成两块：【来源】和【正文】各用一个容器。
+  // （之前两者混在同一个节点上做 textContent +=，会把来源的 DOM 整体覆盖成纯文本）
+  const sourcesDiv = document.createElement('div');
+  sourcesDiv.className = 'sources';
+  const answerDiv = document.createElement('div');
+  answerDiv.className = 'answer';
+  aiDiv.appendChild(sourcesDiv);
+  aiDiv.appendChild(answerDiv);
+  let answerText = '';
+  try {
+    const res = await fetch(streamUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      // SSE 以空行分隔事件；一个块形如 "event:sources\ndata:[...]"
+      let sep;
+      while ((sep = buffer.indexOf('\n\n')) >= 0) {
+        const block = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+        // 先整块解析出「事件名」和「数据」，再按事件名分别处理。
+        // 关键：不能见到 data: 就往正文里加 —— 否则 sources 的 JSON 会混进回答
+        let event = 'message';
+        const dataLines = [];
+        for (const line of block.split('\n')) {
+          if (line.startsWith('event:')) event = line.slice(6).trim();
+          else if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
+        }
+        if (!dataLines.length) continue;
+        const payload = dataLines.join('\n');
+        if (event === 'sources') {
+          try { addSources(sourcesDiv, JSON.parse(payload)); }
+          catch (err) { console.warn('sources 解析失败：', err, payload); }
+        } else if (event === 'message') {
+          answerText += payload;
+          answerDiv.innerHTML = renderMarkdown(answerText);   // 每次增量重排，答案很短，开销可忽略
+        }
+        chatEl.scrollTop = chatEl.scrollHeight;
+      }
+    }
+  } catch (e) {
+    answerDiv.textContent += '❌ 请求失败：' + e.message;
+  }
+  aiDiv.classList.remove('typing');
+  sendBtn.disabled = false;
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+sendBtn.onclick = ask;
+inputEl.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(); } };
+</script>
+</body>
+</html>

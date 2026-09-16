@@ -8,7 +8,6 @@ import com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeImageAutoConfigurat
 import com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeMultimodalEmbeddingAutoConfiguration;
 import com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeRerankAutoConfiguration;
 import com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeVideoAutoConfiguration;
-import com.MapleLeaf.MiaoWang.config.EnvDiagnostic;
 import com.MapleLeaf.MiaoWang.config.LlmProperties;
 import com.MapleLeaf.MiaoWang.config.MilvusProperties;
 import org.springframework.ai.model.openai.autoconfigure.*;
@@ -45,8 +44,6 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
         OpenAiModerationAutoConfiguration.class})
 public class AiKnowledgeApplication {
     public static void main(String[] args) {
-        SpringApplication app = new SpringApplication(AiKnowledgeApplication.class);
-        app.addListeners(new EnvDiagnostic());
-        app.run(args);
+        SpringApplication.run(AiKnowledgeApplication.class, args);
     }
 }
