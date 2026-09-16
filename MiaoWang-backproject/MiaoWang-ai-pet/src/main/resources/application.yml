@@ -1,0 +1,16 @@
+spring:
+  config:
+    #读取哪个配置文件（配置中心上的）
+    import:
+      - optional:nacos:MiaoWang-all-service.yaml
+      - optional:nacos:MiaoWang-service-ai-pet-dev.yaml
+  cloud:
+    nacos:
+      config:
+        server-addr: 192.168.137.128:8848 #配置中心地址
+        username: nacos
+        password: nacos
+      discovery:
+        server-addr: 192.168.137.128:8848
+        username: nacos
+        password: nacos
