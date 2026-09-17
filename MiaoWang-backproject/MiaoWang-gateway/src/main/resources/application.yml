@@ -22,8 +22,32 @@ spring:
 gateway:
   auth:
     white-list:
-      - /MiaoWang-user/mapleleaf/miaowang/v1/user/login
-      - /MiaoWang-user/mapleleaf/miaowang/v1/user/register
-      - /MiaoWang-knowledge/**
-      #- /service-product/product/**
+      # 注册接口实际路径是 POST /user（原来写的 /user/register 不存在，注册走网关会 401）
+      # 注意：AntPathMatcher 下不带通配符就是精确匹配，所以这行不会把 /user/** 全部放行
+      - /miaowang-user/mapleleaf/miaowang/v1/user
+      - /miaowang-user/mapleleaf/miaowang/v1/user/login
+      - /miaowang-user/mapleleaf/miaowang/v1/user/login/phone
+      - /miaowang-user/mapleleaf/miaowang/v1/user/sms
+      - /miaowang-user/mapleleaf/miaowang/v1/user/captcha
+      # 知识库：只放行「读」路径（公开内容区）。
+      # 原来写的是 /miaowang-knowledge/**（整个服务免登录）——那会把将来的写接口（收藏等）
+      # 一并免登录，等于"公开读"顺手把"登录写"也放行了，所以按读路径逐条列。
+      # 注意：服务间 Feign（ai-knowledge 建索引、healthy 取症状选项）走 Nacos 直连、
+      # 不经过网关，所以不受这里影响。
+      - /miaowang-knowledge/mapleleaf/miaowang/v1/knowledge/category
+      - /miaowang-knowledge/mapleleaf/miaowang/v1/knowledge/fragment
+      - /miaowang-knowledge/mapleleaf/miaowang/v1/knowledge/fragment/**
       - /favicon.ico
+      # 支付渠道异步回调：真实渠道不可能带我们的登录态，所以必须免登录；
+      # 安全性由「HMAC 验签 + 时间戳新鲜度 + nonce 一次性」保证，且该接口只接受允许公网回调的
+      # 真实渠道（mock 渠道调它会直接报错），详见 VipPayNotifyController
+      - /miaowang-vip/mapleleaf/miaowang/v1/vip/pay/notify/**
+      # 后台管理端：用的是独立的后台 token（请求头 X-Admin-Token），C 端登录态对它没有意义。
+      # 网关这里只做放行，真正的鉴权在 MiaoWang-Vip 的 VipAdminAuthInterceptor 里（除了 /admin/login）
+      - /miaowang-vip/mapleleaf/miaowang/v1/vip/admin/**
+    # 内部接口黑名单：这些路径只允许服务间 Feign 调用（走 Nacos 直连，不经过网关），
+    # 从网关进来的外部请求一律 403。不拦的话，任意登录用户就能拿别人的 uid 查权益、
+    # 刷光别人的额度，或调 /vip/internal/3d/complete 改别人的定制单并写入任意模型地址
+    deny-list:
+      - /**/internal/**
+      - /**/internal

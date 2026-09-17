@@ -14,11 +14,25 @@ public class GatewayAuthProperties {
      */
     private List<String> whiteList;
 
+    /**
+     * 内部接口黑名单路径：这些接口只给服务间调用（Feign 走 Nacos 直连，不经过网关），
+     * 从网关进来的外部请求一律拒绝
+     */
+    private List<String> denyList;
+
     public List<String> getWhiteList() {
         return whiteList;
     }
 
     public void setWhiteList(List<String> whiteList) {
         this.whiteList = whiteList;
+    }
+
+    public List<String> getDenyList() {
+        return denyList;
+    }
+
+    public void setDenyList(List<String> denyList) {
+        this.denyList = denyList;
     }
 }
