@@ -59,4 +59,12 @@ public class KnowledgeFragmentRespDTO {
      * 来源：EXCEL/LLM/MANUAL
      */
     private String source;
+
+    /**
+     * 浏览量
+     * <p>
+     * 详情接口返回的是实时值（库里已写回的值 + Redis 里还没写回的增量）；
+     * 列表接口返回的是上次合并写回的值，最多滞后一个写回窗口。
+     */
+    private Long viewCount;
 }
