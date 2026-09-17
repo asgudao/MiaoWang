@@ -16,7 +16,39 @@ spring:
         server-addr: 192.168.137.128:8848
         username: nacos
         password: nacos
+  servlet:
+    multipart:
+      # 头像图片大小限制，与 minio.max-size-mb 对齐；
+      # 不配的话 Spring Boot 默认只允许 1MB，超过的图片在进 Controller 之前就被拒了
+      max-file-size: 5MB
+      max-request-size: 10MB
+
+# MinIO 对象存储：头像单独一个桶，不和其他业务（社区帖子图片）混在一起；
+# endpoint / accessKey / secretKey / buckets.post 走 common 的兜底默认值
+minio:
+  buckets:
+    avatar: miaowang-user
+  # 头像不需要大图：5MB（common 默认 50MB 是给帖子图片用的）
+  max-size-mb: 5
 
 jwt:
   token:
     expired: 3600000 #token有效期，单位毫秒
+
+# 短信验证码：provider=mock 时只打日志不真发（联调从日志取码）；
+# 以后接云厂商：改 sms.provider + 新增一个 SmsSender 实现类，业务代码不用动
+sms:
+  provider: mock
+  code-expire-minutes: 5 #验证码有效期（分钟）
+  send-interval-seconds: 60 #同一手机号两次发送的最小间隔（秒）
+  daily-limit: 10 #同一手机号每日发送上限（条）
+  max-fail-count: 5 #连续校验失败上限，达到即作废验证码（防穷举 6 位码）
+
+# 图形验证码（真人校验，发送短信前置）
+captcha:
+  expire-minutes: 5
+
+user:
+  register:
+    # 启动预热布隆过滤器时每批读多少个用户名（游标分页，避免一次把整表读进 JVM）
+    bloom-preload-batch-size: 1000

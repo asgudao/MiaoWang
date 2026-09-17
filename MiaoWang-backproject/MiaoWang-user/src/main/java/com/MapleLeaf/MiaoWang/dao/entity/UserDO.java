@@ -46,6 +46,11 @@ public class UserDO extends BaseDO {
     private String ownerCallName;
 
     /**
+     * 头像 URL（MinIO 直链，由头像上传接口写入）
+     */
+    private String avatar;
+
+    /**
      * 注销时间戳
      */
 

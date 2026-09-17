@@ -38,4 +38,9 @@ public class UserActualRespDTO {
      */
     private String ownerCallName;
 
+    /**
+     * 头像 URL
+     */
+    private String avatar;
+
 }

@@ -38,4 +38,9 @@ public class UserRegisterReqDTO {
      * 主人称呼：宠物对主人的称呼，数据库默认值"主人"
      */
     private String ownerCallName;
+
+    /**
+     * 短信验证码（scene=register）：注册要验手机号真实性，必须与 phone 匹配
+     */
+    private String smsCode;
 }

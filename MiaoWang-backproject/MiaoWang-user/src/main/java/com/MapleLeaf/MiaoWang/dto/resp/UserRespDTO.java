@@ -41,4 +41,9 @@ public class UserRespDTO {
      */
     private String ownerCallName;
 
+    /**
+     * 头像 URL
+     */
+    private String avatar;
+
 }
