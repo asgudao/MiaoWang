@@ -15,8 +15,6 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <!--MinIO 对象存储客户端（社区帖子图片）-->
-        <minio.version>8.5.17</minio.version>
         <!--MyBatis-Plus 3.5.9 起分页插件依赖 jsqlparser，需单独引入，版本与 mybatis-plus 保持一致-->
         <mybatis-plus-jsqlparser.version>3.5.14</mybatis-plus-jsqlparser.version>
     </properties>
@@ -35,12 +33,7 @@
             <artifactId>hutool-all</artifactId>
             <scope>compile</scope>
         </dependency>
-        <!--MinIO 对象存储：图片存 MinIO，MySQL 只存 URL 与 objectKey-->
-        <dependency>
-            <groupId>io.minio</groupId>
-            <artifactId>minio</artifactId>
-            <version>${minio.version}</version>
-        </dependency>
+        <!--MinIO 客户端与上传封装由 common 传递引入（版本在父 pom 统一管理），社区不再单独声明-->
         <!--MyBatis-Plus 分页插件（PaginationInnerInterceptor 需要 jsqlparser）-->
         <dependency>
             <groupId>com.baomidou</groupId>

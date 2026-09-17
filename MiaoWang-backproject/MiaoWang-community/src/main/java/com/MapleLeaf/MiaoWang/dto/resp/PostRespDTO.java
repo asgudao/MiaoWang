@@ -3,6 +3,7 @@ package com.MapleLeaf.MiaoWang.dto.resp;
 import lombok.Data;
 
 import java.util.Date;
+import java.util.List;
 
 /**
  * 帖子卡片（列表用，不含正文和图片明细）
@@ -52,6 +53,16 @@ public class PostRespDTO {
      * 当前登录用户是否已收藏（未登录恒为 false）
      */
     private Boolean favorited;
+
+    /**
+     * 话题标签（按正文出现顺序，最多 5 个；没有话题时是空数组而不是 null）
+     */
+    private List<TopicRespDTO> topics;
+
+    /**
+     * 视频列表（最多 9 个，没有视频时是空数组而不是 null）
+     */
+    private List<PostVideoRespDTO> videos;
 
     private Date createTime;
 }

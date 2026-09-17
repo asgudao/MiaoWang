@@ -13,7 +13,9 @@ import com.MapleLeaf.MiaoWang.dao.mapper.CommunityFavoriteMapper;
 import com.MapleLeaf.MiaoWang.dao.mapper.CommunityLikeMapper;
 import com.MapleLeaf.MiaoWang.dao.mapper.CommunityPostMapper;
 import com.MapleLeaf.MiaoWang.enums.CommunityErrorCodeEnum;
+import com.MapleLeaf.MiaoWang.service.BlockService;
 import com.MapleLeaf.MiaoWang.service.InteractionService;
+import com.MapleLeaf.MiaoWang.service.NotificationService;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,12 +40,15 @@ public class InteractionServiceImpl implements InteractionService {
     private final CommunityCommentMapper commentMapper;
     private final CommunityLikeMapper likeMapper;
     private final CommunityFavoriteMapper favoriteMapper;
+    private final NotificationService notificationService;
+    private final BlockService blockService;
 
     @Override
     public void likePost(Long postId) {
         // 先校验登录、再校验帖子是否存在：顺序反了会让未登录请求能探测出哪些帖子 id 存在
         Long uid = currentLoginUid();
-        requirePublishedPost(postId);
+        String username = UserContext.getUsername();
+        CommunityPostDO postDO = requirePublishedPost(postId);
         CommunityLikeDO likeDO = new CommunityLikeDO();
         likeDO.setUid(uid);
         likeDO.setTargetType(CommunityConstant.TARGET_TYPE_POST);
@@ -59,6 +64,9 @@ public class InteractionServiceImpl implements InteractionService {
         postMapper.update(null, Wrappers.lambdaUpdate(CommunityPostDO.class)
                 .setSql("like_count = like_count + 1")
                 .eq(CommunityPostDO::getPostId, postId));
+        // 通知楼主；自己赞自己不通知（在 notify 里统一判断）
+        notificationService.notify(postDO.getUid(), CommunityConstant.NOTIFY_TYPE_LIKE_POST, uid, username,
+                postId, postId, postDO.getTitle());
     }
 
     @Override
@@ -114,7 +122,8 @@ public class InteractionServiceImpl implements InteractionService {
     @Override
     public void likeComment(Long commentId) {
         Long uid = currentLoginUid();
-        requirePublishedComment(commentId);
+        String username = UserContext.getUsername();
+        CommunityCommentDO commentDO = requirePublishedComment(commentId);
         CommunityLikeDO likeDO = new CommunityLikeDO();
         likeDO.setUid(uid);
         likeDO.setTargetType(CommunityConstant.TARGET_TYPE_COMMENT);
@@ -128,6 +137,9 @@ public class InteractionServiceImpl implements InteractionService {
         commentMapper.update(null, Wrappers.lambdaUpdate(CommunityCommentDO.class)
                 .setSql("like_count = like_count + 1")
                 .eq(CommunityCommentDO::getCommentId, commentId));
+        // 通知评论作者，content 存被点赞的评论内容，接收者一眼知道赞的是哪条
+        notificationService.notify(commentDO.getUid(), CommunityConstant.NOTIFY_TYPE_LIKE_COMMENT, uid, username,
+                commentId, commentDO.getPostId(), commentDO.getContent());
     }
 
     @Override
@@ -147,28 +159,41 @@ public class InteractionServiceImpl implements InteractionService {
 
     /**
      * 互动前校验目标帖子存在且已发布（删掉的帖子不能再点赞/收藏）
+     * <p>
+     * 返回帖子对象而不是 count：点赞成功要通知楼主，顺手把作者 uid 一起带出来，
+     * 免得为了发通知再查一次库。
      */
-    private void requirePublishedPost(Long postId) {
-        Long count = postMapper.selectCount(Wrappers.lambdaQuery(CommunityPostDO.class)
+    private CommunityPostDO requirePublishedPost(Long postId) {
+        CommunityPostDO postDO = postMapper.selectOne(Wrappers.lambdaQuery(CommunityPostDO.class)
                 .eq(CommunityPostDO::getPostId, postId)
                 .eq(CommunityPostDO::getStatus, CommunityConstant.POST_STATUS_PUBLISHED)
                 .eq(CommunityPostDO::getDelFlag, CommunityConstant.DEL_FLAG_NORMAL));
-        if (count == null || count == 0) {
+        if (postDO == null) {
             throw new ClientException(CommunityErrorCodeEnum.POST_NOT_EXIST);
         }
+        // 拉黑关系里不能互动：对方的内容在你眼里等于不存在（列表已隐藏，这里再挡一道直接调接口的）
+        if (blockService.blockedBetween(currentLoginUid(), postDO.getUid())) {
+            throw new ClientException(CommunityErrorCodeEnum.POST_NOT_EXIST);
+        }
+        return postDO;
     }
 
     /**
-     * 点赞评论前校验评论存在（删掉的评论不能再点赞）
+     * 点赞评论前校验评论存在（删掉的评论不能再点赞）；同样返回对象供通知使用
      */
-    private void requirePublishedComment(Long commentId) {
-        Long count = commentMapper.selectCount(Wrappers.lambdaQuery(CommunityCommentDO.class)
+    private CommunityCommentDO requirePublishedComment(Long commentId) {
+        CommunityCommentDO commentDO = commentMapper.selectOne(Wrappers.lambdaQuery(CommunityCommentDO.class)
                 .eq(CommunityCommentDO::getCommentId, commentId)
                 .eq(CommunityCommentDO::getStatus, CommunityConstant.COMMENT_STATUS_PUBLISHED)
                 .eq(CommunityCommentDO::getDelFlag, CommunityConstant.DEL_FLAG_NORMAL));
-        if (count == null || count == 0) {
+        if (commentDO == null) {
             throw new ClientException(CommunityErrorCodeEnum.COMMENT_NOT_EXIST);
         }
+        // 同上：拉黑关系里也点不了对方的评论
+        if (blockService.blockedBetween(currentLoginUid(), commentDO.getUid())) {
+            throw new ClientException(CommunityErrorCodeEnum.COMMENT_NOT_EXIST);
+        }
+        return commentDO;
     }
 
     private Long currentLoginUid() {

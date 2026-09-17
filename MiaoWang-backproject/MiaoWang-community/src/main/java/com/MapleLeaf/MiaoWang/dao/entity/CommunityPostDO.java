@@ -45,6 +45,9 @@ public class CommunityPostDO extends BaseDO {
 
     /**
      * 封面图 URL（取 sort=0 的图片，冗余便于列表展示）
+     * <p>
+     * 只有图片能当封面：视频帖没配图时这里是 null，前端直接用 &lt;video&gt; 渲染。
+     * 视频明细在 miaowang_community_post_video（和图片表同构，一帖最多 9 个）。
      */
     private String coverUrl;
 

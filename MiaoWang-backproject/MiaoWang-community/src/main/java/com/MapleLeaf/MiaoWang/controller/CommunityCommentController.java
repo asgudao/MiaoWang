@@ -4,7 +4,7 @@ import com.MapleLeaf.MiaoWang.common.convention.result.Result;
 import com.MapleLeaf.MiaoWang.common.convention.result.Results;
 import com.MapleLeaf.MiaoWang.dto.req.CommentCreateReqDTO;
 import com.MapleLeaf.MiaoWang.dto.resp.CommentRespDTO;
-import com.MapleLeaf.MiaoWang.dto.resp.PageRespDTO;
+import com.MapleLeaf.MiaoWang.dto.resp.CursorPageRespDTO;
 import com.MapleLeaf.MiaoWang.service.CommentService;
 import com.MapleLeaf.MiaoWang.service.InteractionService;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +18,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 社区评论接口
+ * <p>
+ * 列表用游标分页（前端滚动加载）：请求带 size，响应给 hasMore + nextCursor，
+ * 下一页把 nextCursor 原样回传给 lastId。没有页码，也没有 total。
  */
 @RestController
 @RequiredArgsConstructor
@@ -39,17 +42,35 @@ public class CommunityCommentController {
     }
 
     /**
-     * 评论分页列表（一级评论分页，每条带出它下面的回复）
+     * 一级评论的滚动加载（游标分页）
+     * <p>
+     * 每条一级评论带最多 3 条回复预览 + replyCount（回复总数）。
      *
-     * @param postId   帖子 id
-     * @param pageNum  页码，默认 1
-     * @param pageSize 每页条数，默认 10，最大 50
+     * @param postId 帖子 id
+     * @param lastId 上一页返回的 nextCursor；第一页不传
+     * @param size   每页条数，默认 10，最大 50
      */
     @GetMapping("/mapleleaf/miaowang/v1/community/comment")
-    public Result<PageRespDTO<CommentRespDTO>> pageComments(@RequestParam(required = false) Long postId,
-                                                            @RequestParam(required = false) Long pageNum,
-                                                            @RequestParam(required = false) Long pageSize) {
-        return Results.success(commentService.pageComments(postId, pageNum, pageSize));
+    public Result<CursorPageRespDTO<CommentRespDTO>> pageComments(@RequestParam(required = false) Long postId,
+                                                                  @RequestParam(required = false) Long lastId,
+                                                                  @RequestParam(required = false) Long size) {
+        return Results.success(commentService.pageComments(postId, lastId, size));
+    }
+
+    /**
+     * 查看某条一级评论下的全部回复（游标分页，按时间正序）
+     * <p>
+     * 用户点"查看全部 N 条回复"时调这个接口。
+     *
+     * @param commentId 一级评论 id
+     * @param lastId    上一页返回的 nextCursor；第一页不传
+     * @param size      每页条数，默认 10，最大 50
+     */
+    @GetMapping("/mapleleaf/miaowang/v1/community/comment/reply")
+    public Result<CursorPageRespDTO<CommentRespDTO>> pageReplies(@RequestParam(required = false) Long commentId,
+                                                                 @RequestParam(required = false) Long lastId,
+                                                                 @RequestParam(required = false) Long size) {
+        return Results.success(commentService.pageReplies(commentId, lastId, size));
     }
 
     /**

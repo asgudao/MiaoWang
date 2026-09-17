@@ -8,7 +8,8 @@ import java.util.List;
 /**
  * 评论返回
  * <p>
- * 两级结构：一级评论带 children（它下面的回复，按时间正序）；回复本身不再带 children。
+ * 两级结构：一级评论带 children（它下面的**前几条**回复，按时间正序）和 replyCount（回复总数）；
+ * 想看全部回复走 /community/comment/reply 游标接口。回复本身不再带 children。
  */
 @Data
 public class CommentRespDTO {
@@ -53,7 +54,14 @@ public class CommentRespDTO {
     private String replyUsername;
 
     /**
-     * 二级回复列表（只有一级评论才有，回复按时间正序）
+     * 该条一级评论的回复总数（回复本身这个字段为 null）
+     * <p>
+     * 前端用它显示"查看全部 N 条回复"；children 只是前几条预览，不一定等于 replyCount。
+     */
+    private Integer replyCount;
+
+    /**
+     * 回复预览列表（只有一级评论才有，最多带 COMMENT_REPLY_PREVIEW_COUNT 条，按时间正序）
      */
     private List<CommentRespDTO> children;
 }

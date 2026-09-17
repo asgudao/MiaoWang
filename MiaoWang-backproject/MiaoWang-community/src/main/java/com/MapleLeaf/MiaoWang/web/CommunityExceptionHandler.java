@@ -3,7 +3,8 @@ package com.MapleLeaf.MiaoWang.web;
 import com.MapleLeaf.MiaoWang.common.convention.errorcode.BaseErrorCode;
 import com.MapleLeaf.MiaoWang.common.convention.result.Result;
 import com.MapleLeaf.MiaoWang.common.convention.result.Results;
-import com.MapleLeaf.MiaoWang.config.MinioProperties;
+import com.MapleLeaf.MiaoWang.common.config.MinioProperties;
+import com.MapleLeaf.MiaoWang.config.CommunityVideoProperties;
 import com.MapleLeaf.MiaoWang.enums.CommunityErrorCodeEnum;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,14 +33,21 @@ public class CommunityExceptionHandler {
 
     private final MinioProperties minioProperties;
 
+    private final CommunityVideoProperties videoProperties;
+
     /**
      * 上传文件超过 multipart 限制
+     * <p>
+     * 容器层（spring.servlet.multipart.max-file-size）先拦一次，所以这里<b>分不清</b>是图片还是视频超限，
+     * 只能把两个上限都报出来，用户自己就能判断是哪一类。
+     * 视频还有一道业务层校验（community.video.max-size-mb），会返回更精确的 B000330。
      */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public Result<Void> maxUploadSizeExceededException(MaxUploadSizeExceededException ex) {
         log.warn("上传文件超出限制: {}", ex.getMessage());
         return Results.failure(CommunityErrorCodeEnum.IMAGE_SIZE_EXCEED.code(),
-                "图片大小超出限制，单张最大 " + minioProperties.getMaxSizeMb() + "MB");
+                "文件大小超出限制：图片单张最大 " + minioProperties.getMaxSizeMb() + "MB，视频单个最大 "
+                        + videoProperties.getMaxSizeMb() + "MB");
     }
 
     /**

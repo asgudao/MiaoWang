@@ -14,14 +14,18 @@ import com.MapleLeaf.MiaoWang.dao.mapper.CommunityLikeMapper;
 import com.MapleLeaf.MiaoWang.dao.mapper.CommunityPostMapper;
 import com.MapleLeaf.MiaoWang.dto.req.CommentCreateReqDTO;
 import com.MapleLeaf.MiaoWang.dto.resp.CommentRespDTO;
-import com.MapleLeaf.MiaoWang.dto.resp.PageRespDTO;
+import com.MapleLeaf.MiaoWang.dto.resp.CursorPageRespDTO;
 import com.MapleLeaf.MiaoWang.enums.CommunityErrorCodeEnum;
+import com.MapleLeaf.MiaoWang.service.BlockService;
 import com.MapleLeaf.MiaoWang.service.CommentService;
-import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.MapleLeaf.MiaoWang.service.MentionService;
+import com.MapleLeaf.MiaoWang.service.NotificationService;
+import com.MapleLeaf.MiaoWang.service.SensitiveWordService;
+import com.MapleLeaf.MiaoWang.support.ContentTagParser;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
@@ -36,17 +40,24 @@ import java.util.stream.Collectors;
  * <p>
  * 设计要点：
  * 1. 只做两级（一级评论 + 回复），回复二级评论时自动归到它的一级评论下 —— 避免无限层级带来的展示与查询复杂度；
- * 2. 列表按"一级评论分页 + 批量查回复"，不会出现子查询或 N+1（一次查询拿回本页全部回复）；
- * 3. 帖子的 comment_count 用 SQL 原子增减，与点赞/收藏的计数策略保持一致；
- * 4. 每条评论带 liked 标记（当前登录用户是否赞过），一次查询批量查出，前端据此高亮；
+ * 2. 列表**游标分页**而不是页码：评论新的在最前面，offset 分页在翻页期间遇到新增/删除会重复或漏数据，
+ * 而且 LIMIT offset 越翻越慢。游标从"上一页最后一条"往下取，不受新增影响，深翻页一样快；
+ * 3. 列表只带每条一级评论的前 N 条回复 + 回复总数，想看全部走回复的游标接口
+ * —— 一条爆款评论下面可能有上千条回复，全带出来会把这一页的响应撑爆；
+ * 4. 一次查询批量取回复预览（窗口函数）、一次查询批量取回复数、一次查询批量取点赞关系，全程没有 N+1；
  * 5. 评论删除是物理删除（不做逻辑删除）：删掉不留残行，同时清掉这些评论的点赞关系。
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CommentServiceImpl extends ServiceImpl<CommunityCommentMapper, CommunityCommentDO> implements CommentService {
 
     private final CommunityPostMapper postMapper;
     private final CommunityLikeMapper likeMapper;
+    private final NotificationService notificationService;
+    private final BlockService blockService;
+    private final SensitiveWordService sensitiveWordService;
+    private final MentionService mentionService;
 
     @Override
     public CommentRespDTO createComment(CommentCreateReqDTO requestParam) {
@@ -63,7 +74,12 @@ public class CommentServiceImpl extends ServiceImpl<CommunityCommentMapper, Comm
         if (content.length() > CommunityConstant.MAX_COMMENT_LENGTH) {
             throw new ClientException(CommunityErrorCodeEnum.COMMENT_CONTENT_TOO_LONG);
         }
-        requirePublishedPost(requestParam.getPostId());
+        checkSensitiveWords(uid, content);
+        CommunityPostDO postDO = requirePublishedPost(requestParam.getPostId());
+        // 拉黑关系里不能评论对方的内容（列表已经隐藏，但接口可以被直接调用）
+        if (blockService.blockedBetween(uid, postDO.getUid())) {
+            throw new ClientException(CommunityErrorCodeEnum.POST_NOT_EXIST);
+        }
 
         Long parentId = requestParam.getParentId() == null
                 ? CommunityConstant.COMMENT_PARENT_ROOT : requestParam.getParentId();
@@ -102,6 +118,20 @@ public class CommentServiceImpl extends ServiceImpl<CommunityCommentMapper, Comm
                 .setSql("comment_count = comment_count + 1")
                 .eq(CommunityPostDO::getPostId, requestParam.getPostId()));
 
+        // 发通知：一级评论通知楼主；回复通知"被回复的那条评论"的作者。
+        // 回复时不再额外通知楼主 —— 楼主本来就会在自己的回复列表里看到，重复提醒只会变成骚扰。
+        if (parentComment == null) {
+            notificationService.notify(postDO.getUid(), CommunityConstant.NOTIFY_TYPE_COMMENT_POST, uid, username,
+                    commentDO.getCommentId(), postDO.getPostId(), content);
+        } else {
+            notificationService.notify(parentComment.getUid(), CommunityConstant.NOTIFY_TYPE_REPLY_COMMENT, uid, username,
+                    commentDO.getCommentId(), postDO.getPostId(), content);
+        }
+
+        // @提及：正文里 @ 到的人各提醒一次（评论里的提及 targetId 用评论 id，前端能定位到楼中楼）
+        mentionService.notifyMentions(uid, username, ContentTagParser.parseMentions(null, content),
+                postDO.getPostId(), commentDO.getCommentId(), content);
+
         Map<Long, String> usernameMap = new HashMap<>(4);
         usernameMap.put(uid, username);
         if (parentComment != null) {
@@ -112,51 +142,87 @@ public class CommentServiceImpl extends ServiceImpl<CommunityCommentMapper, Comm
     }
 
     @Override
-    public PageRespDTO<CommentRespDTO> pageComments(Long postId, Long pageNum, Long pageSize) {
-        long page = normalizePageNum(pageNum);
-        long size = normalizePageSize(pageSize);
+    public CursorPageRespDTO<CommentRespDTO> pageComments(Long postId, Long lastId, Long size) {
+        long limit = normalizeSize(size);
+        // 拉黑过滤：与我互相不可见的用户，评论不进这一页
+        Set<Long> invisibleUids = blockService.invisibleUids(currentUidOrNull());
         // postId 为空按"没有评论"处理，避免抛出 Spring 原生的 400（响应体格式和项目不统一）
         if (postId == null) {
-            return PageRespDTO.of(page, size, 0, Collections.emptyList());
+            return CursorPageRespDTO.of(Collections.emptyList(), limit, false, null);
         }
-        // 第一层：分页查一级评论
-        IPage<CommunityCommentDO> parentPage = baseMapper.selectPage(new Page<>(page, size),
-                Wrappers.lambdaQuery(CommunityCommentDO.class)
-                        .eq(CommunityCommentDO::getPostId, postId)
-                        .eq(CommunityCommentDO::getParentId, CommunityConstant.COMMENT_PARENT_ROOT)
-                        .eq(CommunityCommentDO::getStatus, CommunityConstant.COMMENT_STATUS_PUBLISHED)
-                        .eq(CommunityCommentDO::getDelFlag, CommunityConstant.DEL_FLAG_NORMAL)
-                        .orderByDesc(CommunityCommentDO::getCreateTime)
-                        .orderByDesc(CommunityCommentDO::getCommentId));
-        List<CommunityCommentDO> parentList = parentPage.getRecords();
-        if (CollUtil.isEmpty(parentList)) {
-            return PageRespDTO.of(parentPage.getCurrent(), parentPage.getSize(), parentPage.getTotal(),
-                    Collections.emptyList());
-        }
-        List<Long> parentIds = parentList.stream().map(CommunityCommentDO::getCommentId).collect(Collectors.toList());
-        // 第二层：一次把本页一级评论下的回复全查出来（不是每条评论查一次）
-        List<CommunityCommentDO> replyList = baseMapper.selectList(Wrappers.lambdaQuery(CommunityCommentDO.class)
-                .in(CommunityCommentDO::getParentId, parentIds)
+        // 一级评论按 comment_id 倒序（= 最新的在最前）；游标是"比上一页最后一条更小"
+        // 多取一条用于判断还有没有下一页，这样不用对大表做 COUNT
+        List<CommunityCommentDO> rows = baseMapper.selectList(Wrappers.lambdaQuery(CommunityCommentDO.class)
+                .eq(CommunityCommentDO::getPostId, postId)
+                .eq(CommunityCommentDO::getParentId, CommunityConstant.COMMENT_PARENT_ROOT)
                 .eq(CommunityCommentDO::getStatus, CommunityConstant.COMMENT_STATUS_PUBLISHED)
                 .eq(CommunityCommentDO::getDelFlag, CommunityConstant.DEL_FLAG_NORMAL)
-                .orderByAsc(CommunityCommentDO::getCommentId));
-        // uid → username：本页一级评论作者 + 回复作者，用来推导"回复 @谁"
-        Map<Long, String> usernameMap = new HashMap<>();
-        parentList.forEach(comment -> usernameMap.putIfAbsent(comment.getUid(), comment.getUsername()));
-        replyList.forEach(comment -> usernameMap.putIfAbsent(comment.getUid(), comment.getUsername()));
-        // 本页哪些评论被当前登录用户赞过（一次查出来，不是每条评论查一次）
-        Set<Long> likedIds = queryLikedCommentIds(parentList, replyList);
-        Map<Long, List<CommunityCommentDO>> replyMap = replyList.stream()
+                .notIn(CollUtil.isNotEmpty(invisibleUids), CommunityCommentDO::getUid, invisibleUids)
+                .lt(lastId != null, CommunityCommentDO::getCommentId, lastId)
+                .orderByDesc(CommunityCommentDO::getCommentId)
+                .last("LIMIT " + (limit + 1)));
+        boolean hasMore = rows.size() > limit;
+        List<CommunityCommentDO> pageList = hasMore ? rows.subList(0, (int) limit) : rows;
+        if (CollUtil.isEmpty(pageList)) {
+            return CursorPageRespDTO.of(Collections.emptyList(), limit, false, null);
+        }
+        List<Long> parentIds = pageList.stream().map(CommunityCommentDO::getCommentId).collect(Collectors.toList());
+        // 回复预览：一次查出这些一级评论各自的前 N 条回复（窗口函数，不是每条评论查一次）
+        List<CommunityCommentDO> previewReplies = baseMapper.selectPreviewReplies(parentIds,
+                CommunityConstant.COMMENT_STATUS_PUBLISHED, CommunityConstant.COMMENT_REPLY_PREVIEW_COUNT);
+        // 回复总数：一次分组统计出来，前端据此显示"查看全部 N 条回复"
+        Map<Long, Integer> replyCountMap = queryReplyCounts(parentIds);
+        Map<Long, String> usernameMap = buildUsernameMap(pageList, previewReplies);
+        Set<Long> likedIds = queryLikedCommentIds(pageList, previewReplies);
+        Map<Long, List<CommunityCommentDO>> replyMap = previewReplies.stream()
                 .collect(Collectors.groupingBy(CommunityCommentDO::getParentId));
-        List<CommentRespDTO> records = parentList.stream().map(parent -> {
+        List<CommentRespDTO> records = pageList.stream().map(parent -> {
             CommentRespDTO respDTO = buildResp(parent, usernameMap, likedIds);
-            List<CommunityCommentDO> children = replyMap.getOrDefault(parent.getCommentId(), Collections.emptyList());
-            respDTO.setChildren(children.stream()
+            respDTO.setReplyCount(replyCountMap.getOrDefault(parent.getCommentId(), 0));
+            respDTO.setChildren(replyMap.getOrDefault(parent.getCommentId(), Collections.emptyList()).stream()
+                    // 回复预览也要过滤拉黑对象；replyCount 仍是原始条数（精确计数要过滤就得把条件塞进那条窗口函数 SQL，先记账）
+                    .filter(child -> !invisibleUids.contains(child.getUid()))
                     .map(child -> buildResp(child, usernameMap, likedIds))
                     .collect(Collectors.toList()));
             return respDTO;
         }).collect(Collectors.toList());
-        return PageRespDTO.of(parentPage.getCurrent(), parentPage.getSize(), parentPage.getTotal(), records);
+        Long nextCursor = hasMore ? records.get(records.size() - 1).getCommentId() : null;
+        return CursorPageRespDTO.of(records, limit, hasMore, nextCursor);
+    }
+
+    @Override
+    public CursorPageRespDTO<CommentRespDTO> pageReplies(Long commentId, Long lastId, Long size) {
+        long limit = normalizeSize(size);
+        // 拉黑过滤：与我互相不可见的用户，回复不展示
+        Set<Long> invisibleUids = blockService.invisibleUids(currentUidOrNull());
+        if (commentId == null) {
+            return CursorPageRespDTO.of(Collections.emptyList(), limit, false, null);
+        }
+        // 回复按 comment_id 正序（最早的在最前，符合对话阅读顺序）；游标是"比上一页最后一条更大"
+        List<CommunityCommentDO> rows = baseMapper.selectList(Wrappers.lambdaQuery(CommunityCommentDO.class)
+                .eq(CommunityCommentDO::getParentId, commentId)
+                .eq(CommunityCommentDO::getStatus, CommunityConstant.COMMENT_STATUS_PUBLISHED)
+                .eq(CommunityCommentDO::getDelFlag, CommunityConstant.DEL_FLAG_NORMAL)
+                .notIn(CollUtil.isNotEmpty(invisibleUids), CommunityCommentDO::getUid, invisibleUids)
+                .gt(lastId != null, CommunityCommentDO::getCommentId, lastId)
+                .orderByAsc(CommunityCommentDO::getCommentId)
+                .last("LIMIT " + (limit + 1)));
+        boolean hasMore = rows.size() > limit;
+        List<CommunityCommentDO> pageList = hasMore ? rows.subList(0, (int) limit) : rows;
+        if (CollUtil.isEmpty(pageList)) {
+            return CursorPageRespDTO.of(Collections.emptyList(), limit, false, null);
+        }
+        // "回复 @谁" 需要一级评论作者 + 本页回复作者，所以把父评论也查出来
+        List<CommunityCommentDO> parentList = baseMapper.selectList(Wrappers.lambdaQuery(CommunityCommentDO.class)
+                .eq(CommunityCommentDO::getCommentId, commentId)
+                .eq(CommunityCommentDO::getDelFlag, CommunityConstant.DEL_FLAG_NORMAL));
+        Map<Long, String> usernameMap = buildUsernameMap(parentList, pageList);
+        Set<Long> likedIds = queryLikedCommentIds(parentList, pageList);
+        List<CommentRespDTO> records = pageList.stream()
+                .map(comment -> buildResp(comment, usernameMap, likedIds))
+                .collect(Collectors.toList());
+        Long nextCursor = hasMore ? records.get(records.size() - 1).getCommentId() : null;
+        return CursorPageRespDTO.of(records, limit, hasMore, nextCursor);
     }
 
     @Override
@@ -169,7 +235,13 @@ public class CommentServiceImpl extends ServiceImpl<CommunityCommentMapper, Comm
             throw new ClientException(CommunityErrorCodeEnum.COMMENT_NOT_EXIST);
         }
         if (!uid.equals(commentDO.getUid())) {
-            throw new ClientException(CommunityErrorCodeEnum.COMMENT_NO_PERMISSION);
+            // 不是自己的评论时，只有该帖楼主能删（楼主在自家帖子里有管理权），其余人一律拒绝
+            CommunityPostDO postDO = postMapper.selectOne(Wrappers.lambdaQuery(CommunityPostDO.class)
+                    .eq(CommunityPostDO::getPostId, commentDO.getPostId())
+                    .eq(CommunityPostDO::getDelFlag, CommunityConstant.DEL_FLAG_NORMAL));
+            if (postDO == null || !uid.equals(postDO.getUid())) {
+                throw new ClientException(CommunityErrorCodeEnum.COMMENT_NO_PERMISSION);
+            }
         }
         // 删一级评论时把它下面的回复一起删，避免留下"找不到父级"的孤儿回复
         List<CommunityCommentDO> children = CommunityConstant.COMMENT_PARENT_ROOT.equals(commentDO.getParentId())
@@ -197,7 +269,28 @@ public class CommentServiceImpl extends ServiceImpl<CommunityCommentMapper, Comm
     }
 
     /**
-     * 查当前登录用户在本页评论里赞过哪些（未登录直接返回空集合，liked 恒为 false）
+     * 批量统计这些一级评论各有几条回复（一次分组查询，不是每条评论查一次）
+     */
+    private Map<Long, Integer> queryReplyCounts(List<Long> parentIds) {
+        List<Map<String, Object>> rows = baseMapper.selectMaps(Wrappers.<CommunityCommentDO>query()
+                .select("parent_id AS parent_id", "COUNT(*) AS reply_count")
+                .in("parent_id", parentIds)
+                .eq("status", CommunityConstant.COMMENT_STATUS_PUBLISHED)
+                .eq("del_flag", CommunityConstant.DEL_FLAG_NORMAL)
+                .groupBy("parent_id"));
+        Map<Long, Integer> replyCountMap = new HashMap<>(parentIds.size());
+        for (Map<String, Object> row : rows) {
+            Object parentId = row.get("parent_id");
+            Object replyCount = row.get("reply_count");
+            if (parentId instanceof Number && replyCount instanceof Number) {
+                replyCountMap.put(((Number) parentId).longValue(), ((Number) replyCount).intValue());
+            }
+        }
+        return replyCountMap;
+    }
+
+    /**
+     * 查当前登录用户在这些评论里赞过哪些（未登录直接返回空集合，liked 恒为 false）
      */
     private Set<Long> queryLikedCommentIds(List<CommunityCommentDO> parentList, List<CommunityCommentDO> replyList) {
         Long uid = currentUidOrNull();
@@ -207,6 +300,9 @@ public class CommentServiceImpl extends ServiceImpl<CommunityCommentMapper, Comm
         Set<Long> commentIds = parentList.stream()
                 .map(CommunityCommentDO::getCommentId).collect(Collectors.toSet());
         replyList.forEach(comment -> commentIds.add(comment.getCommentId()));
+        if (commentIds.isEmpty()) {
+            return Collections.emptySet();
+        }
         return likeMapper.selectList(Wrappers.lambdaQuery(CommunityLikeDO.class)
                         .eq(CommunityLikeDO::getUid, uid)
                         .eq(CommunityLikeDO::getTargetType, CommunityConstant.TARGET_TYPE_COMMENT)
@@ -214,6 +310,16 @@ public class CommentServiceImpl extends ServiceImpl<CommunityCommentMapper, Comm
                 .stream()
                 .map(CommunityLikeDO::getTargetId)
                 .collect(Collectors.toSet());
+    }
+
+    /**
+     * uid → username：用来推导"回复 @谁"（被回复人的昵称取自帖子内的评论）
+     */
+    private Map<Long, String> buildUsernameMap(List<CommunityCommentDO> first, List<CommunityCommentDO> second) {
+        Map<Long, String> usernameMap = new HashMap<>();
+        first.forEach(comment -> usernameMap.putIfAbsent(comment.getUid(), comment.getUsername()));
+        second.forEach(comment -> usernameMap.putIfAbsent(comment.getUid(), comment.getUsername()));
+        return usernameMap;
     }
 
     /**
@@ -228,13 +334,30 @@ public class CommentServiceImpl extends ServiceImpl<CommunityCommentMapper, Comm
         return respDTO;
     }
 
-    private void requirePublishedPost(Long postId) {
-        Long count = postMapper.selectCount(Wrappers.lambdaQuery(CommunityPostDO.class)
+    /**
+     * 评论前校验帖子存在且已发布；返回帖子对象供发通知取楼主 uid 用
+     */
+    private CommunityPostDO requirePublishedPost(Long postId) {
+        CommunityPostDO postDO = postMapper.selectOne(Wrappers.lambdaQuery(CommunityPostDO.class)
                 .eq(CommunityPostDO::getPostId, postId)
                 .eq(CommunityPostDO::getStatus, CommunityConstant.POST_STATUS_PUBLISHED)
                 .eq(CommunityPostDO::getDelFlag, CommunityConstant.DEL_FLAG_NORMAL));
-        if (count == null || count == 0) {
+        if (postDO == null) {
             throw new ClientException(CommunityErrorCodeEnum.POST_NOT_EXIST);
+        }
+        return postDO;
+    }
+
+    /**
+     * 敏感词校验：命中就拒绝发表
+     * <p>
+     * 命中的词只记日志、不回显（回显等于把词库交代出去）。
+     */
+    private void checkSensitiveWords(Long uid, String content) {
+        List<String> hits = sensitiveWordService.matches(content);
+        if (CollUtil.isNotEmpty(hits)) {
+            log.warn("评论内容命中敏感词, uid={}, hits={}", uid, hits);
+            throw new ClientException(CommunityErrorCodeEnum.SENSITIVE_WORD);
         }
     }
 
@@ -254,14 +377,10 @@ public class CommentServiceImpl extends ServiceImpl<CommunityCommentMapper, Comm
         return Long.parseLong(userId);
     }
 
-    private long normalizePageNum(Long pageNum) {
-        return pageNum == null || pageNum < 1 ? CommunityConstant.DEFAULT_PAGE_NUM : pageNum;
-    }
-
-    private long normalizePageSize(Long pageSize) {
-        if (pageSize == null || pageSize < 1) {
+    private long normalizeSize(Long size) {
+        if (size == null || size < 1) {
             return CommunityConstant.DEFAULT_PAGE_SIZE;
         }
-        return Math.min(pageSize, CommunityConstant.MAX_PAGE_SIZE);
+        return Math.min(size, CommunityConstant.MAX_PAGE_SIZE);
     }
 }

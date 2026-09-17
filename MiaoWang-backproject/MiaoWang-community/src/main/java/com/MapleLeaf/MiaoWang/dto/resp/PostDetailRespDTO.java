@@ -52,4 +52,14 @@ public class PostDetailRespDTO {
      * 图片明细（按 sort 升序，[0] 为封面）
      */
     private List<PostImageRespDTO> images;
+
+    /**
+     * 话题标签（按正文出现顺序，最多 5 个；没有话题时是空数组而不是 null）
+     */
+    private List<TopicRespDTO> topics;
+
+    /**
+     * 视频列表（最多 9 个，没有视频时是空数组而不是 null；和 images 同一套形状）
+     */
+    private List<PostVideoRespDTO> videos;
 }
