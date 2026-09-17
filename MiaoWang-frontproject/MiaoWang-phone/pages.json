@@ -1,0 +1,96 @@
+{
+	"pages": [ //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "喵汪"
+			}
+		},
+		{
+			"path": "pages/community/community",
+			"style": {
+				"navigationBarTitleText": "社区"
+			}
+		},
+		{
+			"path": "pages/pets/pets",
+			"style": {
+				"navigationBarTitleText": "萌宠"
+			}
+		},
+		{
+			"path": "pages/knowledge/knowledge",
+			"style": {
+				"navigationBarTitleText": "知识库"
+			}
+		},
+		{
+			"path": "pages/mine/mine",
+			"style": {
+				"navigationBarTitleText": "我的"
+			}
+		},
+		{
+			"path": "pages/login/login",
+			"style": {
+				"navigationBarTitleText": "登录"
+			}
+		},
+		{
+			"path": "pages/register/register",
+			"style": {
+				"navigationBarTitleText": "注册"
+			}
+		},
+		{
+			"path": "pages/pet-detail/pet-detail",
+			"style": {
+				"navigationBarTitleText": "宠物档案"
+			}
+		},
+		{
+			"path": "pages/pet-edit/pet-edit",
+			"style": {
+				"navigationBarTitleText": "编辑宠物"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationStyle": "custom",
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "喵汪",
+		"navigationBarBackgroundColor": "#F4F6F7",
+		"backgroundColor": "#F4F6F7",
+		"backgroundColorTop": "#0B1218",
+		"backgroundColorBottom": "#F4F6F7"
+	},
+	"tabBar": {
+		"color": "#9AA8B2",
+		"selectedColor": "#0A7D6D",
+		"backgroundColor": "#FFFFFF",
+		"borderStyle": "white",
+		"list": [
+			{
+				"pagePath": "pages/index/index",
+				"text": "首页"
+			},
+			{
+				"pagePath": "pages/community/community",
+				"text": "社区"
+			},
+			{
+				"pagePath": "pages/pets/pets",
+				"text": "萌宠"
+			},
+			{
+				"pagePath": "pages/knowledge/knowledge",
+				"text": "知识库"
+			},
+			{
+				"pagePath": "pages/mine/mine",
+				"text": "我的"
+			}
+		]
+	},
+	"uniIdRouter": {}
+}

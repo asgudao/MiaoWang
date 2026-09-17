@@ -1,0 +1,722 @@
+<template>
+	<view class="page">
+		<!-- 深色舞台带：3D 电子宠物是主角，界面退到四周 -->
+		<view class="hero">
+			<view class="hero__nav" :style="{ paddingTop: statusBarHeight + 'px' }">
+				<text class="hero__brand">喵汪</text>
+				<text class="hero__greet">{{ greet }}，{{ ownerName }}</text>
+			</view>
+			<PetStage @failed="onStageFailed" />
+		</view>
+
+		<!-- 叠压在舞台边缘上的内容层 -->
+		<view class="sheet">
+			<!-- ① 数据条：舞台下面立刻给数据密度，大号等宽数字做视觉重心 -->
+			<view class="stats">
+				<view class="stat">
+					<text class="stat__label">已陪伴</text>
+					<text class="stat__num">{{ home.companionDays }}<text class="stat__unit">天</text></text>
+				</view>
+				<view class="stat">
+					<text class="stat__label">今日照护</text>
+					<text class="stat__num">{{ home.todayDone }}<text class="stat__unit">/{{ home.todayTotal }}</text></text>
+				</view>
+				<view class="stat">
+					<text class="stat__label">宠物</text>
+					<text class="stat__num">{{ homePets.length }}<text class="stat__unit">只</text></text>
+				</view>
+			</view>
+
+			<!-- ② 快捷操作：三个胶囊，图标自绘（手机端无 npm，无法装官方图标库） -->
+			<view class="quick">
+				<view v-for="a in actions" :key="a.key" class="quick__item" @click="toast(a.toast)">
+					<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#0A7D6D"
+						stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+						<path v-if="a.key === 'log'" d="M4 20l4.5-1.2L19 8.3a2 2 0 0 0 0-2.8l-.5-.5a2 2 0 0 0-2.8 0L5.2 15.5z" />
+						<path v-if="a.key === 'log'" d="M14.5 6.5l3 3" />
+						<template v-if="a.key === 'remind'">
+							<path d="M12 4a5 5 0 0 0-5 5v3.2L5.5 15h13L17 12.2V9a5 5 0 0 0-5-5z" />
+							<path d="M10 18a2 2 0 0 0 4 0" />
+						</template>
+						<template v-if="a.key === 'photo'">
+							<path d="M4 8.5h3L8.5 6h7l1.5 2.5h3V19H4z" />
+							<circle cx="12" cy="13.2" r="3.2" />
+						</template>
+					</svg>
+					<text class="quick__label">{{ a.label }}</text>
+				</view>
+			</view>
+
+			<!-- ③ 今日照护 -->
+			<view class="sec-head">
+				<text class="sec-head__title">今日照护</text>
+				<text class="sec-head__meta">{{ home.todayDone }}/{{ home.todayTotal }} 已完成</text>
+			</view>
+
+			<view v-if="loading">
+				<view v-for="i in 3" :key="'s' + i" class="skeleton"></view>
+			</view>
+
+			<view v-else>
+				<view v-for="t in home.tasks" :key="t.id" class="task" :class="'task--' + t.status">
+					<text class="task__kind">{{ kindLabel(t.kind) }}</text>
+					<view class="task__main">
+						<text class="task__title">{{ t.title }}</text>
+						<text class="task__pet">{{ t.petName }}</text>
+					</view>
+					<text class="tag" :class="'tag--' + t.status">{{ t.dueLabel }}</text>
+				</view>
+			</view>
+
+			<!-- ④ 最近 7 天：共享基线的柱图，不是"进度条+背景槽" -->
+			<view class="sec-head sec-head--gap">
+				<text class="sec-head__title">最近 7 天</text>
+				<text class="sec-head__meta">{{ rate }}% 按时完成</text>
+			</view>
+			<view class="rhythm" :aria-label="'最近七天照护完成情况'">
+				<view v-for="d in home.rhythm" :key="d.label" class="col" :class="{ 'col--today': d.isToday }">
+					<view class="col__track">
+						<view class="col__bar" :style="{ height: barHeight(d) }"></view>
+					</view>
+					<text class="col__label">{{ d.label }}</text>
+				</view>
+			</view>
+
+			<!-- ⑤ 我的宠物：有真档案就显示真档案；体重与下一件事只属于演示数据，绝不给真档案编 -->
+			<view class="sec-head sec-head--gap">
+				<text class="sec-head__title">我的宠物</text>
+				<text class="sec-head__meta">{{ homePets.length }} 只</text>
+			</view>
+			<view v-for="p in petCards" :key="p.pid" class="pet">
+				<view class="pet__top">
+					<view class="pet__avatar"><text>{{ p.initial }}</text></view>
+					<view class="pet__id">
+						<text class="pet__name">{{ p.name }}</text>
+						<text class="pet__meta">{{ p.meta }}</text>
+					</view>
+					<!-- 体重是演示数据专有：pet 接口没有这个字段 -->
+					<view v-if="p.hasWeight" class="pet__weight">
+						<text class="pet__num">{{ p.weightText }}<text class="pet__unit">kg</text></text>
+						<text class="pet__delta">{{ p.deltaText }}</text>
+					</view>
+					<!-- 真档案没有体重模块，右侧给个标签占位，别让卡片看着缺了一块 -->
+					<text v-else class="pet__real">档案</text>
+				</view>
+				<!-- 下一件照护事项也是演示数据专有：提醒模块还没接 -->
+				<text v-if="p.demo && p.nextCare" class="pet__next" :class="'pet__next--' + p.nextTone">{{ p.nextCare }}</text>
+				<text v-else class="pet__call">{{ p.callText }}</text>
+			</view>
+
+			<!-- ⑥ 电子宠物对话：气泡版式，和别的区块明显不同 -->
+			<view class="chat">
+				<text class="chat__title">它今天说了什么</text>
+				<view class="chat__thread">
+					<text v-for="(m, i) in home.chat" :key="i" class="bubble" :class="'bubble--' + m.from">{{ m.text }}</text>
+				</view>
+				<view class="chat__cta" @click="toast('AI 对话开发中')"><text>回它一句</text></view>
+			</view>
+
+			<!-- ⑦ 知识库内容卡（给真内容，不是导流按钮） -->
+			<view class="kb">
+				<text class="kb__title">知识库</text>
+				<view v-for="(a, i) in home.articles" :key="i" class="kb__item" @click="toast('文章页开发中')">
+					<text class="kb__text">{{ a }}</text>
+					<text class="kb__arrow">›</text>
+				</view>
+			</view>
+
+			<!-- 诚实标注：舞台错误最优先，其次说明宠物档案是不是真的 -->
+			<text v-if="stageError" class="note note--danger">{{ stageError }}</text>
+			<text v-else-if="realPets.length" class="note">宠物档案已是你的真实数据；照护提醒与周节奏仍是演示数据</text>
+			<text v-else-if="USE_MOCK" class="note">演示数据，接口就绪后自动切换</text>
+		</view>
+
+		<FloatingTabBar current="home" />
+	</view>
+</template>
+
+<script>
+import PetStage from '@/components/PetStage.vue'
+import FloatingTabBar from '@/components/FloatingTabBar.vue'
+import { fetchHomeOverview, kindLabel, petBriefFromApi, rhythmRate, USE_MOCK } from '@/api/home.js'
+import { hideNativeTabBar } from '@/utils/tabbar.js'
+import { auth } from '@/store/auth.js'
+import { pets } from '@/store/pets.js'
+
+export default {
+	components: { PetStage, FloatingTabBar },
+	data() {
+		return {
+			USE_MOCK,
+			loading: true,
+			statusBarHeight: 20,
+			stageError: '',
+			actions: [
+				{ key: 'log', label: '记一笔', toast: '记录功能开发中' },
+				{ key: 'remind', label: '加提醒', toast: '提醒功能开发中' },
+				{ key: 'photo', label: '拍张照', toast: '识图功能开发中' }
+			],
+			home: {
+				ownerName: '铲屎官',
+				companionDays: 0,
+				todayDone: 0,
+				todayTotal: 0,
+				tasks: [],
+				pets: [],
+				rhythm: [],
+				chat: [],
+				articles: []
+			}
+		}
+	},
+	computed: {
+		greet() {
+			const h = new Date().getHours()
+			if (h < 6) return '夜深了'
+			if (h < 11) return '早上好'
+			if (h < 14) return '中午好'
+			if (h < 18) return '下午好'
+			return '晚上好'
+		},
+		rate() {
+			return rhythmRate(this.home.rhythm)
+		},
+		loggedIn() {
+			return auth.isLoggedIn()
+		},
+		/**
+		 * 登录后从档案 store（有 loaded 缓存）映射来的真实宠物；未登录或还没拉到时为空数组。
+		 * 首页不自己再发一次 /pet 请求。
+		 */
+		realPets() {
+			return this.loggedIn && pets.state.loaded ? pets.state.list.map(petBriefFromApi) : []
+		},
+		/** 有真档案就用真的，否则回退演示数据（未登录时首页也要有东西可看） */
+		homePets() {
+			return this.realPets.length ? this.realPets : this.home.pets
+		},
+		/**
+		 * 显示字段在这里一次算好。
+		 * 模板里**不许**直接调 utils / store（那些不在实例上，会渲染期报错并白屏）。
+		 */
+		petCards() {
+			return this.homePets.map((p) => {
+				const demo = p.demo === true
+				const hasWeight = demo && p.weight != null && p.weightDelta != null
+				const up = hasWeight ? p.weightDelta >= 0 : false
+				// 大类品种与年龄拼一行（真档案按 birth 现算，与 Web 端同口径）
+				const meta = [p.breed, p.ageLabel].filter((s) => s).join('，')
+				return {
+					pid: String(p.pid),
+					initial: p.initial,
+					name: p.name,
+					meta: meta,
+					demo: demo,
+					hasWeight: hasWeight,
+					weightText: hasWeight ? p.weight.toFixed(1) : '',
+					deltaText: hasWeight ? (up ? '↑' : '↓') + Math.abs(p.weightDelta).toFixed(1) : '',
+					nextCare: demo ? p.nextCare || '' : '',
+					nextTone: p.nextTone || 'ok',
+					callText: p.callName ? '它叫你「' + p.callName + '」' : '档案已同步，健康数据还没接'
+				}
+			})
+		},
+		/** 登录后问候语用「宠物怎么称呼你」，未登录就用演示数据里的称呼 */
+		ownerName() {
+			return auth.isLoggedIn() ? auth.ownerCallName() : this.home.ownerName
+		}
+	},
+	onLoad() {
+		hideNativeTabBar()
+		try {
+			const info = uni.getSystemInfoSync()
+			this.statusBarHeight = info.statusBarHeight || 20
+		} catch (e) {}
+	},
+	onShow() {
+		hideNativeTabBar()
+		// 登录了就换成自己的真实档案；不强制刷新，store 有缓存，来回切页不会白闪
+		if (auth.isLoggedIn()) pets.fetchMine()
+	},
+	async mounted() {
+		try {
+			this.home = await fetchHomeOverview()
+		} finally {
+			this.loading = false
+		}
+	},
+	methods: {
+		kindLabel,
+		/** 舞台报错回传（PetStage 的 @failed，与 Web 端同名事件）*/
+		onStageFailed(msg) {
+			this.stageError = msg || '3D 舞台加载失败'
+		},
+		barHeight(d) {
+			if (!d.total) return '6%'
+			return Math.max((d.done / d.total) * 100, 6) + '%'
+		},
+		toast(msg) {
+			uni.showToast({ title: msg || '功能开发中', icon: 'none' })
+		}
+	}
+}
+</script>
+
+<style lang="scss" scoped>
+@import '@/uni.scss';
+
+.page {
+	min-height: 100vh;
+	background: $mw-canvas;
+	padding-bottom: calc(#{$mw-tabbar-h} + 80rpx);
+}
+
+/* ---------- 舞台带 ---------- */
+.hero {
+	position: relative;
+	background: $mw-night;
+}
+
+.hero__nav {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 0;
+	z-index: 5;
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	padding-left: $mw-page-padding;
+	padding-right: $mw-page-padding;
+	padding-bottom: $mw-space-2;
+}
+
+.hero__brand {
+	font-size: 38rpx;
+	font-weight: 700;
+	color: $mw-on-night;
+	letter-spacing: -0.02em;
+}
+
+.hero__greet {
+	font-size: $mw-font-micro;
+	color: $mw-on-night-2;
+}
+
+/* ---------- 叠压的内容层 ---------- */
+.sheet {
+	position: relative;
+	z-index: 3;
+	margin-top: -48rpx;
+	padding: $mw-space-4 $mw-page-padding 0;
+	background: $mw-canvas;
+	border-radius: $mw-radius-stage $mw-radius-stage 0 0;
+}
+
+/* ① 数据条 */
+.stats {
+	display: flex;
+	justify-content: space-between;
+	padding: $mw-space-2 0 $mw-space-4;
+	border-bottom: 1px solid $mw-line;
+}
+
+.stat {
+	display: flex;
+	flex-direction: column;
+}
+
+.stat__label {
+	font-size: $mw-font-micro;
+	color: $mw-ink-2;
+}
+
+.stat__num {
+	margin-top: 4rpx;
+	font-size: 52rpx;
+	font-weight: 700;
+	color: $mw-ink;
+	letter-spacing: -0.02em;
+	font-variant-numeric: tabular-nums;
+}
+
+.stat__unit {
+	font-size: $mw-font-caption;
+	font-weight: 500;
+	color: $mw-ink-2;
+	margin-left: 4rpx;
+}
+
+/* ② 快捷操作：胶囊按钮，不是三张等宽卡片 */
+.quick {
+	display: flex;
+	gap: $mw-space-2;
+	padding: $mw-space-4 0 $mw-space-2;
+}
+
+.quick__item {
+	display: flex;
+	align-items: center;
+	gap: $mw-space-1;
+	min-height: 72rpx;
+	padding: 0 $mw-space-3;
+	background: $mw-surface;
+	border: 1px solid $mw-line;
+	border-radius: $mw-radius-pill;
+}
+
+.quick__label {
+	font-size: $mw-font-caption;
+	font-weight: 600;
+	color: $mw-brand-ink;
+}
+
+/* 区块标题 */
+.sec-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	margin: $mw-space-6 0 $mw-space-3;
+}
+.sec-head--gap {
+	margin-top: $mw-space-8;
+}
+.sec-head__title {
+	font-size: $mw-font-h2;
+	font-weight: 600;
+	color: $mw-ink;
+}
+.sec-head__meta {
+	font-size: $mw-font-caption;
+	color: $mw-ink-2;
+	font-variant-numeric: tabular-nums;
+}
+
+.skeleton {
+	height: 136rpx;
+	margin-bottom: $mw-space-2;
+	border-radius: $mw-radius-card;
+	background: linear-gradient(90deg, rgba(154, 168, 178, 0.14) 25%, rgba(154, 168, 178, 0.26) 37%, rgba(154, 168, 178, 0.14) 63%);
+	background-size: 400% 100%;
+	animation: sk 1.4s ease infinite;
+}
+@keyframes sk {
+	0% { background-position: 100% 50%; }
+	100% { background-position: 0 50%; }
+}
+
+/* ③ 照护行 */
+.task {
+	display: flex;
+	align-items: center;
+	min-height: 136rpx;
+	padding: $mw-space-3 $mw-space-4;
+	margin-bottom: $mw-space-2;
+	background: $mw-surface;
+	border: 1px solid $mw-line;
+	border-radius: $mw-radius-card;
+}
+.task--done {
+	opacity: 0.62;
+}
+.task--done .task__title {
+	text-decoration: line-through;
+}
+.task--overdue {
+	border-color: rgba(229, 72, 77, 0.35);
+}
+
+/* 类型用方块标签，和 Web 端的图标盒视觉等价（手机端不额外画 5 个图标） */
+.task__kind {
+	width: 72rpx;
+	height: 72rpx;
+	flex: none;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-right: $mw-space-3;
+	border-radius: $mw-radius-tag;
+	background: rgba(10, 125, 109, 0.1);
+	font-size: 22rpx;
+	font-weight: 600;
+	color: $mw-brand-ink;
+}
+
+.task__main {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+.task__title {
+	font-size: $mw-font-body;
+	font-weight: 600;
+	color: $mw-ink;
+}
+.task__pet {
+	font-size: $mw-font-caption;
+	color: $mw-ink-2;
+}
+
+.tag {
+	flex: none;
+	padding: 4rpx 16rpx;
+	border-radius: $mw-radius-tag;
+	font-size: 22rpx;
+	font-weight: 600;
+}
+.tag--todo {
+	background: rgba(255, 176, 32, 0.16);
+	color: $mw-accent-ink;
+}
+.tag--done {
+	background: rgba(10, 125, 109, 0.12);
+	color: $mw-success;
+}
+.tag--overdue {
+	background: rgba(229, 72, 77, 0.12);
+	color: $mw-danger;
+}
+
+/* ④ 周节奏柱图 */
+.rhythm {
+	display: flex;
+	gap: $mw-space-2;
+	align-items: flex-end;
+	padding: $mw-space-4;
+	background: $mw-surface;
+	border: 1px solid $mw-line;
+	border-radius: $mw-radius-card;
+}
+.col {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: $mw-space-1;
+}
+.col__track {
+	display: flex;
+	align-items: flex-end;
+	width: 100%;
+	height: 120rpx;
+}
+.col__bar {
+	width: 100%;
+	border-radius: 8rpx 8rpx 2rpx 2rpx;
+	background: $mw-brand-ink;
+	opacity: 0.34;
+}
+.col--today .col__bar {
+	opacity: 1;
+}
+.col__label {
+	font-size: 22rpx;
+	color: $mw-muted;
+}
+.col--today .col__label {
+	color: $mw-brand-ink;
+	font-weight: 600;
+}
+
+/* ⑤ 宠物卡 */
+.pet {
+	padding: $mw-space-4;
+	margin-bottom: $mw-space-2;
+	background: $mw-surface;
+	border: 1px solid $mw-line;
+	border-radius: $mw-radius-card;
+}
+.pet__top {
+	display: flex;
+	align-items: center;
+}
+.pet__avatar {
+	width: 88rpx;
+	height: 88rpx;
+	flex: none;
+	border-radius: 50%;
+	background: rgba(10, 125, 109, 0.1);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.pet__avatar text {
+	font-size: 32rpx;
+	font-weight: 700;
+	color: $mw-brand-ink;
+}
+.pet__id {
+	flex: 1;
+	min-width: 0;
+	margin-left: $mw-space-3;
+	display: flex;
+	flex-direction: column;
+}
+.pet__name {
+	font-size: $mw-font-body;
+	font-weight: 600;
+	color: $mw-ink;
+}
+.pet__meta {
+	font-size: 22rpx;
+	color: $mw-ink-2;
+}
+.pet__weight {
+	text-align: right;
+	display: flex;
+	flex-direction: column;
+}
+/* 真档案没有体重模块，右侧给个标签占位，别让卡片看着缺了一块 */
+.pet__real {
+	flex: none;
+	padding: 4rpx 16rpx;
+	border-radius: $mw-radius-tag;
+	background: $mw-canvas;
+	font-size: 22rpx;
+	color: $mw-ink-2;
+}
+.pet__call {
+	display: block;
+	margin-top: $mw-space-3;
+	font-size: 22rpx;
+	color: $mw-ink-2;
+}
+.pet__num {
+	font-size: 40rpx;
+	font-weight: 700;
+	color: $mw-ink;
+	letter-spacing: -0.02em;
+	font-variant-numeric: tabular-nums;
+}
+.pet__unit {
+	font-size: 22rpx;
+	font-weight: 500;
+	color: $mw-ink-2;
+	margin-left: 4rpx;
+}
+.pet__delta {
+	font-size: 22rpx;
+	color: $mw-ink-2;
+	font-variant-numeric: tabular-nums;
+}
+.pet__next {
+	display: inline-block;
+	margin-top: $mw-space-3;
+	padding: 6rpx 16rpx;
+	border-radius: $mw-radius-tag;
+	font-size: 22rpx;
+	font-weight: 600;
+}
+.pet__next--ok {
+	background: rgba(10, 125, 109, 0.1);
+	color: $mw-success;
+}
+.pet__next--warn {
+	background: rgba(255, 176, 32, 0.16);
+	color: $mw-accent-ink;
+}
+.pet__next--danger {
+	background: rgba(229, 72, 77, 0.12);
+	color: $mw-danger;
+}
+
+/* ⑥ 对话卡 */
+.chat {
+	margin-top: $mw-space-8;
+	padding: $mw-space-4;
+	background: $mw-surface;
+	border: 1px solid $mw-line;
+	border-radius: $mw-radius-card;
+}
+.chat__title {
+	display: block;
+	font-size: $mw-font-h2;
+	font-weight: 600;
+	color: $mw-ink;
+}
+.chat__thread {
+	display: flex;
+	flex-direction: column;
+	gap: $mw-space-2;
+	margin-top: $mw-space-3;
+}
+.bubble {
+	max-width: 84%;
+	padding: $mw-space-3 $mw-space-4;
+	border-radius: 24rpx;
+	font-size: $mw-font-caption;
+	line-height: 1.7;
+}
+.bubble--pet {
+	align-self: flex-start;
+	background: $mw-canvas;
+	border: 1px solid $mw-line;
+	border-bottom-left-radius: 8rpx;
+	color: $mw-ink;
+}
+.bubble--me {
+	align-self: flex-end;
+	background: $mw-brand-ink;
+	color: #ffffff;
+	border-bottom-right-radius: 8rpx;
+}
+.chat__cta {
+	margin-top: $mw-space-4;
+	min-height: $mw-btn-h;
+	border-radius: $mw-radius-pill;
+	background: $mw-brand-ink;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.chat__cta text {
+	font-size: $mw-font-body;
+	font-weight: 600;
+	color: #ffffff;
+}
+
+/* ⑦ 知识库内容卡 */
+.kb {
+	margin-top: $mw-space-8;
+	padding: $mw-space-4;
+	background: $mw-surface;
+	border: 1px solid $mw-line;
+	border-radius: $mw-radius-card;
+}
+.kb__title {
+	display: block;
+	font-size: $mw-font-h2;
+	font-weight: 600;
+	color: $mw-ink;
+	margin-bottom: $mw-space-1;
+}
+.kb__item {
+	display: flex;
+	align-items: center;
+	min-height: $mw-touch-min;
+	border-bottom: 1px solid $mw-line;
+}
+.kb__item:last-child {
+	border-bottom: none;
+}
+.kb__text {
+	flex: 1;
+	font-size: $mw-font-caption;
+	color: $mw-ink;
+}
+.kb__arrow {
+	font-size: 36rpx;
+	color: $mw-muted;
+}
+
+.note {
+	display: block;
+	margin-top: $mw-space-4;
+	font-size: 22rpx;
+	color: $mw-muted;
+}
+.note--danger {
+	color: $mw-danger;
+}
+</style>
