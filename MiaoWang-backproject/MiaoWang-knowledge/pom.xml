@@ -15,6 +15,8 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!--MyBatis-Plus 3.5.9 起分页插件依赖 jsqlparser，需单独引入，版本与 mybatis-plus 保持一致-->
+        <mybatis-plus-jsqlparser.version>3.5.14</mybatis-plus-jsqlparser.version>
     </properties>
 
     <dependencies>
@@ -30,6 +32,12 @@
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>
             <scope>compile</scope>
+        </dependency>
+        <!--MyBatis-Plus 分页插件（PaginationInnerInterceptor 需要 jsqlparser）-->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+            <version>${mybatis-plus-jsqlparser.version}</version>
         </dependency>
         <dependency>
             <groupId>org.redisson</groupId>

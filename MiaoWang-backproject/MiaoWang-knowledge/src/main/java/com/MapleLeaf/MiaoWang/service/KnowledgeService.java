@@ -2,6 +2,7 @@ package com.MapleLeaf.MiaoWang.service;
 
 import com.MapleLeaf.MiaoWang.dto.resp.KnowledgeCategoryRespDTO;
 import com.MapleLeaf.MiaoWang.dto.resp.KnowledgeFragmentRespDTO;
+import com.MapleLeaf.MiaoWang.dto.resp.PageRespDTO;
 
 import java.util.List;
 
@@ -24,6 +25,19 @@ public interface KnowledgeService {
      * @param categoryCode 分类编码：diet/behavior/care/health，可为空
      */
     List<KnowledgeFragmentRespDTO> listFragments(Integer species, String categoryCode);
+
+    /**
+     * 已发布知识碎片分页列表（前端翻页/上拉加载用）
+     * <p>
+     * 与 {@link #listFragments} 并存：那个保持"一次返回全量"的语义不变
+     * （RAG 索引重建等内部消费方依赖它），分页走这个新接口。
+     *
+     * @param species      物种：1=猫 2=狗，可为空
+     * @param categoryCode 分类编码，可为空
+     * @param pageNum      页码，从 1 开始，为空取默认值
+     * @param pageSize     每页条数，为空取默认值，超上限按上限截断
+     */
+    PageRespDTO<KnowledgeFragmentRespDTO> pageFragments(Integer species, String categoryCode, Long pageNum, Long pageSize);
 
     /**
      * 知识碎片详情
