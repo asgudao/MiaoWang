@@ -22,6 +22,15 @@ public class PetController {
     }
 
 
+    /**
+     * 按 uid 查看某个用户的宠物（公开读，供社区个人主页等展示"他的宠物"）
+     */
+    @GetMapping("/mapleleaf/miaowang/v1/pet/user/{uid}")
+    public Result<List<PetRespDTO>> getPetsByUid(@PathVariable("uid") Long uid) {
+        return Results.success(petService.getPetsByUid(uid));
+    }
+
+
     @PostMapping("/mapleleaf/miaowang/v1/pet")
     public Result<PetRespDTO> createPet(@RequestBody PetCreateReqDTO requestParam) {
         return Results.success(petService.createPetByUsername(requestParam));

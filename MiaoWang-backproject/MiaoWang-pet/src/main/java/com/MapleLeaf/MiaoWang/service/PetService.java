@@ -17,6 +17,17 @@ public interface PetService extends IService<PetDO> {
      */
     List<PetRespDTO> getMyPets();
 
+    /**
+     * 按 uid 获取某个用户的宠物列表（公开读）
+     * <p>
+     * 用于其他服务展示"某人的宠物"（如社区个人主页）；与 getMyPets 的区别是不看当前登录身份，
+     * 归属只由入参 uid 决定。入参为空或没宠物都返回空列表，由调用方渲染空状态。
+     *
+     * @param uid 用户id
+     * @return 宠物信息列表
+     */
+    List<PetRespDTO> getPetsByUid(Long uid);
+
 
     /**
      * 创建新的宠物并返回新宠物完整信息（含 pid，前端免二次查询）

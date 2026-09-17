@@ -8,6 +8,8 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.time.LocalDateTime;
+
 @Data
 @TableName("miaowang_pet")
 @EqualsAndHashCode(callSuper = false)
@@ -34,14 +36,34 @@ public class PetDO extends BaseDO {
     private String pName;
 
     /**
+     * 大类（猫/狗/蛇等，库中非空，取值受 PetSpeciesEnum 约束）
+     */
+    private String species;
+
+    /**
+     * 具体品种（可为空，用户自行填写）
+     */
+    private String specificSpecies;
+
+    /**
      * 对主人的称呼
      */
     private String ownerCallName;
 
     /**
-     * 年龄
+     * 出生日期（库中 datetime，只取日期，存当天 00:00:00）
      */
-    private int age;
+    private LocalDateTime birth;
+
+    /**
+     * 性别（0=雌性，1=雄性）
+     */
+    private Integer gender;
+
+    /**
+     * 绝育状态（0=未绝育，1=已绝育）
+     */
+    private Integer sterilizedState;
 
     /**
      * 注销时间戳
