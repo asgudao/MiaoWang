@@ -1,0 +1,66 @@
+/**
+ * 喵汪设计令牌 v2「夜幕舞台」—— Web 端落地
+ * 唯一真源：.agents/skills/miaowang-design-system/SKILL.md
+ * 改这里必须同步改手机端 MiaoWang-phone/uni.scss
+ * 注意：v1 那套从素材实测的暖色板已作废（素材被废弃）
+ */
+:root {
+  /* ---- 舞台 / 深色区 ---- */
+  --mw-night: #0b1218;
+  --mw-night-2: #141d25;
+  --mw-night-line: rgba(255, 255, 255, 0.1);
+  --mw-on-night: #f2f6f8;
+  --mw-on-night-2: rgba(242, 246, 248, 0.62);
+
+  /* ---- 浅色区 ---- */
+  --mw-canvas: #f4f6f7;
+  --mw-surface: #ffffff;
+  --mw-line: #e3e8eb;
+  --mw-ink: #0e1720;
+  --mw-ink-2: #5a6b78;
+  --mw-muted: #9aa8b2;
+
+  /* ---- 品牌与状态（角色严格分工）---- */
+  --mw-brand: #35d6a8; /* 亮水青：只用在深底上做激活/辉光 */
+  --mw-brand-ink: #0a7d6d; /* 深水青：浅底上的按钮底/链接（白字 ≈5.1:1 ✅）*/
+  --mw-accent: #ffb020; /* 琥珀：只表示时间/照护状态，不做文字色 */
+  --mw-accent-ink: #9a5b00; /* 琥珀的文字版本（浅底 ≈5:1 ✅）*/
+  --mw-success: #0a7d6d;
+  --mw-danger: #e5484d;
+
+  /* ---- 字体 ---- */
+  --mw-font-sans:
+    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC',
+    'Microsoft YaHei', system-ui, sans-serif;
+
+  --mw-font-hero: 56px;
+  --mw-font-h1: 34px;
+  --mw-font-h2: 22px;
+  --mw-font-body: 16px;
+  --mw-font-caption: 14px;
+  --mw-font-micro: 12px;
+  --mw-line-height: 1.65;
+
+  /* ---- 间距（4 的倍数）---- */
+  --mw-space-1: 4px;
+  --mw-space-2: 8px;
+  --mw-space-3: 12px;
+  --mw-space-4: 16px;
+  --mw-space-6: 24px;
+  --mw-space-8: 32px;
+  --mw-space-12: 48px;
+
+  /* ---- 圆角（按层级区分）---- */
+  --mw-radius-stage: 24px;
+  --mw-radius-card: 16px;
+  --mw-radius-input: 10px;
+  --mw-radius-tag: 6px;
+  --mw-radius-pill: 999px;
+
+  /* ---- 阴影：只在浅色区、只给浮起元素（冷调，不用纯黑）---- */
+  --mw-shadow-float: 0 8px 24px rgba(14, 23, 32, 0.08);
+
+  /* ---- 布局 ---- */
+  --mw-maxw: 1240px;
+  --mw-nav-h: 60px;
+}

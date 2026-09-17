@@ -1,0 +1,365 @@
+/**
+ * 喵汪 Web 端基础样式 + 通用组件类（v2「夜幕舞台」）
+ * 令牌见 tokens.css；设计规范见 .agents/skills/miaowang-design-system
+ */
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--mw-canvas);
+  color: var(--mw-ink);
+  font-family: var(--mw-font-sans);
+  font-size: var(--mw-font-body);
+  line-height: var(--mw-line-height);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+p,
+figure,
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+}
+ul,
+ol {
+  list-style: none;
+}
+
+a {
+  color: var(--mw-brand-ink);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* 数字不跳动 */
+.mw-num,
+.mw-hero-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 键盘可达性：必须有可见 focus 环 */
+:focus-visible {
+  outline: 2px solid var(--mw-brand-ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* 深色区里的 focus 环要用亮色 */
+.mw-night :focus-visible {
+  outline-color: var(--mw-brand);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---- 布局 ---- */
+.mw-container {
+  width: 100%;
+  max-width: var(--mw-maxw);
+  margin: 0 auto;
+  padding: 0 var(--mw-space-6);
+}
+
+.mw-page {
+  padding: var(--mw-space-8) 0 var(--mw-space-12);
+}
+
+/* 深色区域：文字色自动切换 */
+.mw-night {
+  background: var(--mw-night);
+  color: var(--mw-on-night);
+}
+
+/* ---- 卡片 ---- */
+.mw-card {
+  background: var(--mw-surface);
+  border: 1px solid var(--mw-line);
+  border-radius: var(--mw-radius-card);
+  padding: var(--mw-space-6);
+}
+
+.mw-card--night {
+  background: var(--mw-night-2);
+  border-color: var(--mw-night-line);
+  color: var(--mw-on-night);
+}
+
+/* ---- 按钮 ---- */
+.mw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mw-space-2);
+  min-height: 44px;
+  padding: 0 var(--mw-space-6);
+  border: 1px solid transparent;
+  border-radius: var(--mw-radius-pill);
+  font-family: inherit;
+  font-size: var(--mw-font-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    filter 0.15s ease,
+    transform 0.05s ease;
+}
+.mw-btn:active {
+  transform: scale(0.98);
+}
+.mw-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.mw-btn--primary {
+  background: var(--mw-brand-ink);
+  color: #fff;
+}
+.mw-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.mw-btn--ghost {
+  background: transparent;
+  border-color: var(--mw-line);
+  color: var(--mw-ink);
+}
+.mw-btn--ghost:hover:not(:disabled) {
+  background: rgba(14, 23, 32, 0.04);
+}
+.mw-night .mw-btn--ghost {
+  border-color: var(--mw-night-line);
+  color: var(--mw-on-night);
+}
+.mw-night .mw-btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+.mw-btn--brand {
+  background: var(--mw-brand);
+  color: var(--mw-night);
+}
+
+/* ---- 输入 ---- */
+.mw-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--mw-space-4);
+  background: var(--mw-surface);
+  border: 1px solid var(--mw-line);
+  border-radius: var(--mw-radius-input);
+  color: var(--mw-ink);
+  font-family: inherit;
+  font-size: var(--mw-font-body);
+}
+.mw-input::placeholder {
+  color: var(--mw-muted);
+}
+.mw-input:focus {
+  border-color: var(--mw-brand-ink);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(53, 214, 168, 0.18);
+}
+
+.mw-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mw-space-2);
+}
+.mw-field > label {
+  font-size: var(--mw-font-caption);
+  color: var(--mw-ink-2);
+}
+.mw-field__error {
+  font-size: var(--mw-font-caption);
+  color: var(--mw-danger);
+}
+
+/* ---- 状态标签：只表示状态与时间 ---- */
+.mw-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mw-space-1);
+  padding: 2px var(--mw-space-2);
+  border-radius: var(--mw-radius-tag);
+  font-size: var(--mw-font-micro);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.mw-badge--time {
+  background: rgba(255, 176, 32, 0.16);
+  color: var(--mw-accent-ink);
+}
+.mw-badge--done {
+  background: rgba(10, 125, 109, 0.12);
+  color: var(--mw-success);
+}
+.mw-badge--danger {
+  background: rgba(229, 72, 77, 0.12);
+  color: var(--mw-danger);
+}
+.mw-badge--on-night {
+  background: rgba(53, 214, 168, 0.16);
+  color: var(--mw-brand);
+}
+
+/* ---- 四态 ---- */
+.mw-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mw-space-3);
+  padding: var(--mw-space-12) var(--mw-space-6);
+  text-align: center;
+  color: var(--mw-ink-2);
+}
+.mw-state__title {
+  color: var(--mw-ink);
+  font-size: var(--mw-font-h2);
+  font-weight: 600;
+}
+
+.mw-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(154, 168, 178, 0.14) 25%,
+    rgba(154, 168, 178, 0.26) 37%,
+    rgba(154, 168, 178, 0.14) 63%
+  );
+  background-size: 400% 100%;
+  border-radius: var(--mw-radius-card);
+  animation: mw-skeleton 1.4s ease infinite;
+}
+@keyframes mw-skeleton {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+/* ---- 标题排版：紧字距 + 大尺度对比 ---- */
+.mw-h1 {
+  font-size: var(--mw-font-h1);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+.mw-h2 {
+  font-size: var(--mw-font-h2);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.mw-caption {
+  font-size: var(--mw-font-caption);
+  color: var(--mw-ink-2);
+}
+
+/* ---- 登录 / 注册页布局（两端同构：深色叙事侧 + 浅色表单侧）---- */
+.mw-auth {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 440px);
+  min-height: 100dvh;
+}
+.mw-auth__aside {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--mw-space-6);
+  padding: var(--mw-space-12) var(--mw-space-8);
+  background: var(--mw-night);
+  color: var(--mw-on-night);
+}
+.mw-auth__main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--mw-space-12) var(--mw-space-6);
+}
+.mw-auth__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mw-space-4);
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+/* 分段控件（密码登录 / 手机号登录）*/
+.mw-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--mw-canvas);
+  border: 1px solid var(--mw-line);
+  border-radius: var(--mw-radius-pill);
+}
+.mw-seg__item {
+  min-height: 36px;
+  padding: 0 var(--mw-space-4);
+  border: none;
+  border-radius: var(--mw-radius-pill);
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--mw-font-caption);
+  font-weight: 600;
+  color: var(--mw-ink-2);
+  cursor: pointer;
+}
+.mw-seg__item--on {
+  background: var(--mw-surface);
+  color: var(--mw-ink);
+  box-shadow: var(--mw-shadow-float);
+}
+
+/* 一次性图形验证码：图 + 输入框同一行 */
+.mw-captcha {
+  display: flex;
+  align-items: stretch;
+  gap: var(--mw-space-2);
+}
+.mw-captcha__img {
+  height: 44px;
+  border: 1px solid var(--mw-line);
+  border-radius: var(--mw-radius-input);
+  background: var(--mw-surface);
+  cursor: pointer;
+}
+
+/* 顶部提示条 */
+.mw-alert {
+  padding: var(--mw-space-3) var(--mw-space-4);
+  border-radius: var(--mw-radius-input);
+  font-size: var(--mw-font-caption);
+}
+.mw-alert--danger {
+  background: rgba(229, 72, 77, 0.1);
+  border: 1px solid rgba(229, 72, 77, 0.25);
+  color: var(--mw-danger);
+}
+.mw-alert--info {
+  background: rgba(10, 125, 109, 0.08);
+  border: 1px solid rgba(10, 125, 109, 0.2);
+  color: var(--mw-brand-ink);
+}
