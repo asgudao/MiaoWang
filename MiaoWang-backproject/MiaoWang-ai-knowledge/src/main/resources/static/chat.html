@@ -173,9 +173,19 @@ async function ask() {
   aiDiv.appendChild(answerDiv);
   let answerText = '';
   try {
+    // 额度按账号算，所以必须带登录头（user 服务的登录接口返回 username + token）。
+    // 调试页偷懒做法：没存过就弹一次输入框，存进 localStorage，之后直接用。
+    let mwUsername = localStorage.getItem('mw_username');
+    let mwToken = localStorage.getItem('mw_token');
+    if (!mwUsername || !mwToken) {
+      mwUsername = prompt('请输入 username（登录接口返回的用户名）', mwUsername || '') || '';
+      mwToken = prompt('请输入 token（登录接口返回的 JWT）', mwToken || '') || '';
+      localStorage.setItem('mw_username', mwUsername);
+      localStorage.setItem('mw_token', mwToken);
+    }
     const res = await fetch(streamUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'username': mwUsername, 'token': mwToken },
       body: JSON.stringify({ question })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);

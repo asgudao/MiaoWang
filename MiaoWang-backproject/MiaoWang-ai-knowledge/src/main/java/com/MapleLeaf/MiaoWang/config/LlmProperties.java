@@ -3,6 +3,8 @@ package com.MapleLeaf.MiaoWang.config;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.math.BigDecimal;
+
 /**
  * 模型配置（对应 Nacos 的 MiaoWang-ai-common.yaml 中 llm 节点）。
  * 本项目只用到百炼 dashscope 的 chat（对话生成）与 embedding（文本向量化）。
@@ -37,5 +39,34 @@ public class LlmProperties {
         private Boolean multiModel;
         private Integer dimensions;
         private String workspaceId;
+
+        /**
+         * 输入侧单价（元/百万 token），仅用于把 token 折算成「估算成本」，不影响调用。
+         * 不配置 → 调用日志的 estimated_cost 留空、统计接口显示"未配置单价"，不会编数字。
+         */
+        private BigDecimal priceInputPerMillion;
+
+        /**
+         * 输出侧单价（元/百万 token）
+         */
+        private BigDecimal priceOutputPerMillion;
+
+        /**
+         * 是否让思考模型"先想再答"（qwen3 系列默认会想）。
+         * <b>不配 = 用模型默认行为</b>；配 false = 关掉思考，延迟通常能降一大截（思考 token 也是要计费的）。
+         */
+        private Boolean enableThinking;
+
+        /**
+         * 思考预算（token 上限）：越小越快。与 {@code enable-thinking=false} 二选一。
+         */
+        private Integer thinkingBudget;
+
+        /**
+         * 是否把<b>思考过程</b>输出给前端（SSE 的 {@code event: thinking} 与 {@code /ask} 的 reasoning 字段）。
+         * <b>不配 = true</b>（思考能力已经付过费了，展示出来能显著缓解等待焦虑）；
+         * 不想暴露推理内容就在 Nacos 里设为 false。
+         */
+        private Boolean showThinking;
     }
 }

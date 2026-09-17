@@ -17,4 +17,9 @@ public class RagAskReqDTO {
      * 物种过滤：1=猫 2=狗，不传则从问题中自动识别
      */
     private Integer species;
+
+    /**
+     * 会话ID：不传 = 开启一个新会话；传了 = 在这个会话里继续追问（多轮上下文）
+     */
+    private Long conversationId;
 }

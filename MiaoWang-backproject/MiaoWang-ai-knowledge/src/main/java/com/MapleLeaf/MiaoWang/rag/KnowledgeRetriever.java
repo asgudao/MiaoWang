@@ -14,6 +14,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 知识检索器：向量（Milvus）+ 关键词（knowledge 模块 MySQL LIKE）双路召回，RRF 融合。
@@ -63,7 +64,11 @@ public class KnowledgeRetriever {
         List<MilvusVectorStore.Hit> vectorHits = new ArrayList<>();
         try {
             float[] queryVector = embeddingModel.embed(question);
-            vectorHits = milvusVectorStore.search(queryVector, milvusProperties.getTopK(), effectiveSpecies);
+            List<MilvusVectorStore.Hit> rawHits =
+                    milvusVectorStore.search(queryVector, milvusProperties.getTopK(), effectiveSpecies);
+            // 关键一步：Milvus 的 topK 检索永远会返回最像的 K 条（哪怕全都不相关），
+            // 必须按相似度过滤，否则无关碎片会污染上下文、让 hasKnowledge 失真
+            vectorHits = filterBySimilarity(rawHits);
         } catch (Exception e) {
             log.warn("向量检索失败，仅用关键词路: {}", e.getMessage());
         }
@@ -127,6 +132,46 @@ public class KnowledgeRetriever {
             scoreMap.merge(h.id(), 1.0 / (RRF_K + rank), Double::sum);
             hitMap.putIfAbsent(h.id(), h);
             rank++;
+        }
+    }
+
+    /**
+     * 按相似度阈值过滤向量检索结果。
+     * <p>
+     * 为什么必须过滤：Milvus 的 topK 检索【永远】会返回最像的 K 条，即使一条都不相关。
+     * 过滤后剩下的碎片会重新从第 1 名开始参与 RRF，也就是"只在相关结果之间排名次"。
+     * <p>
+     * 注意：只过滤向量路。关键词路是字面精确匹配（术语能命中才返回），本身精度较高，不适用相似度阈值。
+     */
+    private List<MilvusVectorStore.Hit> filterBySimilarity(List<MilvusVectorStore.Hit> hits) {
+        Double threshold = milvusProperties.getSimilarityThreshold();
+        if (threshold == null || threshold <= 0) {
+            logScores(hits, null, hits.size());   // 未配置阈值：不过滤，但照样打印分数
+            return hits;
+        }
+        List<MilvusVectorStore.Hit> kept = hits.stream()
+                .filter(h -> h.score() != null && h.score() >= threshold)
+                .toList();
+        logScores(hits, threshold, kept.size());
+        return kept;
+    }
+
+    /**
+     * 打印本次向量检索的命中分数 —— 标定阈值就看这行日志。
+     */
+    private void logScores(List<MilvusVectorStore.Hit> hits, Double threshold, int keptSize) {
+        if (hits.isEmpty()) {
+            log.info("向量检索：0 条命中");
+            return;
+        }
+        String scores = hits.stream()
+                .map(h -> String.format("%.3f", h.score() == null ? -1f : h.score()))
+                .collect(Collectors.joining(", "));
+        if (threshold == null) {
+            log.info("向量检索：命中 {} 条，分数 [{}]（未启用阈值过滤）", hits.size(), scores);
+        } else {
+            log.info("向量检索：命中 {} 条，阈值 {}，过滤后 {} 条，分数 [{}]",
+                    hits.size(), threshold, keptSize, scores);
         }
     }
 

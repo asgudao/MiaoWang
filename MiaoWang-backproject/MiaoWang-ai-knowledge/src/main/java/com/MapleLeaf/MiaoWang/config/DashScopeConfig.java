@@ -77,12 +77,21 @@ public class DashScopeConfig {
     @ConditionalOnProperty(prefix = "llm.dashscope.chat", name = "api-key")
     public ChatModel dashscopeChatModel(@Qualifier("dashscopeChatApi") DashScopeApi dashscopeChatApi) {
         LlmProperties.LlmSubProperties chat = llmProperties.getDashscope().getChat();
+        // 思考相关的两个参数是"可选下发"：
+        //   不配 → 不下发，保持模型默认行为（避免无意中改变线上效果）
+        //   配了 → 覆盖默认。enable-thinking=false 或 thinking-budget=512 都能明显降延迟
+        var optionsBuilder = DashScopeChatOptions.builder()
+                .model(chat.getModel())
+                .multiModel(Boolean.TRUE.equals(chat.getMultiModel()));
+        if (chat.getEnableThinking() != null) {
+            optionsBuilder.enableThinking(chat.getEnableThinking());
+        }
+        if (chat.getThinkingBudget() != null) {
+            optionsBuilder.thinkingBudget(chat.getThinkingBudget());
+        }
         return DashScopeChatModel.builder()
                 .dashScopeApi(dashscopeChatApi)
-                .defaultOptions(DashScopeChatOptions.builder()
-                        .model(chat.getModel())
-                        .multiModel(Boolean.TRUE.equals(chat.getMultiModel()))
-                        .build())
+                .defaultOptions(optionsBuilder.build())
                 .build();
     }
 
