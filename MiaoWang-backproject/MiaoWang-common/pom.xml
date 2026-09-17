@@ -71,6 +71,11 @@
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>
         </dependency>
+        <!--MinIO 对象存储客户端：common 统一封装 FileStorageService，各业务服务按桶复用-->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+        </dependency>
 
     </dependencies>
 

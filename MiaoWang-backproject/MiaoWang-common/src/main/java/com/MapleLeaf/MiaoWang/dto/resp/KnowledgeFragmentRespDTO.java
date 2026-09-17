@@ -59,4 +59,11 @@ public class KnowledgeFragmentRespDTO {
      * 来源：EXCEL/LLM/MANUAL
      */
     private String source;
+
+    /**
+     * 浏览量
+     * <p>
+     * 与 knowledge 服务里同名 DTO 保持一致（common 这份供 Feign 反序列化使用）。
+     */
+    private Long viewCount;
 }
