@@ -43,4 +43,17 @@ public interface Vip3dOrderService {
      * 制作方回填模型地址，订单置为已完成（内部/运营接口）
      */
     Vip3dOrderRespDTO complete(Vip3dCompleteReqDTO requestParam);
+
+    /**
+     * 运营：按状态查定制单（{@code null} = 全部），后台列表用
+     */
+    List<Vip3dOrderRespDTO> listByStatus(Integer status);
+
+    /**
+     * 运营：流转定制单状态（0 待处理 / 1 制作中 / 3 已取消）
+     *
+     * <p>刻意不允许改成「已完成」：完成必须带模型地址，走 {@link #complete}，
+     * 否则会出现"已完成但取不到模型"的空单。
+     */
+    Vip3dOrderRespDTO updateStatus(String orderNo, Integer status);
 }

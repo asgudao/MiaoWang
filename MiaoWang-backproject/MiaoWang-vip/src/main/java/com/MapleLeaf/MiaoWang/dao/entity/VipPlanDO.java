@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 
 /**
  * 会员档位配置
+ * 所有权益数值都在这里，代码里不写死（改权益 = 改数据）
  */
 @Data
 @TableName("miaowang_vip_plan")
@@ -45,19 +46,49 @@ public class VipPlanDO extends BaseDO {
     private Integer durationDays;
 
     /**
-     * 每种物种（猫、狗各自）可养数量上限
+     * 每种物种（猫、狗各自）可养数量上限（健康档案可建档的宠物数同此值）
      */
     private Integer petLimitPerType;
 
     /**
-     * RAG 每日次数，-1=不限次数
+     * RAG 次数上限，-1=不限次数
      */
-    private Integer ragDailyLimit;
+    private Integer ragLimit;
 
     /**
-     * 宠物聊天每日轮次，-1=不限次数
+     * RAG 额度周期：DAY=每日 MONTH=每月
      */
-    private Integer chatDailyLimit;
+    private String ragPeriod;
+
+    /**
+     * 宠物聊天轮次上限，-1=不限次数
+     */
+    private Integer chatLimit;
+
+    /**
+     * 聊天额度周期：DAY=每日 MONTH=每月
+     */
+    private String chatPeriod;
+
+    /**
+     * 每只宠物每类健康记录条数上限，-1=不限
+     */
+    private Integer healthRecordLimit;
+
+    /**
+     * 是否可导出健康报告：0=否 1=是
+     */
+    private Integer healthExport;
+
+    /**
+     * 是否可用 AI 解读症状：0=否 1=是
+     */
+    private Integer healthAiAnalysis;
+
+    /**
+     * 提醒条数上限，-1=不限
+     */
+    private Integer reminderLimit;
 
     /**
      * 是否可购买：0=否 1=是

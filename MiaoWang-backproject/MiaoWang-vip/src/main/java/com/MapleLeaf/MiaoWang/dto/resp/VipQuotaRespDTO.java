@@ -21,17 +21,27 @@ public class VipQuotaRespDTO {
     private String bizDesc;
 
     /**
-     * 每日次数上限，-1=不限
+     * 额度周期：DAY=每日 MONTH=每月
+     */
+    private String period;
+
+    /**
+     * 额度周期描述（每日/每月）
+     */
+    private String periodDesc;
+
+    /**
+     * 次数上限，-1=不限
      */
     private Integer limit;
 
     /**
-     * 今日已用次数，-1=不限（不计数）
+     * 本周期内已用次数，-1=不限（不计数）
      */
     private Integer used;
 
     /**
-     * 今日剩余次数，-1=不限
+     * 本周期内剩余次数，-1=不限
      */
     private Integer remaining;
 

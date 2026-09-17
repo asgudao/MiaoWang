@@ -10,9 +10,11 @@ import com.MapleLeaf.MiaoWang.dao.entity.Vip3dOrderDO;
 import com.MapleLeaf.MiaoWang.dao.mapper.Vip3dOrderMapper;
 import com.MapleLeaf.MiaoWang.dto.req.Vip3dApplyReqDTO;
 import com.MapleLeaf.MiaoWang.dto.req.Vip3dCompleteReqDTO;
+import com.MapleLeaf.MiaoWang.dto.resp.PetFeignRespDTO;
 import com.MapleLeaf.MiaoWang.dto.resp.Vip3dOrderRespDTO;
 import com.MapleLeaf.MiaoWang.enums.VipErrorCodeEnum;
 import com.MapleLeaf.MiaoWang.service.Vip3dOrderService;
+import com.MapleLeaf.MiaoWang.support.VipPetOwnershipChecker;
 import com.MapleLeaf.MiaoWang.support.VipUserHelper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
@@ -50,10 +52,22 @@ public class Vip3dOrderServiceImpl implements Vip3dOrderService {
 
     private final Vip3dOrderMapper vip3dOrderMapper;
 
+    private final VipPetOwnershipChecker vipPetOwnershipChecker;
+
     @Override
     public Vip3dOrderRespDTO apply(Vip3dApplyReqDTO requestParam) {
         Long uid = VipUserHelper.currentUid();
-        if (requestParam == null || StrUtil.isBlank(requestParam.getPetName())) {
+        if (requestParam == null) {
+            throw new ClientException(VipErrorCodeEnum.VIP_3D_ORDER_PARAM_ERROR);
+        }
+        // 绑了宠物档案就必须是自己的宠物（否则能拿别人的 pid 下单），
+        // 并顺手用档案里的名字覆盖前端传的宠物名，避免传错或伪造
+        PetFeignRespDTO ownedPet = vipPetOwnershipChecker.requireOwnedIfPresent(requestParam.getPid());
+        String petName = requestParam.getPetName();
+        if (ownedPet != null && StrUtil.isNotBlank(ownedPet.getPName())) {
+            petName = ownedPet.getPName();
+        }
+        if (StrUtil.isBlank(petName)) {
             throw new ClientException("请填写定制模型的宠物名");
         }
         if (StrUtil.isBlank(requestParam.getRequirement())) {
@@ -64,7 +78,7 @@ public class Vip3dOrderServiceImpl implements Vip3dOrderService {
         orderDO.setUid(uid);
         orderDO.setUsername(VipUserHelper.currentUsername());
         orderDO.setPid(requestParam.getPid());
-        orderDO.setPetName(requestParam.getPetName().trim());
+        orderDO.setPetName(petName.trim());
         orderDO.setRequirement(requestParam.getRequirement());
         orderDO.setReferenceImages(requestParam.getReferenceImages());
         orderDO.setStatus(STATUS_PENDING);
@@ -159,6 +173,50 @@ public class Vip3dOrderServiceImpl implements Vip3dOrderService {
             throw new ClientException(VipErrorCodeEnum.VIP_3D_ORDER_NOT_EXIST);
         }
         return orderDO;
+    }
+
+    @Override
+    public List<Vip3dOrderRespDTO> listByStatus(Integer status) {
+        List<Vip3dOrderDO> orderDOList = vip3dOrderMapper.selectList(Wrappers.lambdaQuery(Vip3dOrderDO.class)
+                .eq(status != null, Vip3dOrderDO::getStatus, status)
+                .eq(Vip3dOrderDO::getDelFlag, 0)
+                // 待处理的排最前：后台一进来就先看到要接手的活
+                .orderByAsc(Vip3dOrderDO::getStatus)
+                .orderByDesc(Vip3dOrderDO::getCreateTime));
+        if (orderDOList == null || orderDOList.isEmpty()) {
+            return List.of();
+        }
+        return orderDOList.stream()
+                .map(this::toRespDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public Vip3dOrderRespDTO updateStatus(String orderNo, Integer status) {
+        if (status == null || (status != STATUS_PENDING && status != STATUS_MAKING && status != STATUS_CANCELED)) {
+            // 「已完成」不能靠改状态达成：必须回填模型地址走 complete()
+            throw new ClientException(VipErrorCodeEnum.VIP_3D_ORDER_STATUS_ERROR);
+        }
+        Vip3dOrderDO orderDO = vip3dOrderMapper.selectOne(Wrappers.lambdaQuery(Vip3dOrderDO.class)
+                .eq(Vip3dOrderDO::getOrderNo, orderNo)
+                .eq(Vip3dOrderDO::getDelFlag, 0)
+                .last("limit 1"));
+        if (orderDO == null) {
+            throw new ClientException(VipErrorCodeEnum.VIP_3D_ORDER_NOT_EXIST);
+        }
+        if (orderDO.getStatus() != null
+                && (orderDO.getStatus() == STATUS_DONE || orderDO.getStatus() == STATUS_CANCELED)) {
+            // 已完成/已取消是终态，不允许再改（避免"取消后又变制作中"这种脏数据）
+            throw new ClientException(VipErrorCodeEnum.VIP_3D_ORDER_STATUS_ERROR);
+        }
+        Vip3dOrderDO updateDO = new Vip3dOrderDO();
+        updateDO.setId(orderDO.getId());
+        updateDO.setStatus(status);
+        if (vip3dOrderMapper.updateById(updateDO) < 1) {
+            throw new ClientException(VipErrorCodeEnum.VIP_3D_ORDER_STATUS_ERROR);
+        }
+        log.info("定制单 {} 状态由 {} 改为 {}", orderNo, statusDesc(orderDO.getStatus()), statusDesc(status));
+        return toRespDTO(vip3dOrderMapper.selectById(orderDO.getId()));
     }
 
     private Vip3dOrderRespDTO toRespDTO(Vip3dOrderDO orderDO) {

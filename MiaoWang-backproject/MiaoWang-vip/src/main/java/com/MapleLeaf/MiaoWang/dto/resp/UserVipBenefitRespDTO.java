@@ -29,37 +29,77 @@ public class UserVipBenefitRespDTO {
     private Date expireTime;
 
     /**
-     * 每种物种（猫、狗各自）可养数量上限
+     * 每种物种（猫、狗各自）可养数量上限；健康档案可建档的宠物数同此值
      */
     private Integer petLimitPerType;
 
     /**
-     * RAG 每日次数上限，-1=不限
+     * RAG 次数上限，-1=不限
      */
-    private Integer ragDailyLimit;
+    private Integer ragLimit;
 
     /**
-     * 宠物聊天每日轮次上限，-1=不限
+     * RAG 额度周期：DAY=每日 MONTH=每月
      */
-    private Integer chatDailyLimit;
+    private String ragPeriod;
 
     /**
-     * RAG 今日已用次数，-1=不限（不计数）
+     * RAG 额度周期描述（每日/每月），前端直接展示，不用自己翻译
      */
-    private Integer ragUsedToday;
+    private String ragPeriodDesc;
 
     /**
-     * RAG 今日剩余次数，-1=不限
+     * 本周期内 RAG 已用次数，-1=不限（不计数）
      */
-    private Integer ragRemainingToday;
+    private Integer ragUsed;
 
     /**
-     * 聊天今日已用轮次，-1=不限（不计数）
+     * 本周期内 RAG 剩余次数，-1=不限
      */
-    private Integer chatUsedToday;
+    private Integer ragRemaining;
 
     /**
-     * 聊天今日剩余轮次，-1=不限
+     * 聊天轮次上限，-1=不限
      */
-    private Integer chatRemainingToday;
+    private Integer chatLimit;
+
+    /**
+     * 聊天额度周期：DAY=每日 MONTH=每月
+     */
+    private String chatPeriod;
+
+    /**
+     * 聊天额度周期描述（每日/每月）
+     */
+    private String chatPeriodDesc;
+
+    /**
+     * 本周期内聊天已用轮次，-1=不限（不计数）
+     */
+    private Integer chatUsed;
+
+    /**
+     * 本周期内聊天剩余轮次，-1=不限
+     */
+    private Integer chatRemaining;
+
+    /**
+     * 每只宠物每类健康记录条数上限，-1=不限
+     */
+    private Integer healthRecordLimit;
+
+    /**
+     * 是否可导出健康报告：0=否 1=是
+     */
+    private Integer healthExport;
+
+    /**
+     * 是否可用 AI 解读症状：0=否 1=是
+     */
+    private Integer healthAiAnalysis;
+
+    /**
+     * 提醒条数上限，-1=不限
+     */
+    private Integer reminderLimit;
 }

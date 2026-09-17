@@ -1,10 +1,12 @@
 -- =============================================================
 -- MiaoWang 会员（VIP）建表脚本
 -- 数据库：MySQL 8，字符集 utf8mb4，引擎 InnoDB
--- 说明：VIP 模块只负责「权益判定 + 每日额度计数」，
---       宠物体量、RAG 次数、聊天轮次的实际执行在各自模块，
---       由它们调用本模块的接口来扣额度（见 MiaoWang-Vip/README.md）。
--- 注意：本脚本会 DROP 并重建 VIP 相关表（初始化用），生产环境请改为增量迁移。
+-- 说明：VIP 模块只负责「权益判定 + 额度计数」，
+--       宠物体量、RAG 次数、聊天轮次、健康档案的实际执行在各自模块，
+--       由它们调用本模块的接口来校验/扣额度（见 MiaoWang-Vip/README.md）。
+-- 版本：v2（额度支持 DAY/MONTH 周期；新增健康档案与提醒权益）
+-- 注意：本脚本会 DROP 并重建 VIP 相关表（初始化用）；
+--       已经建过表的环境请执行增量脚本 vip-plan-v2.sql，不要重跑本脚本。
 -- =============================================================
 
 SET NAMES utf8mb4;
@@ -15,20 +17,26 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- --------------------------------------------
 DROP TABLE IF EXISTS `miaowang_vip_plan`;
 CREATE TABLE `miaowang_vip_plan` (
-    `id`                 BIGINT        NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `plan_code`          VARCHAR(32)   NOT NULL                COMMENT '档位编码：FREE/PET_49/AI_149/AI_249/AI_349/ALL_400',
-    `plan_name`          VARCHAR(64)   NOT NULL                COMMENT '档位名称',
-    `price`              DECIMAL(10,2) NOT NULL DEFAULT 0.00   COMMENT '月费（元）',
-    `duration_days`      INT           NOT NULL DEFAULT 30     COMMENT '单次开通/续费的有效天数',
-    `pet_limit_per_type` INT           NOT NULL DEFAULT 1      COMMENT '每种物种（猫、狗各自）可养数量上限',
-    `rag_daily_limit`    INT           NOT NULL DEFAULT 0      COMMENT 'RAG 每日次数，-1=不限次数',
-    `chat_daily_limit`   INT           NOT NULL DEFAULT 0      COMMENT '宠物聊天每日轮次，-1=不限次数',
-    `purchasable`        TINYINT       NOT NULL DEFAULT 1      COMMENT '是否可购买：0=否（免费档/内部档）1=是',
-    `status`             TINYINT       NOT NULL DEFAULT 1      COMMENT '状态：0=停用 1=启用',
-    `sort`               INT           NOT NULL DEFAULT 0      COMMENT '排序值，越小越靠前',
-    `create_time`        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `update_time`        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `del_flag`           TINYINT       NOT NULL DEFAULT 0      COMMENT '删除标识：0=未删除 1=已删除',
+    `id`                   BIGINT        NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `plan_code`            VARCHAR(32)   NOT NULL                COMMENT '档位编码：FREE/PET_49/AI_149/AI_249/AI_349/ALL_400',
+    `plan_name`            VARCHAR(64)   NOT NULL                COMMENT '档位名称',
+    `price`                DECIMAL(10,2) NOT NULL DEFAULT 0.00   COMMENT '月费（元）',
+    `duration_days`        INT           NOT NULL DEFAULT 30     COMMENT '单次开通/续费的有效天数',
+    `pet_limit_per_type`   INT           NOT NULL DEFAULT 2      COMMENT '可养宠物总数量上限（不区分物种；-1=不限。列名是历史遗留，语义已是总数）',
+    `rag_limit`            INT           NOT NULL DEFAULT 0      COMMENT 'RAG 次数上限，-1=不限次数',
+    `rag_period`           VARCHAR(16)   NOT NULL DEFAULT 'DAY'  COMMENT 'RAG 额度周期：DAY=每日 MONTH=每月',
+    `chat_limit`           INT           NOT NULL DEFAULT 0      COMMENT '宠物聊天轮次上限，-1=不限次数',
+    `chat_period`          VARCHAR(16)   NOT NULL DEFAULT 'DAY'  COMMENT '聊天额度周期：DAY=每日 MONTH=每月',
+    `health_record_limit`  INT           NOT NULL DEFAULT 20     COMMENT '每只宠物每类健康记录条数上限，-1=不限',
+    `health_export`        TINYINT       NOT NULL DEFAULT 0      COMMENT '是否可导出健康报告：0=否 1=是',
+    `health_ai_analysis`   TINYINT       NOT NULL DEFAULT 0      COMMENT '是否可用 AI 解读症状：0=否 1=是',
+    `reminder_limit`       INT           NOT NULL DEFAULT 3      COMMENT '提醒条数上限，-1=不限',
+    `purchasable`          TINYINT       NOT NULL DEFAULT 1      COMMENT '是否可购买：0=否（免费档/内部档）1=是',
+    `status`               TINYINT       NOT NULL DEFAULT 1      COMMENT '状态：0=停用 1=启用',
+    `sort`                 INT           NOT NULL DEFAULT 0      COMMENT '排序值，越小越靠前',
+    `create_time`          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time`          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `del_flag`             TINYINT       NOT NULL DEFAULT 0      COMMENT '删除标识：0=未删除 1=已删除',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_plan_code` (`plan_code`),
     KEY `idx_status_sort` (`status`, `sort`)
@@ -108,18 +116,25 @@ CREATE TABLE `miaowang_vip_3d_order` (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '3D 宠物模型定制订单表';
 
 -- --------------------------------------------
--- 5. 档位种子数据
---    权益口径：高档位「叠加包含」低档位 —— 14.9 及以上同样享受猫狗各 5 只
---    -1 表示不限次数
+-- 5. 档位种子数据（v2 权益口径）
+--    设计原则：
+--      1) 高档位「叠加包含」低档位，各维度单调不降
+--      2) 免费额度按月给试用（防止白嫖），付费额度按天给（体验爽）
+--      3) 聊天按天（留存钩子），RAG 免费按月（调用成本高）
+--      4) 健康档案能建几只宠物 = 宠物数量上限，不另设概念
+--    -1 表示不限
 -- --------------------------------------------
 INSERT INTO `miaowang_vip_plan`
-(`plan_code`, `plan_name`, `price`, `duration_days`, `pet_limit_per_type`, `rag_daily_limit`, `chat_daily_limit`, `purchasable`, `status`, `sort`)
+(`plan_code`, `plan_name`, `price`, `duration_days`, `pet_limit_per_type`,
+ `rag_limit`, `rag_period`, `chat_limit`, `chat_period`,
+ `health_record_limit`, `health_export`, `health_ai_analysis`, `reminder_limit`,
+ `purchasable`, `status`, `sort`)
 VALUES
-('FREE',    '免费用户',       0.00, 0,  1, 3,  5,  0, 1, 0),
-('PET_49',  '宠物位扩容月卡', 4.90, 30, 5, 3,  5,  1, 1, 1),
-('AI_149',  'AI 基础月卡',   14.90, 30, 5, 10, 20, 1, 1, 2),
-('AI_249',  'AI 进阶月卡',   24.90, 30, 5, 50, 50, 1, 1, 3),
-('AI_349',  'AI 畅享月卡',   34.90, 30, 5, -1, 100, 1, 1, 4),
-('ALL_400', '全能月卡',      40.00, 30, 5, -1, -1, 1, 1, 5);
+('FREE',    '免费用户',       0.00,  0,  2, 5,  'MONTH', 5,   'DAY', 20,  0, 0, 3,  0, 1, 0),
+('PET_49',  '宠物位扩容月卡', 4.90,  30, 5, 5,  'MONTH', 5,   'DAY', 20,  0, 0, 3,  1, 1, 1),
+('AI_149',  'AI 基础月卡',   14.90, 30, 5, 10, 'DAY',   20,  'DAY', 100, 0, 0, -1, 1, 1, 2),
+('AI_249',  'AI 进阶月卡',   24.90, 30, 5, 50, 'DAY',   50,  'DAY', -1,  1, 0, -1, 1, 1, 3),
+('AI_349',  'AI 畅享月卡',   34.90, 30, 5, -1, 'DAY',   100, 'DAY', -1,  1, 1, -1, 1, 1, 4),
+('ALL_400', '全能月卡',      40.00, 30, 5, -1, 'DAY',   -1,  'DAY', -1,  1, 1, -1, 1, 1, 5);
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <ul>
  *   <li>GET  /benefit/{uid}          查某用户权益（如宠物模块校验「还能不能再养一只」）</li>
  *   <li>POST /quota/consume          ai-knowledge / ai-pet 执行前扣额度</li>
+ *   <li>POST /quota/refund           业务最终失败时回退额度（失败不扣次数）</li>
  *   <li>POST /3d/complete            制作方回填定制模型地址</li>
  * </ul>
  *
@@ -63,5 +64,14 @@ public class VipInternalController {
     @PostMapping("/3d/complete")
     public Result<Vip3dOrderRespDTO> complete(@RequestBody Vip3dCompleteReqDTO requestParam) {
         return Results.success(vip3dOrderService.complete(requestParam));
+    }
+
+    /**
+     * 回退一次额度：调用方扣了额度但业务最终失败（如大模型报错）时回退，保证失败不扣用户次数
+     */
+    @PostMapping("/quota/refund")
+    public Result<Void> refundQuota(@RequestBody VipInternalQuotaConsumeReqDTO requestParam) {
+        vipQuotaService.refundQuota(requestParam.getUid(), requestParam.getBiz());
+        return Results.success();
     }
 }

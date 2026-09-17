@@ -14,15 +14,15 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 /**
  * 我的会员接口
  * <ul>
  *   <li>GET  /benefit    我的权益总览（含宠物数量上限与今日剩余次数）</li>
- *   <li>POST /subscribe  开通/续费（当前为模拟支付，下单即生效）</li>
- *   <li>GET  /order      我的订阅订单</li>
+ *   <li>POST /subscribe  一键开通/续费（内部 = 下单 + 模拟支付，联调与演示用）</li>
  * </ul>
+ *
+ * <p>订单的完整读写（下单、模拟支付、退款、订单列表）都在 {@link VipOrderController}，
+ * 统一挂在 {@code /vip/order} 下（订单列表的 URL 没变，前端不用改）。
  */
 @RestController
 @RequestMapping("/mapleleaf/miaowang/v1/vip")
@@ -40,18 +40,13 @@ public class UserVipController {
     }
 
     /**
-     * 开通/续费会员（同档位续费自动在原到期时间上叠加）
+     * 一键开通/续费会员（同档位续费自动在原到期时间上叠加）
+     *
+     * <p>内部走「下单 + 模拟支付」两个步骤，最终效果和以前一致；
+     * 想走真实支付流程请用 {@code POST /vip/order} + 渠道回调。
      */
     @PostMapping("/subscribe")
     public Result<VipOrderRespDTO> subscribe(@RequestBody VipSubscribeReqDTO requestParam) {
         return Results.success(userVipService.subscribe(requestParam));
-    }
-
-    /**
-     * 我的订阅订单列表
-     */
-    @GetMapping("/order")
-    public Result<List<VipOrderRespDTO>> listMyOrders() {
-        return Results.success(userVipService.listMyOrders());
     }
 }

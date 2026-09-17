@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.Map;
 
 /**
  * 会员订阅订单
@@ -28,9 +29,24 @@ public class VipOrderRespDTO {
     private String planName;
 
     /**
-     * 支付金额（元）
+     * 支付金额（元）：档位原价
      */
     private BigDecimal amount;
+
+    /**
+     * 优惠金额（元）
+     */
+    private BigDecimal discountAmount;
+
+    /**
+     * 应付金额（元）：前端展示"实付"用；0 元订单是促销兑换单
+     */
+    private BigDecimal payableAmount;
+
+    /**
+     * 使用的促销码（下单时用了立减码才有值）
+     */
+    private String promoCode;
 
     /**
      * 支付方式
@@ -61,4 +77,35 @@ public class VipOrderRespDTO {
      * 下单时间
      */
     private Date createTime;
+
+    /**
+     * 支付状态中文（前端直接展示，不用自己维护 0/1/2/3 的映射）
+     */
+    private String payStatusDesc;
+
+    /**
+     * 订阅时长（天）
+     */
+    private Integer durationDays;
+
+    /**
+     * 支付参数：仅「下单 / 模拟支付」接口返回，订单列表里为 null
+     * （真实渠道是二维码链接、预支付ID、调起参数等；mock 只有操作提示）
+     */
+    private Map<String, Object> payParams;
+
+    /**
+     * 关单时间（待支付超时后自动关闭）
+     */
+    private Date closeTime;
+
+    /**
+     * 退款完成时间
+     */
+    private Date refundTime;
+
+    /**
+     * 退款原因
+     */
+    private String refundReason;
 }
