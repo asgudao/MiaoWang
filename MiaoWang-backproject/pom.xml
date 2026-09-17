@@ -18,6 +18,7 @@
         <module>MiaoWang-ai-knowledge</module>
         <module>MiaoWang-community</module>
         <module>MiaoWang-vip</module>
+        <module>MiaoWang-healthy</module>
     </modules>
 
     <!--springboot依赖-->
@@ -46,6 +47,8 @@
         <commons-lang3.version>3.19.0</commons-lang3.version>
         <kryo-serializers.version>0.45</kryo-serializers.version>
         <hutool-all.version>5.8.47</hutool-all.version>
+        <!--MinIO 对象存储客户端（图片统一走 common 封装，按业务分桶）-->
+        <minio.version>8.5.17</minio.version>
         <!-- 打包跳过单元测试 -->
         <skipTests>true</skipTests>
         <spring-boot.version>3.5.0</spring-boot.version>
@@ -66,6 +69,12 @@
                 <groupId>com.MapleLeaf.MiaoWang</groupId>
                 <artifactId>MiaoWang-common</artifactId>
                 <version>${revision}</version>
+            </dependency>
+            <!--MinIO 对象存储：各业务服务通过 common 复用，自己不用再写版本-->
+            <dependency>
+                <groupId>io.minio</groupId>
+                <artifactId>minio</artifactId>
+                <version>${minio.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.springframework.boot</groupId>
