@@ -4,6 +4,9 @@ spring:
     import:
       - optional:nacos:MiaoWang-all-service.yaml
       - optional:nacos:MiaoWang-service-ai-pet-dev.yaml
+      # 模型配置（llm.dashscope.chat.*）与 ai-knowledge 共用同一份：
+      # 人设对话用的就是同一个模型与同一个 key，没必要在 Nacos 上再抄一份（抄两份必然一处改一处忘）
+      - optional:nacos:MiaoWang-ai-common.yaml
   cloud:
     nacos:
       config:
@@ -14,3 +17,15 @@ spring:
         server-addr: 192.168.137.128:8848
         username: nacos
         password: nacos
+
+# 电子宠物对话的可调参数（全部有代码默认值，Nacos 里不配也能跑）
+miaowang:
+  ai-pet:
+    # 打开首页时的自动问候总开关（关掉后 /ai/pet/greet 返回空问候，前端不显示问候气泡）
+    greeting-enabled: true
+    # 带进提示词的历史轮数上限（1 轮 = 主人一句 + 宠物一句）
+    history-turns: 6
+    # 历史字符预算：累计超过就丢更早的消息（中文 1 字 ≈ 1~1.5 token）
+    history-char-budget: 2000
+    # 单条提问长度上限（挡住"一次灌一整本书"这种把成本打爆的用法）
+    max-question-length: 500

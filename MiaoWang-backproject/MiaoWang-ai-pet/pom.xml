@@ -26,6 +26,21 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+        <!--数据访问：会话/消息两张表落在 MySQL（datasource 由 common 的 mybatis-plus 起步依赖带出，
+            这里显式声明 starter-jdbc 是为了和 ai-knowledge 保持一致的依赖形状，避免"能编译不能启动"）-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <!--DashScope ChatModel：电子宠物的人设对话（本模块只用 chat，不用 embedding —— 不做 RAG）-->
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
         <dependency>
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>
