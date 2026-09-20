@@ -28,8 +28,10 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -173,10 +175,13 @@ public class RagController {
     @PostMapping(value = "/ask/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter askStream(@RequestBody RagAskReqDTO requestParam) {
         validate(requestParam);
+        long start = System.currentTimeMillis();
         Long uid = currentUid.require();
         boolean consumed = ragQuotaGuard.consumeOrThrow(uid);
+        // 分段计时：慢在哪一段（额度校验 / 会话落库 / 检索 / 模型）一目了然。
+        // 实测过一次：前面几段合计约 4.8s、模型约 17s —— 不量就不知道刀该往哪切。
+        final long quotaMs = System.currentTimeMillis() - start;
         SseEmitter emitter = new SseEmitter(0L); // 0 = 不超时
-        long start = System.currentTimeMillis();
         // 流式只有最后一帧带 usage，所以边收边覆盖，收流结束时才落库。
         // 用 AtomicReference 是因为它要在 lambda（可能跑在 reactor 线程）里被写入。
         AtomicReference<Usage> usage = new AtomicReference<>();
@@ -186,17 +191,26 @@ public class RagController {
         // 这里只推给前端看、<b>不落库</b>：一旦存进历史消息，下一轮会被当成 AI 回答喂回模型，
         // 既污染上下文又白烧 token（Qwen 官方也不建议把 reasoning 回传）。
         StringBuilder thinking = new StringBuilder();
+        // 思考内容一次都没命中时，打印一次两层的 metadata key（只打 key、不打内容），用于定位字段在哪一层
+        AtomicBoolean metadataLogged = new AtomicBoolean(false);
         Long conversationId = null;
         try {
             conversationId = aiConversationService.resolveConversation(uid, requestParam.getConversationId(),
                     requestParam.getQuestion());
             List<AiMessageDO> history = aiConversationService.historyForPrompt(conversationId);
             aiConversationService.appendUserMessage(uid, conversationId, requestParam.getQuestion());
+            final long conversationMs = System.currentTimeMillis() - start - quotaMs;
 
             // 下面的 lambda 里要用，必须是 effectively final 的局部变量
             final Long convId = conversationId;
             // ① 混合检索 + 拼上下文（同步完成，先拿 sources）
             RagAskService.AskContext context = ragAskService.buildContext(requestParam, history);
+            // 这一段 = query 向量化（一次 HTTP 往返）+ Milvus 向量检索 + MySQL 关键词检索 + RRF 融合
+            final long retrievalMs = System.currentTimeMillis() - start - quotaMs - conversationMs;
+            final Map<String, Object> phases = new LinkedHashMap<>();
+            phases.put("quotaMs", quotaMs);
+            phases.put("conversationMs", conversationMs);
+            phases.put("retrievalMs", retrievalMs);
             emitter.send(SseEmitter.event().name("meta").data(Map.of("conversationId", convId)));
             emitter.send(SseEmitter.event().name("sources").data(context.sources()));
 
@@ -220,6 +234,9 @@ public class RagController {
                                     emitter.completeWithError(e);
                                     return;
                                 }
+                            } else if (metadataLogged.compareAndSet(false, true)) {
+                                // 只记一次：确认"当前 SDK 到底有没有把思考内容透出来、叫什么 key"
+                                log.info("思考内容未命中，本帧 metadata -> {}", TokenUsageExtractor.metadataKeysOf(response));
                             }
                         }
                         // ② 正式答案帧：只推有文字的，多模态/思考模型的流里有大量无 text 的帧
@@ -238,12 +255,16 @@ public class RagController {
                     })
                     .doOnComplete(() -> {
                         long latency = System.currentTimeMillis() - start;
+                        // 模型阶段 = 总耗时扣掉前面几段（额度 / 会话 / 检索）
+                        phases.put("modelMs", latency - quotaMs - conversationMs - retrievalMs);
+                        log.info("问答阶段耗时：额度 {}ms / 会话 {}ms / 检索 {}ms / 模型 {}ms（共 {}ms）",
+                                quotaMs, conversationMs, retrievalMs, phases.get("modelMs"), latency);
                         // 先落库再发 done：前端拿到 done 就能立刻给这条回答点 👍/👎
                         Long messageId = saveAssistantMessage(uid, convId, answer.toString(), context,
                                 usage.get(), latency);
                         aiCallLogRecorder.recordSuccess(AiCallLogRecorder.SCENE_ASK_STREAM, uid, usage.get(),
                                 latency, convId, messageId);
-                        sendDone(emitter, messageId, usage.get(), latency);
+                        sendDone(emitter, messageId, usage.get(), latency, phases);
                         emitter.complete();
                     })
                     .doOnError(error -> {
@@ -310,13 +331,16 @@ public class RagController {
      * done 事件：把 messageId 与用量告诉前端。
      * messageId 为 null（没落库成功）时给 0 占位 —— Map.of 不接受 null 值。
      */
-    private static void sendDone(SseEmitter emitter, Long messageId, Usage usage, long latency) {
+    private static void sendDone(SseEmitter emitter, Long messageId, Usage usage, long latency,
+                                 Map<String, Object> phases) {
         try {
-            emitter.send(SseEmitter.event().name("done").data(Map.<String, Object>of(
-                    "messageId", messageId == null ? 0L : messageId,
-                    "latencyMs", latency,
-                    "tokenIn", usage == null || usage.getPromptTokens() == null ? 0 : usage.getPromptTokens(),
-                    "tokenOut", usage == null || usage.getCompletionTokens() == null ? 0 : usage.getCompletionTokens())));
+            Map<String, Object> payload = new LinkedHashMap<>(phases);
+            payload.put("messageId", messageId == null ? 0L : messageId);
+            payload.put("latencyMs", latency);
+            payload.put("tokenIn", usage == null || usage.getPromptTokens() == null ? 0 : usage.getPromptTokens());
+            payload.put("tokenOut", usage == null || usage.getCompletionTokens() == null ? 0 : usage.getCompletionTokens());
+            // phases = 分段耗时（quotaMs / conversationMs / retrievalMs / modelMs），定位"慢在哪一段"用
+            emitter.send(SseEmitter.event().name("done").data(payload));
         } catch (IOException e) {
             // 前端可能已经断开，发不出去很正常，不值得报错
             log.debug("done 事件发送失败（前端可能已断开）：{}", e.getMessage());

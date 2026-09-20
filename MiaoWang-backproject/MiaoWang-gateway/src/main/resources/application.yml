@@ -17,6 +17,15 @@ spring:
           discovery:
             locator:
               enabled: true #让gateway可以发现nacos中的运行微服务
+          # 把客户端的 Host 原样透传给下游服务。默认是**不**透传的：
+          # NettyRoutingFilter 会无条件 headers.remove("Host")，只有 preserveHost=true 时才把原 Host 加回去
+          # （javap 证据见工具链记录）。不透传时下游看到的是 Nacos 实例地址（192.168.100.45:8053），
+          # 于是社区/用户服务"按请求 Host 推导图片对外地址"会推导出手机到不了的地址。
+          # 为什么用 default-filters 而不是路由级 filters：路由是 discovery locator 自动生成的、
+          # 没写在 yml 里，配不了单条路由；default-filters 对所有（含自动生成的）路由生效。
+          # 影响面：仅"下游看到的 Host 头"，不改路由、不改鉴权。
+          default-filters:
+            - PreserveHostHeader
 
 #不用登录就能访问（白名单）：知识库为公开内容区，免 token 访问
 gateway:

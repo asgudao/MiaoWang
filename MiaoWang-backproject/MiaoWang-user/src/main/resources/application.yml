@@ -24,7 +24,12 @@ spring:
       max-request-size: 10MB
 
 # MinIO 对象存储：头像单独一个桶，不和其他业务（社区帖子图片）混在一起；
-# endpoint / accessKey / secretKey / buckets.post 走 common 的兜底默认值
+# endpoint / accessKey / secretKey / buckets.post 走 common 的兜底默认值。
+# 头像是"下发 URL 给客户端"的场景：取址三级优先（唯一实现在 common 的 ObjectStorageUrlBuilder）——
+# ① minio.public-base-url 配了就用它（生产 CDN/公网）；
+# ② 没配就按本次请求的 Host 推导（端口取 minio.public-port，默认 9000）；
+# ③ 没配也没请求上下文（Feign/定时任务）才回退内网 endpoint。
+# 开发期手机端要能看头像，同样需要开发机上的转发工具（tools/minio-forward.js）。
 minio:
   buckets:
     avatar: miaowang-user
