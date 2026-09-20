@@ -228,7 +228,7 @@ async function onDelete() {
   height: 64px;
   flex: none;
   border-radius: var(--mw-radius-pill);
-  background: rgba(53, 214, 168, 0.16);
+  background: rgba(255, 138, 91, 0.16);
   color: var(--mw-brand);
   font-size: 26px;
   font-weight: 700;

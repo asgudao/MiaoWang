@@ -40,12 +40,14 @@
 		</view>
 
 		<view class="rows">
-			<view v-for="s in settings" :key="s.label" class="row" @click="toast">
+			<view v-for="s in settings" :key="s.key" class="row" @click="openRow(s)">
 				<view class="row__main">
 					<text class="row__label">{{ s.label }}</text>
 					<text class="row__desc">{{ s.desc }}</text>
 				</view>
-				<text class="row__badge">开发中</text>
+				<!-- 「消息通知」是真入口：有未读就显示未读数，没有就不显示（不写"开发中"占位） -->
+				<text v-if="s.key === 'notify' && unreadBadge" class="row__badge row__badge--unread">{{ unreadBadge }}</text>
+				<!-- 4 行**全部**已接真页面，右侧不再有任何「开发中」徽标（原来那枚随「提醒设置」接线一起删掉） -->
 			</view>
 		</view>
 
@@ -57,7 +59,7 @@
 		</template>
 		<text v-else class="note">未登录，页面数据为演示内容</text>
 
-		<FloatingTabBar current="mine" />
+		<FloatingTabBar current="mine" :mine-dot="mineDot" />
 	</view>
 </template>
 
@@ -67,6 +69,7 @@ import { hideNativeTabBar } from '@/utils/tabbar.js'
 import { auth } from '@/store/auth.js'
 import { vip } from '@/store/vip.js'
 import { describeTarget } from '@/utils/request.js'
+import { fetchUnreadCount, notificationHasUnread, notificationUnreadText } from '@/api/community.js'
 
 export default {
 	components: { FloatingTabBar },
@@ -75,11 +78,16 @@ export default {
 			// 退出用行内二次确认，不用 uni.showModal（打断且丑）
 			confirming: false,
 			busy: false,
+			/**
+			 * 未读消息数：**只在 `unread-count` 成功时有值**（裸数字接口），拿不到就是 null（"未知"，不是 0）。
+			 * 只在 `onShow` 拉一次 —— 全仓库没有推送设施，也**不做全站轮询**（契约 §2.5 做法一）。
+			 */
+			unread: null,
 			settings: [
-				{ label: '个人资料', desc: '昵称、手机号、头像' },
-				{ label: '提醒设置', desc: '推送时间与免打扰' },
-				{ label: '消息通知', desc: '评论、点赞、关注' },
-				{ label: '关于喵汪', desc: '版本与开源许可' }
+				{ key: 'profile', label: '个人资料', desc: '昵称、手机号、头像' },
+				{ key: 'remind', label: '提醒设置', desc: '提前几天与免打扰' },
+				{ key: 'notify', label: '消息通知', desc: '评论、点赞、关注' },
+				{ key: 'about', label: '关于喵汪', desc: '版本与开源许可' }
 			]
 		}
 	},
@@ -116,6 +124,17 @@ export default {
 			return describeTarget()
 		},
 		/**
+		 * 「我的」tab 的红点（自绘 tabbar 的 `mineDot` prop）：
+		 * **唯一判据是未读数 > 0**；未读数拿不到（null）时按"没有"处理 → **失败静默降级**。
+		 */
+		mineDot() {
+			return notificationHasUnread(this.unread)
+		},
+		/** 「消息通知」行右侧的角标（0 / 未读到 → 空串，不显示"0 条未读"） */
+		unreadBadge() {
+			return notificationUnreadText(this.unread)
+		},
+		/**
 		 * 会员卡角标：只在**拿得到权益**时才显示状态，拿不到就如实说取不到。
 		 * 不猜、不写死免费档数值（权益一律以接口为准）；失败也不能留一个空胶囊在标题右边。
 		 */
@@ -146,10 +165,59 @@ export default {
 		auth.restore()
 		// 会员卡角标要用权益数据；未登录时这个接口不需要调（拿不到身份）
 		if (auth.isLoggedIn()) vip.fetchBenefit()
+		// 「我的」tab 的未读红点 / 「消息通知」行角标：**只在这一处拉一次**，不做全站轮询；
+		// 失败静默降级（红点不显示、页面其余部分照常）
+		if (auth.isLoggedIn()) this.loadUnread()
+		else this.unread = null
 	},
 	methods: {
+		/**
+		 * 拉未读数（`GET /community/notification/unread-count`，**裸数字**）
+		 * ⚠️ **失败一律静默降级**：红点不显示、角标不显示，**不弹 toast、不写红字**（未读数不是这一页的主内容）。
+		 */
+		async loadUnread() {
+			try {
+				const n = await fetchUnreadCount()
+				const num = n === null || n === undefined ? NaN : Number(n)
+				this.unread = isNaN(num) ? null : num
+			} catch (e) {
+				this.unread = null
+			}
+		},
 		toast() {
 			uni.showToast({ title: '功能开发中', icon: 'none' })
+		},
+		/**
+		 * 设置行：现在 4 行**全部**有真实去处（个人资料 / 提醒设置 / 消息通知 / 关于喵汪）。
+		 *
+		 * 所以这个页面里**已经不存在"占位行"**了：原来那套 `isPlaceholder()` + 右侧「开发中」徽标
+		 * 随「提醒设置」接线一起删掉 —— 4 行都有真页面，再挂「开发中」就是假 UI。
+		 *
+		 * 兜底的 `toast()` 保留，但**4 行都走不到它**：它的作用只是"以后谁加了第 5 行却忘了接页面，
+		 * 点上去要有一个明确交代"，而不是给已接好的行当占位。
+		 */
+		openRow(s) {
+			if (!s) return
+			if (s.key === 'notify') {
+				this.goNotify()
+				return
+			}
+			if (s.key === 'profile') {
+				uni.navigateTo({ url: '/pages/profile/profile' })
+				return
+			}
+			if (s.key === 'remind') {
+				uni.navigateTo({ url: '/pages/remind/setting' })
+				return
+			}
+			if (s.key === 'about') {
+				uni.navigateTo({ url: '/pages/about/about' })
+				return
+			}
+			this.toast()
+		},
+		goNotify() {
+			uni.navigateTo({ url: '/pages/notification/list' })
 		},
 		goVip() {
 			uni.navigateTo({ url: '/pages/vip/vip' })
@@ -165,6 +233,8 @@ export default {
 				await auth.logout()
 				uni.showToast({ title: '已退出登录', icon: 'none' })
 			} finally {
+				// 退出后未读数不再适用（红点必须立刻消失，不能留上一个账号的）
+				this.unread = null
 				this.busy = false
 				this.confirming = false
 			}
@@ -200,7 +270,7 @@ export default {
 	width: 112rpx;
 	height: 112rpx;
 	border-radius: 50%;
-	background: rgba(53, 214, 168, 0.16);
+	background: rgba(255, 138, 91, 0.16);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -269,8 +339,8 @@ export default {
 .alert {
 	margin-top: $mw-space-3;
 	padding: $mw-space-3 $mw-space-4;
-	background: rgba(10, 125, 109, 0.08);
-	border: 1px solid rgba(10, 125, 109, 0.2);
+	background: rgba(194, 65, 12, 0.08);
+	border: 1px solid rgba(194, 65, 12, 0.2);
 	border-radius: $mw-radius-input;
 }
 .alert text {
@@ -308,7 +378,7 @@ export default {
 .vip {
 	margin-top: $mw-space-3;
 	padding: $mw-space-4;
-	background: linear-gradient(0deg, rgba(10, 125, 109, 0.06), rgba(10, 125, 109, 0.06)), $mw-surface;
+	background: linear-gradient(0deg, rgba(194, 65, 12, 0.06), rgba(194, 65, 12, 0.06)), $mw-surface;
 	border: 1px solid $mw-line;
 	border-radius: $mw-radius-card;
 }
@@ -320,7 +390,7 @@ export default {
 .vip__badge {
 	padding: 4rpx 12rpx;
 	border-radius: $mw-radius-tag;
-	background: rgba(10, 125, 109, 0.12);
+	background: rgba(194, 65, 12, 0.12);
 	font-size: $mw-font-micro;
 	font-weight: 600;
 	color: $mw-brand-ink;
@@ -390,6 +460,12 @@ export default {
 	background: $mw-canvas;
 	font-size: 22rpx;
 	color: $mw-muted;
+}
+/* 未读角标：这是**真数据**（未读数），不是占位徽标 —— 「开发中」那枚已随 4 行全部接线一起删掉 */
+.row__badge--unread {
+	background: rgba(229, 72, 77, 0.12);
+	font-weight: 600;
+	color: $mw-danger;
 }
 
 .logout {

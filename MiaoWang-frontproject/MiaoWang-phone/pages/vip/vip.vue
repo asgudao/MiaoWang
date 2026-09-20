@@ -955,7 +955,7 @@ export default {
 	color: $mw-accent-ink;
 }
 .order__status--paid {
-	background: rgba(10, 125, 109, 0.12);
+	background: rgba(194, 65, 12, 0.12);
 	color: $mw-brand-ink;
 }
 .order__status--closed {

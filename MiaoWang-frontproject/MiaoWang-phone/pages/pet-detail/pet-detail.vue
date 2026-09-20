@@ -302,7 +302,7 @@ export default {
 	width: 112rpx;
 	height: 112rpx;
 	border-radius: 50%;
-	background: rgba(53, 214, 168, 0.16);
+	background: rgba(255, 138, 91, 0.16);
 	display: flex;
 	align-items: center;
 	justify-content: center;

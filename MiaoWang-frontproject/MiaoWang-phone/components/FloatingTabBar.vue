@@ -9,9 +9,13 @@
 				@click="go(item.path)"
 			>
 				<view class="tab__icon">
+					<!-- 「我的」tab 的未读红点：由 prop 驱动、v-if 控制。
+					     ⚠️ 原生 tabBar 被 utils/tabbar.js 隐藏了，uni.setTabBarBadge / showTabBarRedDot
+					     画了也看不见 —— 徽标只能画在这里（契约 §2.4）。只做入口红点，不做全站轮询。 -->
+					<view v-if="item.key === 'mine' && mineDot" class="tab__dot"></view>
 					<!-- 图标自绘：不依赖已废弃的 static/tabbar PNG -->
 					<svg viewBox="0 0 24 24" width="24" height="24" fill="none"
-						:stroke="item.path === current ? '#0A7D6D' : '#9AA8B2'"
+						:stroke="item.path === current ? '#C2410C' : '#8A7767'"
 						stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
 						<!-- 首页：房子 -->
 						<template v-if="item.key === 'home'">
@@ -60,6 +64,16 @@ export default {
 		current: {
 			type: String,
 			default: 'home'
+		},
+		/**
+		 * 「我的」tab 的**未读红点**（只做入口红点，不做全站轮询）
+		 *
+		 * 页面的 `onShow` 拉一次 `unread-count`（**裸数字**接口）→ 有未读就传 true。
+		 * 拿不到未读数（未登录 / 掉线 / 网络失败）一律传 false —— **失败静默降级**，不影响页面本身。
+		 */
+		mineDot: {
+			type: Boolean,
+			default: false
 		}
 	},
 	data() {
@@ -103,7 +117,7 @@ export default {
 	align-items: center;
 	height: $mw-tabbar-h;
 	padding: 0 $mw-space-1;
-	background: rgba(255, 255, 255, 0.9);
+	background: rgba(255, 252, 249, 0.92);
 	backdrop-filter: blur(20rpx);
 	border: 1px solid $mw-line;
 	border-radius: $mw-radius-pill;
@@ -127,6 +141,19 @@ export default {
 	justify-content: center;
 	width: 56rpx;
 	height: 56rpx;
+	position: relative;
+}
+
+/* 未读红点：挂在图标右上角（原生 tabBar 被隐藏，徽标只有这一个落点） */
+.tab__dot {
+	position: absolute;
+	top: 0;
+	right: 0;
+	width: 16rpx;
+	height: 16rpx;
+	border-radius: 50%;
+	background: $mw-danger;
+	border: 2rpx solid $mw-surface;
 }
 
 .tab__label {

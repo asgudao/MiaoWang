@@ -68,13 +68,13 @@ async function renderQr() {
   rendering.value = true
   qrError.value = ''
   try {
-    // 前景用设计令牌里的 ink（#0E1720）、底用纯白：二维码靠对比度才扫得动，
+    // 前景用设计令牌里的 ink（#1D1512）、底用纯白：二维码靠对比度才扫得动，
     // 所以这一小块必须留在白底上，不跟着页面与深色区走
     qrImage.value = await toDataURL(code, {
       errorCorrectionLevel: 'M',
       margin: 1,
       width: 320,
-      color: { dark: '#0E1720', light: '#FFFFFF' },
+      color: { dark: '#1D1512', light: '#FFFFFF' },
     })
   } catch {
     qrImage.value = ''

@@ -467,7 +467,7 @@ async function remove(id: number) {
   white-space: nowrap;
 }
 .head__vip:hover {
-  background: rgba(10, 125, 109, 0.08);
+  background: rgba(194, 65, 12, 0.08);
   text-decoration: none;
 }
 
@@ -526,7 +526,7 @@ async function remove(id: number) {
   background: var(--mw-canvas);
 }
 .conv__main--on {
-  background: rgba(10, 125, 109, 0.08);
+  background: rgba(194, 65, 12, 0.08);
 }
 .conv__title {
   font-size: var(--mw-font-caption);
@@ -836,7 +836,7 @@ async function remove(id: number) {
   padding: 0 4px;
   border: none;
   border-radius: var(--mw-radius-tag);
-  background: rgba(10, 125, 109, 0.12);
+  background: rgba(194, 65, 12, 0.12);
   color: var(--mw-brand-ink);
   font: inherit;
   font-size: 11px;
@@ -850,7 +850,7 @@ async function remove(id: number) {
   color: #ffffff;
 }
 .src--cited {
-  background: rgba(10, 125, 109, 0.08);
+  background: rgba(194, 65, 12, 0.08);
 }
 .src--focus {
   outline: 2px solid var(--mw-brand-ink);

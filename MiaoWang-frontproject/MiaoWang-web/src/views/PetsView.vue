@@ -172,7 +172,7 @@ const showSkeleton = computed(() => loading.value && !loaded.value)
   height: 48px;
   flex: none;
   border-radius: var(--mw-radius-pill);
-  background: rgba(10, 125, 109, 0.1);
+  background: rgba(194, 65, 12, 0.1);
   color: var(--mw-brand-ink);
   font-size: 20px;
   font-weight: 700;

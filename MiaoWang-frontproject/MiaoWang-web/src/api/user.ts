@@ -184,3 +184,101 @@ export function resolveLoginUsername(resp: TokenResp | null, fallback?: string):
   }
   return u
 }
+
+/* ==================================================================== *
+ * 个人资料（「我的 → 个人资料」页用）：读自己的资料 / 改资料 / 换头像
+ *
+ * 2026-09-21 追加，**上面既有导出一个字节都没动**（纯追加段）。
+ * 契约与依据（逐个对着后端源码核过，不是照记忆写的）：
+ *
+ * | 能力 | 接口 | 依据 |
+ * |---|---|---|
+ * | 读自己的资料（手机号已脱敏） | `GET /user/{username}` | UserController.java:34 |
+ * | 改显示名称 / 宠物称呼 / 邮箱 | `PUT /user` | UserController.java:68 + UserUpdateReqDTO.java:14 |
+ * | 换头像 | `POST /user/avatar`（multipart，字段名 `file`） | UserController.java:126 + UserServiceImpl.java:279 |
+ *
+ * ⚠️ 三条**不能做**的（页面上如实写明，不放进一个点了没反应的按钮）：
+ * - **用户名改不了**：`PUT /user` 的 body.username 必须等于请求头还原出的登录身份，
+ *   对不上直接 `B000206`（UserServiceImpl.java:170）。
+ * - **手机号换绑**要新号的短信验证码（`PUT /user/phone`，scene=`change_phone`），
+ *   本页不带短信流程 → 只读，且后端返回的本来就是脱敏号（`PhoneDesensitizationSerializer`）。
+ * - **改密码**（`PUT /user/password`）成功后当前 token 立即失效，属于另一个流程，本页不放入口。
+ *
+ * ⚠️ `GET /user/{username}` 的 `data.id` **恒为 null**（DO 叫 uid、DTO 叫 id，拷贝对不上，挂账 #14）
+ * → 前端拿不到 uid；要 uid 只能走社区侧（见 `api/community.ts` 的自查资料）。
+ * ==================================================================== */
+
+/** 改资料请求体。`username` **必须**带上且与登录身份一致，它是后端"只能改自己"的判据 */
+export interface ProfileUpdateBody {
+  username: string
+  realName?: string
+  mail?: string
+  ownerCallName?: string
+}
+
+/** 改资料：只能改自己的（body.username 与登录身份不一致 → `B000206`） */
+export const updateMyProfile = (body: ProfileUpdateBody) =>
+  api.put<null>('user', '/user', { body })
+
+/**
+ * 头像上传上限与允许的格式：与后端保持一致。
+ * 依据：容器层 `max-file-size: 5MB`（超了 `A000602`）、扩展名白名单
+ * `jpg/jpeg/png/webp`（别的 `A000601`）。前端先本地卡一道只是省一次白传，**不是安全边界**。
+ */
+export const AVATAR_MAX_BYTES = 5 * 1024 * 1024
+export const AVATAR_ACCEPT = 'image/jpeg,image/png,image/webp'
+export const AVATAR_ALLOWED_EXT = ['jpg', 'jpeg', 'png', 'webp'] as const
+
+/**
+ * 换头像：`multipart/form-data`，字段名就是 `file`（后端 `@RequestParam("file")`）。
+ *
+ * 改谁的头像**由后端按请求头还原的登录身份决定**，前端不传 username —— 结构上杜绝改别人头像。
+ * 返回 `data` = 新头像的 URL（MinIO 取址后的直链，见 common 的 `ObjectStorageUrlBuilder`）。
+ */
+export const uploadAvatar = (file: File) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  return api.post<string>('user', '/user/avatar', { formData: fd })
+}
+
+/**
+ * 手机号的展示文本。
+ *
+ * 后端 `UserRespDTO.phone` 上挂了 `PhoneDesensitizationSerializer`，**返回的本来就是脱敏号**
+ * （实测 fixture：`137****0402`）→ 不能再打一次码，否则会把星号又切一遍。
+ * 只有拿到"看起来是完整 11 位数字"的号时才兜底打码（防上游哪天改成不脱敏）。
+ */
+export function phoneText(phone: string | null | undefined): string {
+  const p = (phone ?? '').trim()
+  if (!p) return ''
+  if (/^\d{11}$/.test(p)) return `${p.slice(0, 3)}****${p.slice(-4)}`
+  return p
+}
+
+/** 显示名：真名 → 用户名 → 空（页面再兜底，兜底口径见 `api/community.ts` 的 `profileName`） */
+export function displayNameOf(
+  info: Pick<UserInfo, 'realName' | 'username'> | null | undefined,
+): string {
+  return (info?.realName || info?.username || '').trim()
+}
+
+/**
+ * 资料相关错误 → 人话。
+ *
+ * 后端这些 message 本身就是给用户看的中文（如「只能改自己的资料」），所以**优先原样透传**，
+ * 只对少数需要指路的码做加工。`A000001` 同时是"参数错"与"未登录"（pet/healthy 口径），
+ * 所以未登录的判据一律用 `ApiError.isUnauthorized`（码集合 + message 正则），不自己列码表。
+ */
+export function profileErrorMessage(e: unknown): string {
+  if (e instanceof ApiError) {
+    if (e.isUnauthorized) return '登录状态失效了，重新登录后再改'
+    if (e.code === 'NETWORK') return e.message || '连不上后端，请检查后端进程与 Vite 代理'
+    if (e.code === 'B000206') return e.message || '只能改自己的资料'
+    if (e.code === 'A000600') return '没有选到文件，重新选一张'
+    if (e.code === 'A000601') return '这个格式后端不收，只支持 jpg / jpeg / png / webp'
+    if (e.code === 'A000602') return '这张图超过了后端 5MB 的上限，换一张小点的'
+    if (e.code === 'C000100') return '对象存储上传失败（MinIO 那侧的问题），稍后再试'
+    return e.message || '操作失败，请稍后再试'
+  }
+  return e instanceof Error ? e.message : '操作失败，请稍后再试'
+}

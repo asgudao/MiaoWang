@@ -222,7 +222,7 @@ export default {
 	width: 96rpx;
 	height: 96rpx;
 	border-radius: 50%;
-	background: rgba(10, 125, 109, 0.1);
+	background: rgba(194, 65, 12, 0.1);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -285,7 +285,7 @@ export default {
 	margin-top: $mw-space-3;
 	padding: 6rpx 16rpx;
 	border-radius: $mw-radius-tag;
-	background: rgba(10, 125, 109, 0.08);
+	background: rgba(194, 65, 12, 0.08);
 	font-size: 22rpx;
 	color: $mw-brand-ink;
 }

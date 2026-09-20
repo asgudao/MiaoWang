@@ -10,6 +10,10 @@
         "usingComponents" : true,
         "nvueStyleCompiler" : "uni-app",
         "compilerVersion" : 3,
+        /* 释放资源模式：只有该模式 File API（plus.io.*）才能读到 _www 里的
+           static/model/cat/toon_cat_free.glb。默认 normal 模式资源留在 apk 的 assets 里，
+           plus.io 读不到 → 3D 模型加载失败 */
+        "runmode" : "liberate",
         "splashscreen" : {
             "alwaysShowBeforeRender" : true,
             "waiting" : true,

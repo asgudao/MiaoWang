@@ -2,33 +2,111 @@
 	<view class="page">
 		<view class="head">
 			<text class="h1">知识库</text>
-			<text class="sub">经人工审校 · 仅供参考，具体请咨询兽医</text>
+			<text class="sub">{{ headSub }}</text>
 		</view>
 
+		<!-- 搜索：输入即搜（防抖）；回车立刻搜；有词时给一键清空 -->
 		<view class="search">
-			<input class="search__input" type="text" placeholder="搜症状、食材、疫苗…" placeholder-class="ph" v-model="keyword" />
+			<input
+				class="search__input"
+				type="text"
+				confirm-type="search"
+				placeholder="搜症状、食材、疫苗…"
+				placeholder-class="ph"
+				v-model="keyword"
+				@input="onKeywordInput"
+				@confirm="submitSearch"
+			/>
+			<text v-if="keyword" class="search__clear" @click="clearKeyword">清空</text>
 		</view>
 
+		<!-- 物种：知识碎片按物种分库（猫 206 / 狗 203）→ 不选物种时"饮食安全"会把猫狗混在一起 -->
+		<view class="segs">
+			<view
+				v-for="s in speciesSegs"
+				:key="s.key"
+				class="seg"
+				:class="{ 'seg--on': s.on }"
+				@click="selectSpecies(s.value)"
+			>
+				<text>{{ s.label }}</text>
+			</view>
+		</view>
+
+		<!-- 分类 chips：接口给的 12 条是 4 个 code × 3 个物种的重复行 → 去重后是 4 个分类 + 全部 -->
 		<scroll-view class="chips" scroll-x :show-scrollbar="false">
 			<view
-				v-for="c in categories"
-				:key="c"
+				v-for="c in chips"
+				:key="c.code"
 				class="chip"
-				:class="{ 'chip--on': active === c }"
-				@click="active = c"
+				:class="{ 'chip--on': c.on }"
+				@click="selectCategory(c.code)"
 			>
-				<text>{{ c }}</text>
+				<text>{{ c.name }}</text>
 			</view>
 		</scroll-view>
-
-		<view v-for="a in articles" :key="a.id" class="item" @click="toast">
-			<text class="item__title">{{ a.title }}</text>
-			<text class="item__summary">{{ a.summary }}</text>
-			<view class="item__meta">
-				<text class="tag">{{ a.category }}</text>
-				<text class="item__time">约 {{ a.minutes }} 分钟</text>
-			</view>
+		<view v-if="categoriesError" class="inline-err">
+			<text class="inline-err__text">{{ categoriesError }}</text>
+			<text class="inline-err__act" @click="loadCategories">重试</text>
 		</view>
+
+		<!-- 首屏骨架（不是"加载中…"纯文字） -->
+		<view v-if="firstLoading" class="skeleton">
+			<view v-for="n in 3" :key="n" class="skeleton__card"></view>
+		</view>
+
+		<!-- 错态：说清原因 + 可重试，绝不静默 -->
+		<view v-else-if="listError" class="state">
+			<text class="state__title">{{ searchMode ? '没搜到结果' : '知识没读到' }}</text>
+			<text class="state__desc">{{ listError }}</text>
+			<view class="state__btn" @click="retry"><text>重试</text></view>
+		</view>
+
+		<!-- 空态：接口通了但确实没数据（换了分类 / 关键词无命中时就是这一态） -->
+		<view v-else-if="!cards.length" class="state">
+			<text class="state__title">{{ emptyTitle }}</text>
+			<text class="state__desc">{{ emptyDesc }}</text>
+			<view class="state__btn" @click="retry"><text>{{ searchMode ? '重新搜索' : '重新读取' }}</text></view>
+		</view>
+
+		<template v-else>
+			<view class="count">
+				<text class="count__text">{{ countText }}</text>
+			</view>
+
+			<!-- 卡片是**纯文字**的：知识碎片没有封面图字段（记录只有 12 个字段，无 coverUrl） -->
+			<view v-for="c in cards" :key="c.id" class="item" @click="goDetail(c.id)">
+				<view class="item__top">
+					<text class="tag tag--cat">{{ c.categoryName }}</text>
+					<text class="tag tag--sp">{{ c.speciesText }}</text>
+					<text class="tag" :class="'tag--' + c.contentTypeTone">{{ c.contentTypeLabel }}</text>
+				</view>
+
+				<text class="item__title">{{ c.title }}</text>
+				<text v-if="c.hasSummary" class="item__summary">{{ c.summary }}</text>
+
+				<view v-if="c.hasTags" class="item__tags">
+					<text v-for="(t, ti) in c.tags" :key="ti" class="tag tag--plain">{{ t }}</text>
+				</view>
+
+				<view class="item__meta">
+					<!-- ⚠️ stage 实测全是 null → 只在真有阶段时才占位（否则每张卡都多一个恒为「通用」的噪音标签） -->
+					<text v-if="c.hasStage" class="item__time">{{ c.stageText }}</text>
+					<text class="item__time" :class="{ 'item__time--gap': c.hasStage }">{{ c.viewText }}</text>
+				</view>
+			</view>
+
+			<!-- 触底自动加载；同时给一个可点入口，失败不静默 -->
+			<view class="foot">
+				<text v-if="loadingMore" class="foot__text">正在加载更多</text>
+				<view v-else-if="moreError" class="foot__err">
+					<text class="foot__err-text">{{ moreError }}</text>
+					<text class="foot__act" @click="loadMore">重试</text>
+				</view>
+				<text v-else-if="hasMore" class="foot__act" @click="loadMore">加载更多</text>
+				<text v-else class="foot__text">{{ footText }}</text>
+			</view>
+		</template>
 
 		<view class="qa" @click="goAi">
 			<text class="qa__title">智能问答</text>
@@ -36,43 +114,386 @@
 			<view class="qa__btn"><text>去提问</text></view>
 		</view>
 
-		<text class="note">文章列表仍是演示数据；智能问答已接真接口（要登录，按账号计次）</text>
+		<text class="note">{{ note }}</text>
 
 		<FloatingTabBar current="knowledge" />
 	</view>
 </template>
 
 <script>
+/**
+ * 知识库列表（手机端 / Options API）
+ *
+ * 从"4 条硬编码演示数据"改成**真接口**（`api/knowledge.js` 的 5 个只读接口）。
+ * 契约是实测出来的，不是从 REST 惯例猜的，几条最容易写错的写在下面：
+ *
+ * 1) **知识库是全仓库唯一"匿名可读"的业务模块**：网关白名单按读路径逐条列
+ *    （`/knowledge/category`、`/fragment`、`/fragment/**`），**不校验 token**。
+ *    → 请求层一律 `anonymous: true`（在 `api/knowledge.js` 里），
+ *      所以"未登录能读"这句**不依赖登录态是否有效**：实测带垃圾 token 也回 200 + `code:"0"`。
+ *    → 本页**没有登录软门槛**：知识库不需要登录，摆一个"去登录"反而把内容挡在门外。
+ *
+ * 2) ⚠️ `/category` 返回 **12 条 = 4 个 `code` × 3 个 `species`**（同名同码，只有 id/species 不同）。
+ *    照原样渲染会出现"饮食安全"连排三次 → **必须按 `code` 去重**（`dedupeCategories`），
+ *    去重后是 4 个分类 + 「全部」= 5 个 chips。真正的筛选维度是 `categoryCode` × `species`，
+ *    所以上面另有一排**物种分段控件**（全部 / 猫 / 狗），默认「全部物种」→ 第一页 `total = 409`。
+ *
+ * 3) 筛选参数名是 **`categoryCode`**（`category` / `code` / `categoryId` 实测**一律被忽略**）。
+ *
+ * 4) ⚠️ **搜索不分页、硬上限 30 条**（源码 `LIMIT 30`，`pageNum`/`pageSize` 传了也没用）
+ *    → 搜索态**没有触底加载**，底部如实写明"一次最多 30 条"，不假装还能翻页。
+ *    关键词为空**不发搜索请求**（空串等价于"无关键词"，会白拿 30 条最新），走分页接口。
+ *
+ * 5) ⚠️ 分页推进量用**自己发出去的那个页码**，不用响应回显的 `pageNum`
+ *    （越界时后端原样回显，照它推会永远卡在越界页）—— 见 `api/knowledge.js` 的 `pageStateOf`。
+ *
+ * 模板只访问实例属性：卡片字段一律在 `computed` 里摊平（`fragmentCard`），
+ * 模板里不出现 store/utils 对象、也不调函数（`check-phone.js` 第 4、5 类检查盯着这两条）。
+ */
 import FloatingTabBar from '@/components/FloatingTabBar.vue'
 import { hideNativeTabBar } from '@/utils/tabbar.js'
+import { ApiError } from '@/utils/request.js'
+import {
+	PAGE_SIZE,
+	SEARCH_LIMIT,
+	SPECIES,
+	categoryNameMap,
+	dedupeCategories,
+	fragmentCard,
+	isMissingFragment,
+	knowledgeErrorMessage,
+	listCategories,
+	listFragments,
+	pageStateOf,
+	searchFragments
+} from '@/api/knowledge.js'
+
+/** 输入防抖：打字过程中不要每按一个键就打一次接口 */
+const SEARCH_DEBOUNCE_MS = 400
 
 export default {
 	components: { FloatingTabBar },
 	data() {
 		return {
+			/** `/category` 原始 12 条（不直接进模板） */
+			categories: [],
+			categoriesError: '',
+
+			/** 搜索词（v-model 绑原始值；真正发出去的词在 activeKeyword） */
 			keyword: '',
-			categories: ['全部', '喂养', '健康', '行为', '新手'],
-			active: '全部',
-			articles: [
-				{ id: 1, title: '猫咪应激的 6 个信号，第 3 个最容易被忽略', summary: '频繁舔毛、躲进柜子、突然不吃东西……这些都不是"闹脾气"，而是它在说压力太大了。', minutes: 4, category: '行为' },
-				{ id: 2, title: '换粮要不要过渡？7 天新旧比例表', summary: '直接换粮是软便最常见的原因。这张比例表照着做，肠胃基本不会出问题。', minutes: 3, category: '喂养' },
-				{ id: 3, title: '狗狗一年该打哪些疫苗，一张时间表说清', summary: '幼犬首年、成年加强、狂犬疫苗的时间点与间隔，附常见误区。', minutes: 5, category: '健康' },
-				{ id: 4, title: '第一次养猫，前两周只需要做对这 5 件事', summary: '别急着买一堆东西。先把安全区、猫砂盆、饮水和就医路线安排好。', minutes: 6, category: '新手' }
-			]
+			/**
+			 * 已经**生效**的搜索词（防抖之后、且已 trim）。
+			 * 用"生效词"而不是输入框的值来判断搜索态，是为了让"正在打字"与
+			 * "结果属于哪个词"这两件事分开：结果永远对得上 activeKeyword，不会闪。
+			 */
+			activeKeyword: '',
+
+			/** '' = 全部物种；1 猫 / 2 狗 */
+			activeSpecies: '',
+			/** '' = 全部分类；否则 diet/behavior/care/health */
+			activeCategory: '',
+
+			/** 输入防抖的定时器句柄（放 data 里是为了 onUnload 能清掉，不在模板里用） */
+			searchTimer: null,
+
+			/** 原始 fragment DTO 数组 */
+			fragments: [],
+			/** 下一次请求要发的页码（发出后按"发出去的值"推进） */
+			pageNum: 1,
+			total: 0,
+			pages: 0,
+
+			/** 成功加载过至少一次（区分"还没加载"与"加载完是空的"） */
+			loadedOnce: false,
+			loading: false,
+			loadingMore: false,
+			hasMore: false,
+
+			/** 列表级错误（列表为空时显示大卡片） */
+			listError: '',
+			/** 加载更多的错误（列表已有内容时显示行内） */
+			moreError: ''
+		}
+	},
+	computed: {
+		/** 搜索态：生效词非空（空格词不算） */
+		searchMode() {
+			return Boolean(this.activeKeyword)
+		},
+		headSub() {
+			if (this.searchMode) return '搜索一次最多 ' + SEARCH_LIMIT + ' 条，想看更多请按分类翻'
+			return '经人工审校，仅供参考，具体请咨询兽医'
+		},
+		note() {
+			if (this.searchMode) return '搜索结果来自知识库标题与结论的匹配，一次最多 ' + SEARCH_LIMIT + ' 条'
+			return '已接入真实知识库接口，当前筛选下共 ' + this.total + ' 条可见内容'
+		},
+		/** 物种分段（'key' 用字符串：data 里 activeSpecies 用 '' 表示全部，避免 undefined 参与比较） */
+		speciesSegs() {
+			const out = []
+			for (let i = 0; i < SPECIES.length; i++) {
+				const s = SPECIES[i]
+				const v = s.value === undefined ? '' : s.value
+				out.push({ key: 'sp-' + (v === '' ? 'all' : v), label: s.label, value: v, on: v === this.activeSpecies })
+			}
+			return out
+		},
+		/** 分类 chips：全部 + 去重后的真实分类（**不是**接口原样的 12 条） */
+		chips() {
+			const list = [{ code: '', name: '全部', on: this.activeCategory === '' }]
+			for (let i = 0; i < this.categories.length; i++) {
+				const c = this.categories[i]
+				list.push({ code: c.code, name: c.name, on: c.code === this.activeCategory })
+			}
+			return list
+		},
+		/** code → 中文名（卡片要用；避免在模板里调函数） */
+		nameMap() {
+			return categoryNameMap(this.categories)
+		},
+		cards() {
+			const map = this.nameMap
+			return this.fragments.map(function (f) {
+				return fragmentCard(f, map)
+			})
+		},
+		firstLoading() {
+			return this.loading && !this.fragments.length
+		},
+		emptyTitle() {
+			if (this.searchMode) return '没有匹配「' + this.activeKeyword + '」的知识'
+			if (this.activeCategory || this.activeSpecies !== '') return '这个筛选下还没有内容'
+			return '知识库还没有内容'
+		},
+		emptyDesc() {
+			if (this.searchMode) {
+				return '换个更短的关键词试试，或者清空搜索按分类翻。空格加词会收窄结果（多个词必须同时命中），加得越多越搜不到。'
+			}
+			if (this.activeCategory || this.activeSpecies !== '') {
+				return '接口这次返回 0 条。换一个分类或物种看看，或者下拉刷新一次。'
+			}
+			return '接口是通的，后端这条列表这次返回 0 条。等有内容发布出来，这里就会出现。'
+		},
+		countText() {
+			if (this.searchMode) return '搜到 ' + this.fragments.length + ' 条'
+			return '共 ' + this.total + ' 条'
+		},
+		footText() {
+			if (this.searchMode) return '搜索一次最多 ' + SEARCH_LIMIT + ' 条，没有更多了'
+			if (!this.fragments.length) return '没有更多了'
+			return '一共 ' + this.fragments.length + ' 条，没有更多了'
 		}
 	},
 	onLoad() {
 		hideNativeTabBar()
+		this.loadAll()
 	},
 	onShow() {
 		hideNativeTabBar()
+		// 知识库是**公开读**：没有"登录态变了要重拉"这回事（结果与身份无关），
+		// 所以常驻 tab 页回到前台**不重新请求**，保住"切 tab 不白闪"的体验。
+	},
+	onUnload() {
+		this.clearSearchTimer()
+	},
+	onPullDownRefresh() {
+		this.refresh()
+	},
+	onReachBottom() {
+		// 搜索态不分页（后端硬上限 30 条），触底不做任何事
+		if (this.searchMode) return
+		this.loadMore()
 	},
 	methods: {
+		clearSearchTimer() {
+			if (this.searchTimer) {
+				clearTimeout(this.searchTimer)
+				this.searchTimer = null
+			}
+		},
+
+		/** 首次进入 / 重试：分类与列表一起拉（互不阻塞，各自报错） */
+		async loadAll() {
+			this.listError = ''
+			this.moreError = ''
+			await Promise.all([this.loadCategories(), this.reload()])
+		},
+
+		async loadCategories() {
+			this.categoriesError = ''
+			try {
+				const rows = await listCategories()
+				// 12 条 → 4 个分类（同名同码的 species 行折掉）
+				this.categories = dedupeCategories(rows)
+			} catch (e) {
+				this.categoriesError = '分类没读到：' + knowledgeErrorMessage(e)
+			}
+		},
+
+		/**
+		 * 从第 1 页重来（首屏 / 刷新 / 切分类 / 切物种 / 换关键词）
+		 *
+		 * 三条复位纪律都在这里，别在别处各写一份：
+		 *   - 页码回 1、清空列表与分页进度（否则新筛选会接在旧结果后面）
+		 *   - 清掉两种错误（上一位筛选留下的红字对新筛选没有意义）
+		 *   - **只在搜索态打搜索接口**：空关键词绝不能发搜索请求
+		 *     （实测空串不报错，但会白拿 30 条最新，把分页语义悄悄换掉）
+		 */
+		async reload() {
+			const sentPageNum = 1
+			this.pageNum = sentPageNum
+			this.fragments = []
+			this.total = 0
+			this.pages = 0
+			this.hasMore = false
+			this.loadedOnce = false
+			this.listError = ''
+			this.moreError = ''
+			this.loading = true
+			try {
+				if (this.searchMode) {
+					const rows = await searchFragments({
+						keyword: this.activeKeyword,
+						species: this.activeSpecies === '' ? undefined : this.activeSpecies,
+						categoryCode: this.activeCategory
+					})
+					this.fragments = Array.isArray(rows) ? rows : []
+					// ⚠️ 搜索接口**不返回 total**（裸数组）→ total 只能用拿到的条数，
+					// 且**绝不能**据此推断"还有下一页"（hasMore 保持 false）
+					this.total = this.fragments.length
+					this.pages = 1
+					this.hasMore = false
+				} else {
+					const page = await listFragments({
+						species: this.activeSpecies === '' ? undefined : this.activeSpecies,
+						categoryCode: this.activeCategory,
+						pageNum: sentPageNum,
+						pageSize: PAGE_SIZE
+					})
+					const st = pageStateOf(page, sentPageNum)
+					this.fragments = st.records
+					this.total = st.total
+					this.pages = st.pages
+					this.pageNum = st.nextPageNum
+					this.hasMore = st.hasMore
+				}
+				this.loadedOnce = true
+			} catch (e) {
+				this.listError = this.errorText(e)
+			} finally {
+				this.loading = false
+			}
+		},
+
+		loadMore() {
+			if (this.searchMode) return
+			if (!this.hasMore || this.loadingMore || this.loading) return
+			this.loadPage()
+		},
+
+		/** 触底加载下一页（推进量用自己发出去的页码，见 pageStateOf 的注释） */
+		async loadPage() {
+			const sentPageNum = this.pageNum
+			this.loadingMore = true
+			this.moreError = ''
+			try {
+				const page = await listFragments({
+					species: this.activeSpecies === '' ? undefined : this.activeSpecies,
+					categoryCode: this.activeCategory,
+					pageNum: sentPageNum,
+					pageSize: PAGE_SIZE
+				})
+				const st = pageStateOf(page, sentPageNum)
+				this.fragments = this.fragments.concat(st.records)
+				this.total = st.total
+				this.pages = st.pages
+				this.pageNum = st.nextPageNum
+				this.hasMore = st.hasMore
+			} catch (e) {
+				this.moreError = this.errorText(e)
+			} finally {
+				this.loadingMore = false
+			}
+		},
+
+		async refresh() {
+			await Promise.all([this.loadCategories(), this.reload()])
+			uni.stopPullDownRefresh()
+		},
+
+		retry() {
+			if (this.searchMode) {
+				this.reload()
+				return
+			}
+			this.loadAll()
+		},
+
+		/* ---------- 搜索 ---------- */
+
+		onKeywordInput() {
+			this.clearSearchTimer()
+			const self = this
+			this.searchTimer = setTimeout(function () {
+				self.searchTimer = null
+				self.applyKeyword()
+			}, SEARCH_DEBOUNCE_MS)
+		},
+
+		submitSearch() {
+			this.clearSearchTimer()
+			this.applyKeyword()
+		},
+
+		/** 把输入框的值提交为"生效词"；词没变就不打接口（防抖后重复触发要挡住） */
+		applyKeyword() {
+			const next = String(this.keyword || '').trim()
+			if (next === this.activeKeyword) return
+			this.activeKeyword = next
+			this.reload()
+		},
+
+		clearKeyword() {
+			this.clearSearchTimer()
+			this.keyword = ''
+			if (!this.activeKeyword) return
+			this.activeKeyword = ''
+			this.reload()
+		},
+
+		/* ---------- 筛选 ---------- */
+
+		selectSpecies(value) {
+			const v = value === undefined || value === null ? '' : value
+			if (v === this.activeSpecies) return
+			this.activeSpecies = v
+			this.reload()
+		},
+
+		selectCategory(code) {
+			const c = code === undefined || code === null ? '' : code
+			if (c === this.activeCategory) return
+			this.activeCategory = c
+			this.reload()
+		},
+
+		goDetail(id) {
+			uni.navigateTo({ url: '/pages/knowledge/detail?id=' + id })
+		},
+
 		goAi() {
 			uni.navigateTo({ url: '/pages/ai/ai' })
 		},
-		toast() {
-			uni.showToast({ title: '功能开发中', icon: 'none' })
+
+		/**
+		 * 统一的错误文案
+		 * ⚠️ 知识库是匿名可读接口，**不存在"掉线跳登录"**：
+		 * `A000001` 在这里只可能是"知识条目不存在"（详情），
+		 * 参数类错误说成"页面 bug"比说成"网络问题"更接近事实。
+		 */
+		errorText(e) {
+			if (e instanceof ApiError && isMissingFragment(e)) return '这条知识不存在，或者已经下架了'
+			return knowledgeErrorMessage(e)
 		}
 	}
 }
@@ -104,9 +525,12 @@ export default {
 }
 
 .search {
+	display: flex;
+	align-items: center;
 	margin-bottom: $mw-space-3;
 }
 .search__input {
+	flex: 1;
 	height: $mw-touch-min;
 	padding: 0 $mw-space-4;
 	background: $mw-surface;
@@ -115,8 +539,46 @@ export default {
 	font-size: $mw-font-body;
 	color: $mw-ink;
 }
+.search__clear {
+	margin-left: $mw-space-2;
+	padding: 0 $mw-space-2;
+	min-height: $mw-touch-min;
+	line-height: $mw-touch-min;
+	font-size: $mw-font-caption;
+	font-weight: 600;
+	color: $mw-brand-ink;
+}
 .ph {
 	color: $mw-muted;
+}
+
+/* 物种分段：胶囊容器 + 选中态用深落日橙（白字只在 brand-ink 上，见设计系统 §1 硬规则 1） */
+.segs {
+	display: flex;
+	margin-bottom: $mw-space-3;
+	padding: 4rpx;
+	background: $mw-surface;
+	border: 1px solid $mw-line;
+	border-radius: $mw-radius-pill;
+}
+.seg {
+	flex: 1;
+	min-height: 72rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: $mw-radius-pill;
+}
+.seg text {
+	font-size: $mw-font-caption;
+	font-weight: 600;
+	color: $mw-ink-2;
+}
+.seg--on {
+	background: $mw-brand-ink;
+}
+.seg--on text {
+	color: #ffffff;
 }
 
 .chips {
@@ -146,12 +608,94 @@ export default {
 	color: #ffffff;
 }
 
+.inline-err {
+	display: flex;
+	align-items: center;
+	margin-bottom: $mw-space-3;
+	padding: $mw-space-2 $mw-space-3;
+	background: rgba(229, 72, 77, 0.08);
+	border-radius: $mw-radius-tag;
+}
+.inline-err__text {
+	flex: 1;
+	font-size: 22rpx;
+	color: $mw-danger;
+}
+.inline-err__act {
+	margin-left: $mw-space-2;
+	font-size: 22rpx;
+	font-weight: 600;
+	color: $mw-brand-ink;
+}
+
+/* 骨架：不是"加载中…"纯文字 */
+.skeleton__card {
+	height: 200rpx;
+	margin-bottom: $mw-space-3;
+	border-radius: $mw-radius-card;
+	background: $mw-line;
+	opacity: 0.5;
+}
+
+.state {
+	margin-top: $mw-space-6;
+	padding: $mw-space-6 $mw-space-4;
+	background: $mw-surface;
+	border: 1px solid $mw-line;
+	border-radius: $mw-radius-card;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+.state__title {
+	font-size: $mw-font-h2;
+	font-weight: 600;
+	color: $mw-ink;
+}
+.state__desc {
+	margin-top: $mw-space-2;
+	font-size: $mw-font-caption;
+	color: $mw-ink-2;
+	line-height: 1.6;
+	text-align: center;
+}
+.state__btn {
+	margin-top: $mw-space-4;
+	padding: 0 $mw-space-6;
+	min-height: $mw-touch-min;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: $mw-brand-ink;
+	border-radius: $mw-radius-pill;
+}
+.state__btn text {
+	font-size: $mw-font-caption;
+	font-weight: 600;
+	color: #ffffff;
+}
+
+.count {
+	margin-bottom: $mw-space-2;
+}
+.count__text {
+	font-size: 22rpx;
+	color: $mw-muted;
+	font-variant-numeric: tabular-nums;
+}
+
 .item {
 	padding: $mw-space-4;
 	margin-bottom: $mw-space-3;
 	background: $mw-surface;
 	border: 1px solid $mw-line;
 	border-radius: $mw-radius-card;
+}
+.item__top {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	margin-bottom: $mw-space-2;
 }
 .item__title {
 	display: block;
@@ -167,29 +711,97 @@ export default {
 	color: $mw-ink-2;
 	line-height: 1.6;
 }
+.item__tags {
+	display: flex;
+	flex-wrap: wrap;
+	margin-top: $mw-space-2;
+}
 .item__meta {
 	display: flex;
 	align-items: center;
 	margin-top: $mw-space-3;
 }
-.tag {
-	padding: 4rpx 14rpx;
-	border-radius: $mw-radius-tag;
-	background: rgba(10, 125, 109, 0.12);
-	font-size: 20rpx;
-	font-weight: 600;
-	color: $mw-success;
-}
 .item__time {
-	margin-left: $mw-space-2;
 	font-size: 22rpx;
 	color: $mw-muted;
+	font-variant-numeric: tabular-nums;
+}
+.item__time--gap {
+	margin-left: $mw-space-3;
+}
+
+.tag {
+	margin: 0 $mw-space-1 $mw-space-1 0;
+	padding: 4rpx 14rpx;
+	border-radius: $mw-radius-tag;
+	font-size: 20rpx;
+	font-weight: 600;
+	background: rgba(138, 119, 103, 0.12);
+	color: $mw-ink-2;
+}
+/* 分类：品牌橙的浅底（品牌色只做浅底 + 深色字，不做亮橙底白字） */
+.tag--cat {
+	background: rgba(194, 65, 12, 0.1);
+	color: $mw-brand-ink;
+}
+/* 物种：中性，不抢分类的视觉权重 */
+.tag--sp {
+	background: rgba(138, 119, 103, 0.12);
+	color: $mw-ink-2;
+}
+/* 内容类型：按 tone 分工（普通=苔绿、照护=琥珀、警示=危险红，见设计系统 §1 角色分工） */
+.tag--default {
+	background: rgba(74, 118, 56, 0.12);
+	color: $mw-success;
+}
+.tag--care {
+	background: rgba(255, 176, 32, 0.16);
+	color: $mw-accent-ink;
+}
+.tag--warn {
+	background: rgba(229, 72, 77, 0.12);
+	color: $mw-danger;
+}
+.tag--danger {
+	background: rgba(229, 72, 77, 0.12);
+	color: $mw-danger;
+}
+.tag--plain {
+	background: transparent;
+	border: 1px solid $mw-line;
+	color: $mw-muted;
+	font-weight: 500;
+}
+
+.foot {
+	padding: $mw-space-3 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.foot__text {
+	font-size: 22rpx;
+	color: $mw-muted;
+}
+.foot__err {
+	display: flex;
+	align-items: center;
+}
+.foot__err-text {
+	font-size: 22rpx;
+	color: $mw-danger;
+}
+.foot__act {
+	margin-left: $mw-space-2;
+	font-size: $mw-font-caption;
+	font-weight: 600;
+	color: $mw-brand-ink;
 }
 
 .qa {
 	margin-top: $mw-space-6;
 	padding: $mw-space-4;
-	background: linear-gradient(0deg, rgba(10, 125, 109, 0.05), rgba(10, 125, 109, 0.05)), $mw-surface;
+	background: linear-gradient(0deg, rgba(194, 65, 12, 0.05), rgba(194, 65, 12, 0.05)), $mw-surface;
 	border: 1px solid $mw-line;
 	border-radius: $mw-radius-card;
 }

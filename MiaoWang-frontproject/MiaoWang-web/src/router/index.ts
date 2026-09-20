@@ -26,6 +26,16 @@ const router = createRouter({
       component: () => import('@/views/PostDetailView.vue'),
       meta: { title: '帖子', requiresAuth: true },
     },
+    // 用户主页：社区帖子 / 评论 / 回复的作者名点进来。
+    // uid 只能从路由参数或社区 DTO 拿（user 模块没有"按 uid 查"，`/user/{username}` 的 id 恒 null），
+    // 所以路径参数用 \d+ 限定成数字，别让它退化成用户名。
+    // **挂 requiresAuth**：主页的四个接口经网关全部要求登录（社区一条白名单都没有，用户已拍板不改网关）
+    {
+      path: '/user/:uid(\\d+)',
+      name: 'user-profile',
+      component: () => import('@/views/UserProfileView.vue'),
+      meta: { title: '用户主页', requiresAuth: true },
+    },
     {
       path: '/pets',
       name: 'pets',
@@ -50,6 +60,24 @@ const router = createRouter({
       name: 'pet-edit',
       component: () => import('@/views/PetFormView.vue'),
       meta: { title: '编辑宠物', requiresAuth: true },
+    },
+    // 宠物对话（ai-pet）：一只宠物一条会话，没有"话题列表"这种东西，所以只有一页。
+    // **挂 requiresAuth**：`/ai/pet` 的三个端点经网关**全部要求登录**
+    // （网关白名单故意没有它们，匿名一律 state:-1），未登录点进来会带着 redirect 去登录页，
+    // 而不是停在一个必然报错的空页上。页内 `needLogin` 软门槛是第二道。
+    // 两条路由指向同一个组件：不带 pid 时页面自己读 `GET /pet` 取第一只（chat/greet 的缺省口径也是"第一只"）。
+    // ⚠️ `/pets/chat` 不会被 `/pets/:pid(\\d+)` 抢走（那条用 `\\d+` 限定了数字），两条也不会互相干扰。
+    {
+      path: '/pets/chat',
+      name: 'pet-chat',
+      component: () => import('@/views/PetChatView.vue'),
+      meta: { title: '宠物对话', requiresAuth: true },
+    },
+    {
+      path: '/pets/:pid(\\d+)/chat',
+      name: 'pet-chat-pet',
+      component: () => import('@/views/PetChatView.vue'),
+      meta: { title: '宠物对话', requiresAuth: true },
     },
     // 健康记录：壳页 + 八个子页 + 新建/编辑。
     // 路径故意放在 `/pets/:pid/edit` 之后（vue-router 按具体度排序，顺序不影响匹配），
@@ -124,11 +152,22 @@ const router = createRouter({
         },
       ],
     },
+    // 知识库：公开内容区，**刻意不挂 requiresAuth** ——
+    // 经网关的 5 个知识库接口（category / fragment / fragment/page / fragment/{id} / fragment/search）
+    // 全部匿名可读（网关白名单按"读路径"逐条放行），请求层也走 anonymous，
+    // 所以未登录用户必须能正常浏览，不能被推到登录页。
+    // 详情用 \d+ 限定成数字 id：与 `/knowledge` 本身不冲突，也顺手挡住脏地址。
     {
       path: '/knowledge',
       name: 'knowledge',
       component: () => import('@/views/KnowledgeView.vue'),
       meta: { title: '知识库' },
+    },
+    {
+      path: '/knowledge/:id(\\d+)',
+      name: 'knowledge-detail',
+      component: () => import('@/views/KnowledgeDetailView.vue'),
+      meta: { title: '知识详情' },
     },
     // AI 问答：/ai 是新对话，/ai/:id 打开历史会话（同一个组件，靠 watch 参数切换）
     {
@@ -148,6 +187,37 @@ const router = createRouter({
       name: 'mine',
       component: () => import('@/views/MineView.vue'),
       meta: { title: '我的', requiresAuth: true },
+    },
+    // 个人资料：入口是「我的」页那一行的 profile 行。
+    // ⚠️ 与 `/user/:uid`（user-profile，看**别人**）是两回事：这里是"我自己的资料"。
+    // 路径不同、名字不同，两条路由不冲突（一条是固定段 `/profile`，一条带数字参数 `/user/:uid`）。
+    // **挂 requiresAuth**：这一页要读 `GET /user/{username}`（需鉴权头）、`PUT /user`、
+    // `POST /user/avatar`、社区自查资料，经网关**全部要求登录**（user 与 community 都没有白名单）。
+    // 未登录会被守卫带着 redirect 送去登录页；页内 `needLogin` 软门槛是第二道（见 ProfileView.vue）。
+    {
+      path: '/profile',
+      name: 'profile',
+      component: () => import('@/views/ProfileView.vue'),
+      meta: { title: '个人资料', requiresAuth: true },
+    },
+    // 关于喵汪：入口是「我的」页那一行的 about 行。
+    // **刻意不挂 requiresAuth**：这一页是纯静态（零网络请求），内容全是工程自身的可核对事实
+    // （版本、依赖许可、3D 模型授权、后端现状），没有任何按人区分的数据。
+    // 未登录也必须能看 —— 挂上 requiresAuth 只会让"会话过期的人想看一眼版本号"被推去登录页。
+    {
+      path: '/about',
+      name: 'about',
+      component: () => import('@/views/AboutView.vue'),
+      meta: { title: '关于喵汪' },
+    },
+    // 消息通知：入口是「我的」页那一行 + 顶部导航的铃铛。
+    // **挂 requiresAuth**：通知的四个接口经网关全部要求登录（社区一条白名单都没有，用户已拍板不改网关），
+    // 未登录点铃铛会带着 redirect 去登录页，而不是停在一个必然报错的空页上。
+    {
+      path: '/notifications',
+      name: 'notifications',
+      component: () => import('@/views/NotificationsView.vue'),
+      meta: { title: '消息通知', requiresAuth: true },
     },
     // 会员：AI 问答页额度用完时引导过来的落地页。
     // 注意 `GET /vip/plan` 实测经网关**需要 token**（匿名返回 state:-1），所以必须挂 requiresAuth
@@ -170,6 +240,16 @@ const router = createRouter({
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
       meta: { title: '登录' },
+    },
+    // 提醒设置：入口是「我的」页那一行的 remind 行（App 侧的弹窗也会链到这里）。
+    // **挂 requiresAuth**：这一页要读 `/pet` 与每只宠物 `/health/{pid}/preventive`
+    // （经网关全部要求登录），未登录时连一条提醒都算不出来 → 送登录页，而不是停在必然报错的空页上。
+    // 页内 `needLogin` 软门槛是第二道（见 views/remind/SettingView.vue）。
+    {
+      path: '/remind/setting',
+      name: 'remind-setting',
+      component: () => import('@/views/remind/SettingView.vue'),
+      meta: { title: '提醒设置', requiresAuth: true },
     },
     {
       path: '/register',

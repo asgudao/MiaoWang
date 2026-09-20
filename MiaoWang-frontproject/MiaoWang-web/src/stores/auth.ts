@@ -10,6 +10,7 @@ import { ApiError, auth } from '@/api/request'
 import * as userApi from '@/api/user'
 import { usePetsStore } from '@/stores/pets'
 import { useAiStore } from '@/stores/ai'
+import { useHealthStore } from '@/stores/health'
 
 export const useAuthStore = defineStore('auth', () => {
   const username = ref(auth.username ?? '')
@@ -27,7 +28,23 @@ export const useAuthStore = defineStore('auth', () => {
   /** 首页问候语用「宠物怎么称呼你」，没设置就退回铲屎官 */
   const ownerCallName = computed(() => info.value?.ownerCallName || '铲屎官')
 
+  /**
+   * 清掉"跟账号走"的 store。
+   *
+   * 这三个 store 都带 `loaded` 缓存（`fetchMine()` / `load()` 见到 loaded 就直接 return，
+   * 连请求都不发），只清 auth 的话，换账号后页面会**一直渲染上一个账号的数据**。
+   * 所以"写新会话"和"清会话"两个入口都必须先清它们。
+   */
+  function resetAccountStores() {
+    usePetsStore().reset()
+    useAiStore().reset()
+    useHealthStore().reset()
+  }
+
   function setSession(u: string, t: string) {
+    // 换账号的入口（"先退出再登录"和"会话过期后重新登录"都会经过这里）：
+    // 先清掉上一个账号的数据，再写新会话，中间不留"新 token + 旧列表"的窗口
+    resetAccountStores()
     username.value = u
     token.value = t
     auth.save(u, t)
@@ -39,8 +56,7 @@ export const useAuthStore = defineStore('auth', () => {
     info.value = null
     auth.clear()
     // 会话失效时把"跟账号走"的 store 一起清掉，否则换账号还能看到上一个人的宠物与 AI 对话
-    usePetsStore().reset()
-    useAiStore().reset()
+    resetAccountStores()
   }
 
   /** 网络层失败（后端没起/代理没通）与鉴权失败要分开处理 */

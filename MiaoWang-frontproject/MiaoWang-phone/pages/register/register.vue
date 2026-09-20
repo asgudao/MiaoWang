@@ -242,7 +242,7 @@ export default {
 .lead {
 	padding: 0 $mw-page-padding $mw-space-6;
 	background:
-		radial-gradient(120% 70% at 50% -10%, rgba(53, 214, 168, 0.1), transparent 60%),
+		radial-gradient(120% 70% at 50% -10%, rgba(255, 152, 96, 0.12), transparent 60%),
 		$mw-night;
 }
 

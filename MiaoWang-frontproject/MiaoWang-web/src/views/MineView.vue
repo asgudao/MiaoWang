@@ -4,8 +4,8 @@
  *
  * 未登录不再假装有资料 —— 直接给登录/注册入口，这是"四态"里的空态。
  */
-import { computed, onMounted, ref } from 'vue'
-import { PhBell, PhChatCircleDots, PhInfo, PhUserCircle } from '@phosphor-icons/vue'
+import { computed, onMounted, ref, type Component } from 'vue'
+import { PhBell, PhCaretRight, PhChatCircleDots, PhInfo, PhUserCircle } from '@phosphor-icons/vue'
 import { useAuthStore } from '@/stores/auth'
 import { getMyBenefit, limitText, quotaText, type VipBenefit } from '@/api/vip'
 
@@ -41,11 +41,39 @@ async function loadVip() {
   }
 }
 
-const rows = [
-  { key: 'profile', label: '个人资料', desc: '昵称、手机号、头像', icon: PhUserCircle },
-  { key: 'remind', label: '提醒设置', desc: '推送时间与免打扰', icon: PhBell },
-  { key: 'notify', label: '消息通知', desc: '评论、点赞、关注', icon: PhChatCircleDots },
-  { key: 'about', label: '关于喵汪', desc: '版本与开源许可', icon: PhInfo },
+interface MineRow {
+  key: string
+  label: string
+  desc: string
+  icon: Component
+  /** 有真接口的那一行才给跳转地址（没有就是「开发中」） */
+  to?: string
+}
+
+/**
+ * 账号与偏好的四行。
+ *
+ * ⚠️ **哪一行能点，唯一判据是有没有 `to`**（模板里按 `v-if="!r.to"` 挂「开发中」徽标），
+ * 别在模板里按 key 写死。
+ *
+ * 现状：**四行都有真页面** ——
+ * - `profile` 个人资料 → `/profile`（`GET /user/{username}` + `PUT /user` + `POST /user/avatar`，接口都在）
+ * - `remind` 提醒设置 → `/remind/setting`（本机设置真的生效：首页待办裁剪 + 软件内弹窗 +
+ *   本机系统通知；口径与手机端同一套，见 `utils/remindSetting.ts` / `utils/remindSchedule.ts`）
+ *   ⚠️ 这一行的 `desc` **不许写"推送时间"**：喵汪没有接服务端推送，那些开关只写本机
+ *   `localStorage`（见 `views/remind/SettingView.vue` 的诚实声明）。措辞与手机端
+ *   `pages/mine/mine.vue` 的同一行逐字一致。离线门禁会因 `desc` 出现"推送"判红。
+ * - `notify` 消息通知 → `/notifications`（后端 4 个通知接口）
+ * - `about` 关于喵汪 → `/about`（纯静态页：版本、依赖许可、3D 模型授权、后端现状）
+ *
+ * ⚠️ 四行全接上**不等于**"每行都点得通"：判据仍是 `to` 指向的路由真的注册在
+ * `router/index.ts` 里（离线门禁 `tools/check-web-mine-rest.js` 的 D 段逐行钉住）。
+ */
+const rows: MineRow[] = [
+  { key: 'profile', label: '个人资料', desc: '昵称、手机号、头像', icon: PhUserCircle, to: '/profile' },
+  { key: 'remind', label: '提醒设置', desc: '提前几天与免打扰', icon: PhBell, to: '/remind/setting' },
+  { key: 'notify', label: '消息通知', desc: '评论、点赞、关注', icon: PhChatCircleDots, to: '/notifications' },
+  { key: 'about', label: '关于喵汪', desc: '版本与开源许可', icon: PhInfo, to: '/about' },
 ]
 
 const maskedPhone = computed(() => {
@@ -112,7 +140,7 @@ onMounted(() => {
       <div class="panel">
         <h2 class="panel__title">账号与偏好</h2>
         <ul class="rows">
-          <li v-for="r in rows" :key="r.key" class="row">
+          <li v-for="r in rows" :key="r.key" class="row" :class="{ 'row--link': r.to }">
             <span class="row__icon" aria-hidden="true">
               <component :is="r.icon" :size="18" weight="regular" />
             </span>
@@ -120,7 +148,15 @@ onMounted(() => {
               <p class="row__label">{{ r.label }}</p>
               <p class="row__desc">{{ r.desc }}</p>
             </div>
-            <span class="mw-badge row__badge">开发中</span>
+            <!-- 有接口的那一行：整行可点（覆盖式入口），不再挂「开发中」 -->
+            <PhCaretRight v-if="r.to" class="row__go" :size="16" aria-hidden="true" />
+            <span v-else class="mw-badge row__badge">开发中</span>
+            <RouterLink
+              v-if="r.to"
+              class="row__hit"
+              :to="r.to"
+              :aria-label="`${r.label}：${r.desc}`"
+            />
           </li>
         </ul>
       </div>
@@ -205,7 +241,7 @@ onMounted(() => {
   flex: none;
   overflow: hidden;
   border-radius: var(--mw-radius-pill);
-  background: rgba(53, 214, 168, 0.16);
+  background: rgba(255, 138, 91, 0.16);
   color: var(--mw-brand);
   font-size: 22px;
   font-weight: 700;
@@ -283,12 +319,35 @@ onMounted(() => {
   flex-direction: column;
 }
 .row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--mw-space-3);
   min-height: 56px;
   padding: var(--mw-space-2) 0;
   border-bottom: 1px solid var(--mw-line);
+}
+/* 有接口的那一行：鼠标可点，hover 给一点底色，别让用户猜哪儿能点 */
+.row--link {
+  cursor: pointer;
+}
+.row--link:hover {
+  background: rgba(194, 65, 12, 0.04);
+}
+/**
+ * 覆盖整行的入口：真实 <RouterLink>（`position: absolute` 不参与行内布局，所以
+ * 图标/文案/徽标的排布与没有入口的那几行完全一致），可键盘 Tab 到、有 focus 环。
+ */
+.row__hit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: var(--mw-radius-input);
+}
+.row__go {
+  margin-left: auto;
+  flex: none;
+  color: var(--mw-muted);
 }
 .row:last-child {
   border-bottom: none;
@@ -300,7 +359,7 @@ onMounted(() => {
   height: 32px;
   flex: none;
   border-radius: var(--mw-radius-tag);
-  background: rgba(10, 125, 109, 0.08);
+  background: rgba(194, 65, 12, 0.08);
   color: var(--mw-brand-ink);
 }
 .row__label {
@@ -324,7 +383,7 @@ onMounted(() => {
 }
 .panel--vip {
   background:
-    linear-gradient(0deg, rgba(10, 125, 109, 0.06), rgba(10, 125, 109, 0.06)), var(--mw-surface);
+    linear-gradient(0deg, rgba(194, 65, 12, 0.06), rgba(194, 65, 12, 0.06)), var(--mw-surface);
 }
 /* 会员卡片：状态徽标 + 真实权益数值 + 一个明确的下一步 */
 .vip__state {

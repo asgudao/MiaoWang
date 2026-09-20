@@ -739,9 +739,24 @@ export default {
 }
 
 /* ---- 消息流 ---- */
+/*
+	⚠️ `box-sizing: border-box` 是**真机宽度 bug 的修复**（与姊妹页 pages/ai/pet.vue 同一根因，长说明在那边）：
+	本页 `.thread` 也是 `<scroll-view>`，框架基础样式给 `uni-scroll-view` 写了 `display:block; width:100%`
+	（真机构建产物 `unpackage/dist/dev/app-plus/app.css` 实测）；`width` 不是 `auto` 时 `align-items: stretch`
+	退回 `flex-start`（MDN `align-items` 的 stretch 条），默认又是 content-box、框架没有全局 border-box
+	⇒ 这个 padding 落在 `100%` **之外**：外沿 = 750 + 32×2 = **814rpx**，整列右移 32rpx、右侧恒越屏 64rpx
+	（三档屏宽 27.31 / 32.00 / 35.33px），被 `body{overflow-x:hidden}` 吃掉。
+
+	后果与本页特有的地方：右对齐的「我」气泡贴在那条越界边界上 → 气泡右侧 32rpx 在屏外、
+	每行文字再被裁 8rpx（4px@375 ≈ 1/4 个汉字）。**本页 AI 侧是三块 92% 的盒子（`.bubble` / `.think` / `.srcs`）**，
+	它们左对齐、文字右边界都在屏内，所以症状同样只出在用户这一侧。
+
+	border-box 让 padding 收进 `100%` 之内：内容盒 = 750 − 64 = **686rpx**，外沿恰好 750rpx，不再越界。
+*/
 .thread {
 	flex: 1;
 	overflow: hidden;
+	box-sizing: border-box;
 	padding: 0 $mw-page-padding;
 }
 .thread__pad {
@@ -788,11 +803,32 @@ export default {
 	flex-direction: column;
 	align-items: flex-end;
 }
+/*
+	气泡宽度**相对列宽**（不写死 rpx）。本页 AI 侧有三块同宽的盒子（`.bubble` / `.think` / `.srcs`），
+	原设计三块都是 `max-width: 92%` 的 content-box，改宽度必须**一起改**，否则三块会错位：
+	  旧布局（列内容盒 = 750rpx）：.bubble 外沿 0.92×750 + 48 + 2 = **740rpx**；.think 同样 740rpx（两者对齐）；
+	                              .srcs 是块级、无 padding → 外沿 0.92×750 = **690rpx**
+	  只修列宽不动气泡（列内容盒 686rpx，92% 仍是 content-box）：.bubble 外沿 = 0.92×686 + 48 + 2 = **681rpx**
+	                              —— 距列宽 686rpx 只剩 **5rpx**，中文字体稍宽就溢出被裁（.think 同样 681rpx）
+	  新：三块统一 `box-sizing: border-box; max-width: 84%` → 外沿都是 0.84×686 = **576.24rpx**（三者仍对齐）
+
+	1) `box-sizing: border-box`：`max-width` 量到**外沿**，占比可以直接复算（= 84%），不再有那 81rpx 的暗账。
+	2) `max-width: 84%`：列宽 686rpx → 外沿 576rpx、对侧留 ≥16%（≥110rpx ≈ 55px@375），
+	   文字列 = 576 − 48 = **528rpx ≈ 264px@375 ≈ 17.6 汉字/行**，够读且给字体差异留余量。
+	3) `overflow-wrap: anywhere` + `word-break: break-word`：URL / 长英文这类**无空格长串**必须在盒内折行
+	   （前者连 min-content 都按单字符算 —— 本页 `.line--li` 是 flex 行，这条直接影响 flex 项能不能收缩；
+	   后者兜更老的内核）。两个都是可继承属性，`.part` / `.line__marker` 也跟着生效。**不许**横向滚动兜底。
+	`min-width: 0` 是防御性的：列方向（`.msg--me` 是 flex column）`min-width: auto` 本来就是 0。
+*/
 .bubble {
 	display: inline-block;
-	max-width: 92%;
+	box-sizing: border-box;
+	max-width: 84%;
+	min-width: 0;
 	padding: $mw-space-2 $mw-space-3;
 	border-radius: $mw-radius-card;
+	overflow-wrap: anywhere;
+	word-break: break-word;
 }
 .bubble--ai {
 	background: $mw-surface;
@@ -813,7 +849,11 @@ export default {
 	font-size: $mw-font-body;
 	line-height: 1.75;
 }
+/* `min-width: 0` 在本页**有实际作用**（不是纯防御）：`.line--li` 是 `display: flex` 的行，
+   `.part` 是它的 flex 项，`min-width: auto` 会拿内容的 min-content 当最小宽度 —— 一个长 URL
+   就能把整行撑破气泡；显式 0 + 上面的 `overflow-wrap: anywhere` 才真的收得住。 */
 .part {
+	min-width: 0;
 	font-size: $mw-font-body;
 	line-height: 1.75;
 	color: $mw-ink;
@@ -831,7 +871,7 @@ export default {
 .part--cite {
 	margin: 0 4rpx;
 	padding: 0 8rpx;
-	background: rgba(10, 125, 109, 0.12);
+	background: rgba(194, 65, 12, 0.12);
 	border-radius: $mw-radius-tag;
 	font-size: $mw-font-micro;
 	color: $mw-brand-ink;
@@ -843,7 +883,8 @@ export default {
 
 /* ---- 思考过程 ---- */
 .think {
-	max-width: 92%;
+	box-sizing: border-box;
+	max-width: 84%;
 	margin-bottom: $mw-space-1;
 	padding: $mw-space-2 $mw-space-3;
 	background: $mw-surface;
@@ -884,9 +925,13 @@ export default {
 }
 
 /* ---- 引用来源 ---- */
+/* 与 `.bubble` / `.think` **同宽同规则**（84% + border-box），否则三块会错位（见 `.bubble` 上方的复算） */
 .srcs {
+	box-sizing: border-box;
+	max-width: 84%;
 	margin-top: $mw-space-1;
-	max-width: 92%;
+	overflow-wrap: anywhere;
+	word-break: break-word;
 }
 .src {
 	display: flex;
@@ -898,7 +943,7 @@ export default {
 	border-radius: $mw-radius-tag;
 }
 .src--cited {
-	background: rgba(10, 125, 109, 0.08);
+	background: rgba(194, 65, 12, 0.08);
 }
 .src--focus {
 	border-color: $mw-brand-ink;
@@ -972,8 +1017,16 @@ export default {
 	background: $mw-surface;
 	border-top: 1rpx solid $mw-line;
 }
+/*
+	`min-width: 0`：框架基础样式给 `uni-textarea` 写了 `width:300px; height:150px`（`app.css` 实测；
+	高度被 `auto-height` 的 `fit-content!important` 收掉，宽度这条仍在）。`flex: 1` 的自动最小尺寸
+	（`min-width: auto`）会参考"指定尺寸建议"，显式 0 把收缩权交回 flex —— 否则输入框不收缩时
+	会把「发送」按钮顶出屏幕右边。（与姊妹页 pet.vue 同一条加固；算下来当前内核 min-content 很小，
+	**不是**本次宽度 bug 的成因，如实标注为加固。）
+*/
 .composer__input {
 	flex: 1;
+	min-width: 0;
 	min-height: 72rpx;
 	max-height: 240rpx;
 	padding: $mw-space-2;

@@ -16,6 +16,17 @@ body,
   min-height: 100%;
 }
 
+/**
+ * 顶部导航是 position: fixed，**不占文档流** → 每个页面都要自己让开它。
+ * 导航高度只有一个来源：tokens.css 里的 --mw-nav-h（AppNav 用它定高，这里用它让位），
+ * 以后改导航高度只需要改令牌那一处。
+ * scroll-padding-top 是给"跳转/键盘 focus 自动滚动"兜底：锚点或表单字段被滚进视口时，
+ * 浏览器会把它对齐到导航下沿，而不是顶到导航底下。
+ */
+html {
+  scroll-padding-top: var(--mw-nav-h);
+}
+
 body {
   margin: 0;
   background: var(--mw-canvas);
@@ -84,8 +95,9 @@ a:hover {
   padding: 0 var(--mw-space-6);
 }
 
+/* 常规内容页：顶部预留「导航高 + 一档间距」，页面第一行标题/返回键不会被固定导航压住 */
 .mw-page {
-  padding: var(--mw-space-8) 0 var(--mw-space-12);
+  padding: calc(var(--mw-nav-h) + var(--mw-space-6)) 0 var(--mw-space-12);
 }
 
 /* 深色区域：文字色自动切换 */
@@ -146,7 +158,7 @@ a:hover {
   color: var(--mw-ink);
 }
 .mw-btn--ghost:hover:not(:disabled) {
-  background: rgba(14, 23, 32, 0.04);
+  background: rgba(29, 21, 18, 0.04);
 }
 .mw-night .mw-btn--ghost {
   border-color: var(--mw-night-line);
@@ -178,7 +190,7 @@ a:hover {
 .mw-input:focus {
   border-color: var(--mw-brand-ink);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(53, 214, 168, 0.18);
+  box-shadow: 0 0 0 3px rgba(255, 138, 91, 0.18);
 }
 
 .mw-field {
@@ -211,7 +223,7 @@ a:hover {
   color: var(--mw-accent-ink);
 }
 .mw-badge--done {
-  background: rgba(10, 125, 109, 0.12);
+  background: rgba(74, 118, 56, 0.12);
   color: var(--mw-success);
 }
 .mw-badge--danger {
@@ -219,12 +231,12 @@ a:hover {
   color: var(--mw-danger);
 }
 .mw-badge--on-night {
-  background: rgba(53, 214, 168, 0.16);
+  background: rgba(255, 138, 91, 0.16);
   color: var(--mw-brand);
 }
 /* 严重度分级（过敏 / 症状共用；1 轻 2 中 3 重） */
 .mw-sev--low {
-  background: rgba(10, 125, 109, 0.12);
+  background: rgba(74, 118, 56, 0.12);
   color: var(--mw-success);
 }
 .mw-sev--mid {
@@ -259,9 +271,9 @@ a:hover {
 .mw-skeleton {
   background: linear-gradient(
     90deg,
-    rgba(154, 168, 178, 0.14) 25%,
-    rgba(154, 168, 178, 0.26) 37%,
-    rgba(154, 168, 178, 0.14) 63%
+    rgba(138, 119, 103, 0.14) 25%,
+    rgba(138, 119, 103, 0.26) 37%,
+    rgba(138, 119, 103, 0.14) 63%
   );
   background-size: 400% 100%;
   border-radius: var(--mw-radius-card);
@@ -390,6 +402,16 @@ a:hover {
   justify-content: center;
   padding: var(--mw-space-12) var(--mw-space-6);
 }
+/**
+ * 登录 / 注册页的导航是**实底浮在深色叙事侧之上**（导航透明只对首页深色舞台生效），
+ * 所以这里只补顶部一档导航高度，底部仍是原来的间距：
+ * 内容就正好在"导航下沿到视口底部"这段可见区域里居中，短视口下表单标题也不会钻进导航底下。
+ * 容器仍是 min-height: 100dvh + border-box，padding 算在高度里，不会因此多出滚动条。
+ */
+.mw-auth__aside,
+.mw-auth__main {
+  padding-top: calc(var(--mw-space-12) + var(--mw-nav-h));
+}
 .mw-auth__form {
   display: flex;
   flex-direction: column;
@@ -452,8 +474,8 @@ a:hover {
   color: var(--mw-danger);
 }
 .mw-alert--info {
-  background: rgba(10, 125, 109, 0.08);
-  border: 1px solid rgba(10, 125, 109, 0.2);
+  background: rgba(194, 65, 12, 0.08);
+  border: 1px solid rgba(194, 65, 12, 0.2);
   color: var(--mw-brand-ink);
 }
 

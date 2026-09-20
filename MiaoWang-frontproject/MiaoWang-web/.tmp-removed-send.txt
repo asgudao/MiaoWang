@@ -1,0 +1,32 @@
+async function sendComment(p: PostSummary) {
+  if (!requireLogin()) return
+  const st = actionOf(p)
+  const text = st.draft.trim()
+  if (!text || st.sending) return
+  actionsOf[p.postId] = { ...st, sending: true, sendError: '' }
+  try {
+    const created = await createComment({ postId: p.postId, content: text })
+    const cur = commentStateOf(p.postId)
+    const item = (created && typeof created === 'object' ? created : {}) as PostComment
+    const merged: PostComment = { ...(item as PostComment), postId: p.postId }
+    commentsOf[p.postId] = {
+      ...cur,
+      items: [merged, ...cur.items],
+      error: '',
+      probed: true,
+      top: cur.top.item ? cur.top : topCommentFromPage([merged, ...cur.items]),
+    }
+    // 计数用接口的真值优先（`commentCount` 后端不会在新评论对象里给，所以按"多了一条"加一）
+    p.commentCount = Number(p.commentCount ?? 0) + 1
+    actionsOf[p.postId] = { ...actionsOf[p.postId], draft: '', sending: false, sendError: '' }
+    // 刚发的评论要看得见：展开这一卡的评论列表
+    if (!isCommentsExpanded(p.postId)) expandedComments.value = [...expandedComments.value, p.postId]
+  } catch (e) {
+    actionsOf[p.postId] = {
+      ...actionsOf[p.postId],
+      sending: false,
+      sendError: `评论没能发出：${noteError(e)}`,
+    }
+  }
+}
+

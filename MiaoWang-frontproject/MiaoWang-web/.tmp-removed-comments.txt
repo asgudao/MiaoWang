@@ -1,0 +1,134 @@
+/* ---------- 卡片分区 ⑥ 最高赞评论 + ⑦ 评论展开（按需加载，绝不整页预取） ---------- */
+
+/**
+ * 每帖的评论状态。
+ *
+ * ⚠️ **默认路径是"后端列表带回 `topComment`"**（一次批量带回，**前端一个请求都不发**）——
+ * 页面渲染阶段也不发评论请求。只有两种情况才会真去拉评论：
+ * 1) 用户点了「评论展开」（拉全量列表）；
+ * 2) **后端没给 `topComment` 但这条帖有评论** → 降级取**一页**，在**这一页**里选点赞最高的。
+ *    ⚠️ 这时**必须**在标题上写明"只在取到的那一页里最高"（`pageScoped`），
+ *    因为后端 `pageComments` **只有 `comment_id` 倒序、没有按点赞排序的能力**
+ *    （`CommentServiceImpl.java:155-163` + `normalizeSize` 的 `size` 只是分页参数）。
+ *
+ * ⚠️ **不做"热评"**：没有全量排序能力就不摆"热评"这个词。
+ */
+interface CommentsState {
+  items: PostComment[]
+  loading: boolean
+  error: string
+  hasMore: boolean
+  /** 降级路径下"这一页里点赞最高的那条"（后端给了 `topComment` 时用不到它） */
+  top: TopComment
+  /** 降级取数是否已经跑过（防止 watch 反复触发） */
+  probed: boolean
+}
+const EMPTY_TOP: TopComment = { source: null, item: null, pageScoped: false, field: null }
+const commentsOf = reactive<Record<number, CommentsState>>({})
+const blankState = (): CommentsState => ({
+  items: [],
+  loading: false,
+  error: '',
+  hasMore: false,
+  top: EMPTY_TOP,
+  probed: false,
+})
+const expandedComments = ref<number[]>([])
+const isCommentsExpanded = (postId: number) => expandedComments.value.includes(postId)
+const commentStateOf = (postId: number): CommentsState => commentsOf[postId] ?? blankState()
+/** 展开后最多画几条（后端 `size` 只是请求值，实际条数按数组给） */
+const commentPreview = (postId: number) => commentStateOf(postId).items.slice(0, COMMENT_PREVIEW_SIZE)
+
+/**
+ * ⚠️ **两套取值顺序必须分清**（这里是最容易写错的地方）：
+ * - **有 `topComment`** → 用后端的（`topCommentOf`），**永不降级取数**；
+ * - **没有** → 用降级取到的那条（`state.top`）。
+ */
+const topFieldOf = (p: PostSummary) => topCommentOf(p)
+const shownTopOf = (p: PostSummary): TopComment => {
+  const field = topFieldOf(p)
+  if (field.item) return field
+  return commentStateOf(p.postId).top
+}
+/** 这一块要不要显示（唯一判据，页面里不许自己读 `p.topComment`） */
+const hasTop = (p: PostSummary) => hasTopComment(shownTopOf(p))
+/** 内容与点赞数（模板里不直接摸 `item?.xxx`，避免可选链散落在模板里） */
+const topCommentTextOf = (p: PostSummary) => shownTopOf(p).item?.content ?? ''
+const topCommentLikeOf = (p: PostSummary) => shownTopOf(p).item?.likeCount ?? 0
+/** 作者名（`username` 为 null → 「喵友 #uid」，**不许**「匿名用户」） */
+const topAuthor = (p: PostSummary) => topCommentAuthor(shownTopOf(p).item)
+
+/** 拉一页评论并落库（`expand` = 同时展开列表） */
+async function fetchComments(p: PostSummary, expand: boolean): Promise<void> {
+  const cur = commentsOf[p.postId]
+  if (cur?.loading) return
+  const base = cur ?? blankState()
+  commentsOf[p.postId] = { ...base, loading: true, error: '', probed: true }
+  try {
+    const res = await listComments({ postId: p.postId, size: COMMENT_PREVIEW_SIZE })
+    const records = Array.isArray(res?.records) ? res.records : []
+    commentsOf[p.postId] = {
+      items: records,
+      loading: false,
+      error: '',
+      hasMore: Boolean(res?.hasMore) && res?.nextCursor !== null && res?.nextCursor !== undefined,
+      // ⚠️ 降级选取：只在**这一页**里比 likeCount，pageScoped 恒为 true
+      top: topCommentFromPage(records),
+      probed: true,
+    }
+    if (expand && !isCommentsExpanded(p.postId)) {
+      expandedComments.value = [...expandedComments.value, p.postId]
+    }
+  } catch (e) {
+    commentsOf[p.postId] = { ...base, loading: false, error: noteError(e), probed: true }
+  }
+}
+
+/**
+ * 点「评论展开」：拉这一帖的评论列表。
+ * 拉过一次就只做显隐切换（不再请求）；失败时**不展开**，并把后端的话如实显示。
+ */
+async function toggleComments(p: PostSummary) {
+  const cur = commentsOf[p.postId]
+  if (cur?.items.length) {
+    expandedComments.value = isCommentsExpanded(p.postId)
+      ? expandedComments.value.filter((id) => id !== p.postId)
+      : [...expandedComments.value, p.postId]
+    return
+  }
+  await fetchComments(p, true)
+}
+
+/**
+ * 降级探测：**只有"后端没给 topComment 且这条帖有评论"的卡**才去取一页。
+ *
+ * ⚠️ 三条约束：
+ * 1) **后端给了 `topComment` 的卡一个请求都不发**（这是"批量带回"的意义所在，门禁钉住）；
+ * 2) 没有评论（`commentCount === 0`）的卡也不发（没有东西可选）；
+ * 3) 每张卡**只探测一次**（`probed`），翻页/重渲染不会重复打接口。
+ *
+ * 这是"按需加载"：需要展示最高赞评论的卡才会产生请求，不是"给列表里每张卡预取评论"。
+ */
+function probeTopComments() {
+  for (const p of posts.value) {
+    if (topFieldOf(p).item) continue
+    if (!(Number(p.commentCount) > 0)) continue
+    const st = commentsOf[p.postId]
+    if (st?.probed || st?.loading) continue
+    void fetchComments(p, false)
+  }
+}
+
+watch(posts, () => probeTopComments(), { flush: 'post' })
+
+/**
+ * 切换筛选 / 重新读信息流时清掉这些**按帖缓存**：帖子列表整体换掉之后，
+ * 旧的全文与评论挂在新列表上就是串数据（和 `PostMediaGrid` 换数据要清收图记录同一个道理）。
+ */
+function resetCardCaches() {
+  for (const key of Object.keys(fullTexts)) delete fullTexts[Number(key)]
+  for (const key of Object.keys(commentsOf)) delete commentsOf[Number(key)]
+  expandedBodies.value = []
+  expandedComments.value = []
+}
+

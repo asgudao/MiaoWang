@@ -24,6 +24,29 @@
 			}
 		},
 		{
+			// 社区搜索：入口是社区页顶部那个"搜索帖子"框（**是真入口，不是死按钮**）。
+			// 用 GET /community/post/search（**游标分页**：lastId 原样回传 nextCursor）→ 下拉刷新 + 触底加载。
+			// ⚠️ 关键词为空/超长后端直接 B000327 → 这一页空关键词**不发请求**，页内给真实提示。
+			"path": "pages/community/search",
+			"style": {
+				"navigationBarTitleText": "搜索帖子",
+				"enablePullDownRefresh": true,
+				"backgroundTextStyle": "dark",
+				"onReachBottomDistance": 100
+			}
+		},
+		{
+			// 用户主页：入口是社区里点作者名（?uid=），uid 只能从社区 DTO / 页面参数来
+			"path": "pages/user/profile",
+			"style": {
+				"navigationBarTitleText": "用户主页",
+				// 帖子 / 点赞两个分段是游标分页 → 下拉刷新 + 触底加载
+				"enablePullDownRefresh": true,
+				"backgroundTextStyle": "dark",
+				"onReachBottomDistance": 100
+			}
+		},
+		{
 			"path": "pages/pets/pets",
 			"style": {
 				"navigationBarTitleText": "萌宠"
@@ -32,7 +55,17 @@
 		{
 			"path": "pages/knowledge/knowledge",
 			"style": {
-				"navigationBarTitleText": "知识库"
+				"navigationBarTitleText": "知识库",
+				// 知识碎片列表是页码分页 → 需要下拉刷新与触底加载
+				"enablePullDownRefresh": true,
+				"backgroundTextStyle": "dark",
+				"onReachBottomDistance": 100
+			}
+		},
+		{
+			"path": "pages/knowledge/detail",
+			"style": {
+				"navigationBarTitleText": "知识详情"
 			}
 		},
 		{
@@ -69,6 +102,15 @@
 			"path": "pages/ai/ai",
 			"style": {
 				"navigationBarTitleText": "AI 问诊"
+			}
+		},
+		{
+			// 宠物对话：非 tab 页，全局 navigationStyle=custom → 页面自绘返回栏（与 pages/ai/ai 同一套写法）。
+			// 走 miaowang-ai-pet（**不是** ai-knowledge）：档 1 = 非流式一问一答 + 宠物人设 + 会话历史；
+			// 空态会调 POST /ai/pet/greet（**不扣聊天次数**）。入口是首页那张对话卡 + 页内「去和它说话」。
+			"path": "pages/ai/pet",
+			"style": {
+				"navigationBarTitleText": "宠物对话"
 			}
 		},
 		{
@@ -130,20 +172,56 @@
 			"style": {
 				"navigationBarTitleText": "健康记录"
 			}
+		},
+		{
+			// 消息通知：入口在「我的」页的「消息通知」一行（tab 入口红点由 mine.vue 的 onShow 拉 unread-count）
+			"path": "pages/notification/list",
+			"style": {
+				"navigationBarTitleText": "消息通知",
+				// 通知列表是游标分页 → 下拉刷新 + 触底加载
+				"enablePullDownRefresh": true,
+				"backgroundTextStyle": "dark",
+				"onReachBottomDistance": 100
+			}
+		},
+		{
+			// 个人资料：入口在「我的」页的「个人资料」一行；
+			// 能改的只有显示名称 / 宠物称呼 / 邮箱（PUT /user），头像走 POST /user/avatar；
+			// 手机号与用户名在页内说明为只读（换绑要短信验证码，本页未接）。纯读改写，无分页 → 不挂下拉刷新。
+			"path": "pages/profile/profile",
+			"style": {
+				"navigationBarTitleText": "个人资料"
+			}
+		},
+		{
+			// 关于喵汪：入口在「我的」页的「关于喵汪」一行。纯静态页，零网络请求。
+			"path": "pages/about/about",
+			"style": {
+				"navigationBarTitleText": "关于喵汪"
+			}
+		},
+		{
+			// 提醒设置：入口在「我的」页的「提醒设置」一行（自绘导航，页内 onShow 重算，无分页 → 不挂下拉刷新）。
+			// ⚠️ 这是**本地提醒**的口径（settings 存本地 + 到点由本地通知触发），不是服务端推送：
+			// 全仓库没有推送设施，页面里也如实写明了这一点。
+			"path": "pages/remind/setting",
+			"style": {
+				"navigationBarTitleText": "提醒设置"
+			}
 		}
 	],
 	"globalStyle": {
 		"navigationStyle": "custom",
 		"navigationBarTextStyle": "black",
 		"navigationBarTitleText": "喵汪",
-		"navigationBarBackgroundColor": "#F4F6F7",
-		"backgroundColor": "#F4F6F7",
-		"backgroundColorTop": "#0B1218",
-		"backgroundColorBottom": "#F4F6F7"
+		"navigationBarBackgroundColor": "#F7F2EE",
+		"backgroundColor": "#F7F2EE",
+		"backgroundColorTop": "#1A1310",
+		"backgroundColorBottom": "#F7F2EE"
 	},
 	"tabBar": {
-		"color": "#9AA8B2",
-		"selectedColor": "#0A7D6D",
+		"color": "#8A7767",
+		"selectedColor": "#C2410C",
 		"backgroundColor": "#FFFFFF",
 		"borderStyle": "white",
 		"list": [

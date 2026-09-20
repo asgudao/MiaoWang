@@ -1,23 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import {
-  PhBowlFood,
-  PhChatCircleDots,
-  PhDrop,
-  PhPersonSimpleRun,
-  PhPill,
-  PhSyringe,
-  PhTrendDown,
-  PhTrendUp,
-} from '@phosphor-icons/vue'
+import { PhBug, PhChatCircleDots, PhPill, PhSyringe, PhTrendDown, PhTrendUp } from '@phosphor-icons/vue'
 import PetStage from '@/components/PetStage.vue'
 import RhythmBars from '@/components/RhythmBars.vue'
 import { useAuthStore } from '@/stores/auth'
-import { usePetsStore } from '@/stores/pets'
 import {
-  USE_MOCK,
   fetchHomeOverview,
-  petBriefFromApi,
   taskKindLabel,
   taskStatusLabel,
   type HomeOverview,
@@ -25,8 +13,14 @@ import {
   type TaskKind,
 } from '@/api/home'
 
+/**
+ * 首页取数：**一个函数拿全部**（`/pet` + 每只宠物 4 个健康接口，最多 `1 + 4N`）。
+ * 页面不自己再拉一次 `/pet`（原来 pets store 那次是重复请求）。
+ */
 const data = ref<HomeOverview | null>(null)
 const loading = ref(true)
+/** 取数失败（连 `/pet` 都没读到）→ 错误态 + 重试；**不回退演示数据** */
+const errorText = ref('')
 const stageError = ref('')
 
 const greet = computed(() => {
@@ -39,52 +33,85 @@ const greet = computed(() => {
 })
 
 const auth = useAuthStore()
-const petsStore = usePetsStore()
 
-/** 登录后从档案 store 映射来的真实宠物；未登录或还没拉到时为 null */
-const apiPets = computed<PetBrief[] | null>(() =>
-  auth.isLoggedIn && petsStore.loaded ? petsStore.list.map(petBriefFromApi) : null,
-)
-
-/** 真实档案（空数组 = 没有真数据可展示，页面回退演示数据） */
-const realPets = computed<PetBrief[]>(() => apiPets.value ?? [])
-
-/** 有真档案就用真的，否则回退演示数据（未登录时首页也要有东西可看） */
-const homePets = computed<PetBrief[]>(() =>
-  realPets.value.length ? realPets.value : (data.value?.pets ?? []),
-)
+/** 宠物卡：真数据模式下来自 `/pet`；演示模式下来自 mock（`data.source` 会说明） */
+const homePets = computed<PetBrief[]>(() => data.value?.pets ?? [])
 
 const primaryPet = computed(() => homePets.value[0] ?? null)
 
-/** 登录后问候语用「宠物怎么称呼你」，未登录就用演示数据里的称呼 */
+/** 登录后问候语用「宠物怎么称呼你」，未登录就用概览里的称呼 */
 const ownerName = computed(() =>
   auth.isLoggedIn ? auth.ownerCallName : (data.value?.ownerName ?? '铲屎官'),
 )
 
-const doneRatio = computed(() => {
-  const d = data.value
-  if (!d || !d.todayTotal) return 0
-  return Math.round((d.todayDone / d.todayTotal) * 100)
+/** 待办 / 逾期：**只读概览的统计**，页面不另算一套（后端没有打卡表，Done 不存在） */
+const todoCount = computed(() => data.value?.todoCount ?? 0)
+const overdueCount = computed(() => data.value?.overdueCount ?? 0)
+
+/** 部分失败：某只宠物的健康记录一条都没读到 → 如实说明，别让人误以为"它没有照护项" */
+const degradedText = computed(() => {
+  const names = data.value?.degradedPets ?? []
+  return names.length ? `${names.join('、')}的健康记录这次没读到，它的照护项没有算进来` : ''
 })
 
-/** 照护类型 → 图标（同一套图标族，字重统一 regular） */
+/**
+ * 提醒总开关关着时的**补数**（防"谎报什么都没有"）。
+ *
+ * 关掉总开关后 `tasks` 被裁空 → 空态文案本来会说"还没有可提醒的照护项"，
+ * 那是**假的**：明明有几条被你自己关掉了。所以必须把 `suppressedCount` 说出来，
+ * 并给一个能改回来的真入口（`/remind/setting`）。手机端踩过这个真 bug。
+ */
+const remindOffNote = computed(() => {
+  const d = data.value
+  if (!d || !d.remindOff) return ''
+  return d.suppressedCount > 0
+    ? `提醒总开关已关闭：有 ${d.suppressedCount} 项本来在提醒范围内，现在不列待办、也不发提醒`
+    : '提醒总开关已关闭：这里不列待办，也不会发提醒'
+})
+
+/** 「提前 N 天」生效时，标题右边要说清当前窗口口径（默认 0 天时不显示，免得噪音） */
+const aheadNote = computed(() => {
+  const d = data.value
+  if (!d || d.remindOff || d.remindAheadDays <= 0) return ''
+  return `提前 ${d.remindAheadDays} 天提醒（待办含窗口内还没到期的项）`
+})
+
+/** 「记一笔」的真实去处（有宠物进它的健康记录，没宠物就去加档案） */
+const recordTo = computed(() =>
+  primaryPet.value ? `/pets/${primaryPet.value.pid}/health` : '/pets/new',
+)
+/**
+ * 「去和它说话」的真实去处：宠物对话页（ai-pet）已上线，路由在 `router/index.ts` 的 `pet-chat` / `pet-chat-pet`。
+ * 有档案就带上 pid（`chat` / `greet` 的 pid 缺省口径是"第一只"，显式带才没有歧义）；
+ * 没档案进不带 pid 的那条，页面自己会说清"先添加一只"并给建宠物的入口 —— **不做假入口**。
+ */
+const chatTo = computed(() => (primaryPet.value ? `/pets/${primaryPet.value.pid}/chat` : '/pets/chat'))
+/** 空态引导的真实去处：直接开一条疫苗/驱虫（「下次到期」就是提醒的来源） */
+const firstRecordTo = computed(() =>
+  primaryPet.value ? `/pets/${primaryPet.value.pid}/health/new/preventive` : '/pets/new',
+)
+
+/** 照护类型 → 图标（同一套图标族，字重统一 regular）；**只保留真有数据源的三类** */
 const KIND_ICON: Record<TaskKind, unknown> = {
-  feed: PhBowlFood,
-  water: PhDrop,
-  walk: PhPersonSimpleRun,
-  med: PhPill,
   vaccine: PhSyringe,
+  deworm: PhBug,
+  med: PhPill,
 }
 
-onMounted(async () => {
+async function reload() {
+  loading.value = true
+  errorText.value = ''
   try {
     data.value = await fetchHomeOverview()
+  } catch (e) {
+    data.value = null
+    errorText.value = e instanceof Error && e.message ? e.message : '照护提醒没读出来，稍后再试'
   } finally {
     loading.value = false
   }
-  // 登录了就换成自己的真实档案（store 有缓存，来回切页不会重复请求）
-  if (auth.isLoggedIn) await petsStore.fetchMine()
-})
+}
+
+onMounted(reload)
 </script>
 
 <template>
@@ -101,23 +128,20 @@ onMounted(async () => {
           <p class="hero__greet">{{ greet }}，{{ ownerName }}</p>
           <h1 class="hero__name">{{ primaryPet?.name ?? '你的它' }}</h1>
           <p class="hero__sub">
-            <template v-if="primaryPet">
-              {{ primaryPet.breed }}，{{ primaryPet.ageLabel }}，已陪伴
-              <span class="mw-num">{{ data?.companionDays ?? 0 }}</span> 天
-            </template>
+            <template v-if="primaryPet">{{ primaryPet.breed }}，{{ primaryPet.ageLabel }}</template>
             <template v-else>还没有宠物档案，先把它介绍给我</template>
           </p>
 
+          <!-- 三个数字全部有据可依：待办/逾期来自健康记录的「下次到期」，宠物只数来自 /pet。
+               「已陪伴 N 天」与「完成度 %」没有数据源（pet 接口没有领养日期、后端没有打卡表）→ 已下线 -->
           <dl class="hero__stats">
             <div class="stat">
-              <dt>今日照护</dt>
-              <dd class="mw-hero-num">
-                {{ data?.todayDone ?? 0 }}<span>/{{ data?.todayTotal ?? 0 }}</span>
-              </dd>
+              <dt>待办</dt>
+              <dd class="mw-hero-num">{{ todoCount }}<span>项</span></dd>
             </div>
             <div class="stat">
-              <dt>完成度</dt>
-              <dd class="mw-hero-num">{{ doneRatio }}<span>%</span></dd>
+              <dt>已逾期</dt>
+              <dd class="mw-hero-num">{{ overdueCount }}<span>项</span></dd>
             </div>
             <div class="stat">
               <dt>宠物</dt>
@@ -125,16 +149,20 @@ onMounted(async () => {
             </div>
           </dl>
 
+          <!-- 三个按钮都有真实去处：健康记录 / 宠物对话（ai-pet 页已上线）/ AI 问诊 -->
           <div class="hero__actions">
-            <button class="mw-btn mw-btn--brand" type="button">记一笔</button>
-            <button class="mw-btn mw-btn--ghost" type="button">和它说句话</button>
+            <RouterLink class="mw-btn mw-btn--brand" :to="recordTo">记一笔</RouterLink>
+            <RouterLink class="mw-btn mw-btn--ghost" :to="chatTo">去和它说话</RouterLink>
+            <RouterLink class="mw-btn mw-btn--ghost" to="/ai">问问 AI</RouterLink>
           </div>
 
           <p v-if="stageError" class="hero__note">{{ stageError }}</p>
-          <p v-else-if="realPets.length" class="hero__note">
-            宠物档案已是你的真实数据；照护提醒与周节奏仍是演示数据
+          <p v-else-if="data?.source === 'mock'" class="hero__note">
+            演示数据（没有登录，或显式打开了演示开关），不是你的真实记录
           </p>
-          <p v-else-if="USE_MOCK" class="hero__note">演示数据，接口就绪后自动切换</p>
+          <p v-else-if="data" class="hero__note">
+            照护提醒来自你的健康记录：疫苗与驱虫按「下次到期」算，用药只取「用药中」
+          </p>
         </div>
       </div>
     </section>
@@ -144,16 +172,45 @@ onMounted(async () => {
       <div class="cols">
         <div class="col-main">
           <header class="sec-head">
-            <h2 class="mw-h2">今日照护</h2>
-            <span class="mw-caption">{{ data?.todayTotal ?? 0 }} 项，按时间排序</span>
+            <h2 class="mw-h2">照护提醒</h2>
+            <span class="mw-caption">待办 {{ todoCount }} 项，按紧急程度排序</span>
           </header>
+
+          <!-- 「提前 N 天」生效时把当前窗口口径写出来（默认 0 天不显示，免得噪音） -->
+          <p v-if="aheadNote && !loading && !errorText" class="mw-alert mw-alert--info">
+            {{ aheadNote }}
+          </p>
+
+          <!-- 🔴 防"谎报什么都没有"：总开关关掉后 tasks 被裁空，空态不能就说成"没有照护项"。
+               这里把被关掉的条数如实说出来，并给一个能改回来的真入口。 -->
+          <p v-if="remindOffNote && !loading && !errorText" class="mw-alert mw-alert--info">
+            {{ remindOffNote }}
+            <RouterLink class="mw-link" to="/remind/setting">去提醒设置打开</RouterLink>
+          </p>
+
+          <!-- 部分失败：真有宠物没读到健康记录时如实说，不静默当成"没有照护项" -->
+          <p v-if="degradedText && !loading && !errorText" class="mw-alert mw-alert--info">
+            {{ degradedText }}
+          </p>
 
           <div v-if="loading" class="tasks">
             <div v-for="i in 4" :key="i" class="mw-skeleton task-skeleton" />
           </div>
 
+          <!-- 错误态：连宠物档案都没读到 → 明确的错误 + 真能用的重试 -->
+          <div v-else-if="errorText" class="mw-state">
+            <p class="mw-state__title">照护提醒没读出来</p>
+            <p>{{ errorText }}</p>
+            <button class="mw-btn mw-btn--primary" type="button" @click="reload">重试</button>
+          </div>
+
           <ul v-else-if="data?.tasks.length" class="tasks">
-            <li v-for="t in data.tasks" :key="t.id" class="task" :class="`task--${t.status}`">
+            <li
+              v-for="t in data.tasks"
+              :key="t.id"
+              class="task"
+              :class="{ 'task--overdue': t.status === 'overdue' }"
+            >
               <span class="task__icon" aria-hidden="true">
                 <component :is="KIND_ICON[t.kind]" :size="18" weight="regular" />
               </span>
@@ -164,9 +221,9 @@ onMounted(async () => {
               <span
                 class="mw-badge"
                 :class="{
-                  'mw-badge--done': t.status === 'done',
-                  'mw-badge--time': t.status === 'todo',
                   'mw-badge--danger': t.status === 'overdue',
+                  'mw-badge--time': t.status === 'today',
+                  'mw-badge--done': t.status === 'active',
                 }"
               >
                 {{ t.dueLabel || taskStatusLabel(t.status) }}
@@ -174,29 +231,62 @@ onMounted(async () => {
             </li>
           </ul>
 
+          <!-- 空态：**不编"今日已完成 N 项"**，直接说清楚提醒是从哪来的、去哪儿加；
+               健康数据没读到时（degradedText）不许说成"没有照护项" -->
           <div v-else class="mw-state">
-            <p class="mw-state__title">今天还没有照护安排</p>
-            <p>给 {{ primaryPet?.name ?? '它' }} 加上第一条提醒，之后就不用记了</p>
-            <button class="mw-btn mw-btn--primary" type="button">添加提醒</button>
+            <p class="mw-state__title">
+              {{
+                degradedText
+                  ? '照护项这次没算出来'
+                  : data?.remindOff
+                    ? '提醒总开关关着，这里不列照护项'
+                    : primaryPet
+                      ? '还没有可提醒的照护项'
+                      : '还没有宠物档案'
+              }}
+            </p>
+            <p v-if="degradedText">这只宠物的健康记录没读到，照护项不猜；可以点上面的重试再看一次</p>
+            <!-- 总开关关掉时不许说成"没有照护项"：说清是被开关关掉的，并给真入口 -->
+            <p v-else-if="data?.remindOff">
+              这不是"没有照护项"，是你在提醒设置里把总开关关掉了；
+              打开它，疫苗与驱虫的到期项就会回到这里。
+            </p>
+            <p v-else-if="primaryPet">
+              在健康记录里给疫苗或驱虫填上「下次到期」，这里就会自动出现提醒
+            </p>
+            <p v-else>先添加一只宠物，再记录疫苗与驱虫的到期时间</p>
+            <RouterLink class="mw-btn mw-btn--primary" :to="firstRecordTo">
+              {{ primaryPet ? '去记一条' : '添加宠物' }}
+            </RouterLink>
           </div>
 
-          <!-- 电子宠物对话：整栏宽的气泡卡，与侧栏那种"标题+说明+按钮"完全不同的版式 -->
-          <article class="chat">
-            <header class="chat__head">
-              <PhChatCircleDots :size="20" weight="regular" aria-hidden="true" />
-              <h2 class="mw-h2">它今天说了什么</h2>
-            </header>
-            <div class="chat__thread">
-              <p class="bubble bubble--pet">
-                早上好呀，我今早的饭盆空了。你昨天说今天要早起，是真的起来了吗？
+          <!--
+            这里原来是「它今天说了什么」的对话卡：三条气泡是**模板里硬编码的**，
+            `MOCK.chat` 在 Web 端根本不存在，按钮也没有 handler。
+            宠物对话页（ai-pet）已经做好并接上路由（`router/index.ts` 的 pet-chat / pet-chat-pet），
+            所以这里换成**一个真入口**：不摆任何假气泡、不替宠物编话，点进去才真的读它的历史。
+          -->
+          <header class="sec-head sec-head--gap">
+            <h2 class="mw-h2">宠物对话</h2>
+            <span class="mw-caption">它用宠物档案里的事回答你</span>
+          </header>
+
+          <div class="petchat">
+            <span class="petchat__icon" aria-hidden="true">
+              <PhChatCircleDots :size="20" weight="regular" />
+            </span>
+            <div class="petchat__main">
+              <p class="petchat__title">
+                {{
+                  primaryPet ? `问问 ${primaryPet.name} 它自己怎么说` : '先添加一只宠物，再跟它说话'
+                }}
               </p>
-              <p class="bubble bubble--me">真的起了，给你加了半勺罐头。</p>
-              <p class="bubble bubble--pet">
-                那我今天会乖一点。顺便提醒你，我的驱虫药已经晚了一天。
+              <p class="petchat__desc">
+                它知道自己叫什么、你怎么叫它，也记得你们最近聊过什么。聊天会消耗次数，它主动打招呼不消耗。
               </p>
             </div>
-            <button class="mw-btn mw-btn--primary chat__cta" type="button">回它一句</button>
-          </article>
+            <RouterLink class="mw-btn mw-btn--ghost" :to="chatTo">去和它说话</RouterLink>
+          </div>
 
           <header class="sec-head sec-head--gap">
             <h2 class="mw-h2">我的宠物</h2>
@@ -211,12 +301,17 @@ onMounted(async () => {
                   <p class="pet__name">{{ p.name }}</p>
                   <p class="pet__meta">{{ p.breed }}，{{ p.ageLabel }}</p>
                 </div>
-                <!-- 体重是演示数据专有：pet 接口没有这个字段，真档案不编 -->
-                <div v-if="p.demo && p.weight != null && p.weightDelta != null" class="pet__weight">
+                <!-- 体重来自健康记录（`/weight` 取最新一次）；**没有记录就整块不渲染**，不编数字 -->
+                <div v-if="p.weight != null" class="pet__weight">
                   <p class="pet__weight-num">
                     <span class="mw-num">{{ p.weight.toFixed(1) }}</span> kg
                   </p>
-                  <p class="pet__delta" :class="p.weightDelta >= 0 ? 'is-up' : 'is-down'">
+                  <!-- 变化量只有演示数据才有：真档案缺 30 天基线，宁可不显示 -->
+                  <p
+                    v-if="p.weightDelta != null"
+                    class="pet__delta"
+                    :class="p.weightDelta >= 0 ? 'is-up' : 'is-down'"
+                  >
                     <component
                       :is="p.weightDelta >= 0 ? PhTrendUp : PhTrendDown"
                       :size="13"
@@ -225,14 +320,21 @@ onMounted(async () => {
                     />
                     <span class="mw-num">{{ Math.abs(p.weightDelta).toFixed(1) }}</span>
                   </p>
+                  <p v-else-if="p.weightAt" class="pet__delta">{{ p.weightAt }} 测</p>
                 </div>
-                <span v-else class="pet__real">档案</span>
+                <span v-else class="pet__real">
+                  {{ p.degraded ? '健康数据未读到' : '无体重记录' }}
+                </span>
               </div>
-              <p v-if="p.nextCare" class="pet__next" :class="`pet__next--${p.nextTone}`">
+              <p
+                v-if="p.nextCare"
+                class="pet__next"
+                :class="p.nextTone ? `pet__next--${p.nextTone}` : ''"
+              >
                 {{ p.nextCare }}
               </p>
               <p v-else class="pet__call">
-                {{ p.callName ? `它叫你「${p.callName}」` : '档案已同步，健康数据还没接' }}
+                {{ p.callName ? `它叫你「${p.callName}」` : '还没有照护提醒' }}
               </p>
             </li>
           </ul>
@@ -241,16 +343,15 @@ onMounted(async () => {
         <aside class="col-side">
           <div class="panel">
             <RhythmBars v-if="data" :days="data.rhythm" />
-            <div v-else class="mw-skeleton rhythm-skeleton" />
+            <div v-else-if="loading" class="mw-skeleton rhythm-skeleton" />
+            <p v-else class="mw-caption">记录还没读出来</p>
           </div>
 
+          <!-- 知识库：原来那三条标题是**硬编码的**（真实库里并没有「猫咪应激的 6 个信号」这类条目，
+               真标题形如「换粮要 7 天过渡」）→ 换成说明 + 真实入口，不摆假标题 -->
           <div class="panel">
             <h3 class="panel__title">知识库</h3>
-            <ul class="links">
-              <li>猫咪应激的 6 个信号</li>
-              <li>换粮到底要不要过渡</li>
-              <li>狗狗一年该打哪些疫苗</li>
-            </ul>
+            <p class="panel__desc">养护、喂食、疫苗这些日常问题，按宠物种类整理好了。</p>
             <RouterLink class="panel__more" to="/knowledge">看全部文章</RouterLink>
           </div>
 
@@ -412,7 +513,7 @@ onMounted(async () => {
   height: 36px;
   flex: none;
   border-radius: var(--mw-radius-tag);
-  background: rgba(10, 125, 109, 0.1);
+  background: rgba(194, 65, 12, 0.1);
   color: var(--mw-brand-ink);
 }
 .task__main {
@@ -425,56 +526,6 @@ onMounted(async () => {
 .task__pet {
   font-size: var(--mw-font-caption);
   color: var(--mw-ink-2);
-}
-
-/* ---------- 对话卡（整栏宽 + 气泡版式） ---------- */
-.chat {
-  margin-top: var(--mw-space-12);
-  padding: var(--mw-space-6);
-  background: var(--mw-surface);
-  border: 1px solid var(--mw-line);
-  border-radius: var(--mw-radius-card);
-}
-
-.chat__head {
-  display: flex;
-  align-items: center;
-  gap: var(--mw-space-2);
-  color: var(--mw-brand-ink);
-}
-.chat__head h2 {
-  color: var(--mw-ink);
-}
-
-.chat__thread {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mw-space-2);
-  margin: var(--mw-space-4) 0 0;
-}
-
-.bubble {
-  max-width: 46ch;
-  padding: var(--mw-space-3) var(--mw-space-4);
-  border-radius: 14px;
-  font-size: var(--mw-font-caption);
-  line-height: 1.7;
-}
-.bubble--pet {
-  align-self: flex-start;
-  background: var(--mw-canvas);
-  border: 1px solid var(--mw-line);
-  border-bottom-left-radius: 4px;
-}
-.bubble--me {
-  align-self: flex-end;
-  background: var(--mw-brand-ink);
-  color: #fff;
-  border-bottom-right-radius: 4px;
-}
-
-.chat__cta {
-  margin-top: var(--mw-space-6);
 }
 
 /* ---------- 宠物卡 ---------- */
@@ -501,7 +552,7 @@ onMounted(async () => {
   height: 44px;
   flex: none;
   border-radius: var(--mw-radius-pill);
-  background: rgba(10, 125, 109, 0.1);
+  background: rgba(194, 65, 12, 0.1);
   color: var(--mw-brand-ink);
   font-weight: 700;
 }
@@ -557,7 +608,7 @@ onMounted(async () => {
   font-weight: 600;
 }
 .pet__next--ok {
-  background: rgba(10, 125, 109, 0.1);
+  background: rgba(74, 118, 56, 0.1);
   color: var(--mw-success);
 }
 .pet__next--warn {
@@ -567,6 +618,39 @@ onMounted(async () => {
 .pet__next--danger {
   background: rgba(229, 72, 77, 0.12);
   color: var(--mw-danger);
+}
+
+/* ---------- 宠物对话入口（真入口：点进去才读历史，这里不摆假气泡） ---------- */
+.petchat {
+  display: flex;
+  align-items: center;
+  gap: var(--mw-space-4);
+  padding: var(--mw-space-4);
+  background: var(--mw-surface);
+  border: 1px solid var(--mw-line);
+  border-radius: var(--mw-radius-card);
+}
+.petchat__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: var(--mw-radius-tag);
+  background: rgba(194, 65, 12, 0.1);
+  color: var(--mw-brand-ink);
+}
+.petchat__main {
+  flex: 1;
+  min-width: 0;
+}
+.petchat__title {
+  font-weight: 600;
+}
+.petchat__desc {
+  margin-top: var(--mw-space-1);
+  font-size: var(--mw-font-caption);
+  color: var(--mw-ink-2);
 }
 
 /* ---------- 侧栏 ---------- */
@@ -608,14 +692,6 @@ onMounted(async () => {
   font-weight: 600;
   color: var(--mw-brand-ink);
 }
-.links li {
-  padding: var(--mw-space-2) 0;
-  border-bottom: 1px solid var(--mw-line);
-  font-size: var(--mw-font-caption);
-}
-.links li:last-child {
-  border-bottom: none;
-}
 
 /* 窄屏：舞台在上，内容单列（与手机端同构） */
 @media (max-width: 960px) {
@@ -632,6 +708,13 @@ onMounted(async () => {
   }
   .hero__stats {
     gap: var(--mw-space-6);
+  }
+}
+
+/* 更窄：宠物对话入口的按钮换到下一行，别把说明挤成一列两个字 */
+@media (max-width: 720px) {
+  .petchat {
+    flex-wrap: wrap;
   }
 }
 </style>

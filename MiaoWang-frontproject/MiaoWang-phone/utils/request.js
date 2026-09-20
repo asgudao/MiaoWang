@@ -210,6 +210,16 @@ export function request (service, path, options) {
       timeout: opt.timeout || 15000,
       success: function (res) {
         if (res.statusCode === 401 || res.statusCode === 403) {
+          // ⚠️ **公开读（anonymous:true）绝不允许清登录态**。
+          // 这种请求根本没带身份，401/403 只可能表示"这条路径不对外开放"
+          // （网关的 /internal/** 黑名单就是回 HTTP 403），把它当成"登录过期"
+          // 会平白把已登录的用户踢下线 —— 一个公开接口就能造成掉线，是结构性隐患。
+          // 知识库的 5 个公开读接口正是走 anonymous（实测它们在白名单里一律 200，
+          // 这里是结构兜底：就算以后白名单被收窄，也只会"读不到"，不会"被登出"）。
+          if (opt.anonymous) {
+            reject(new ApiError('FORBIDDEN', '这个接口不对外开放（HTTP ' + res.statusCode + '）'))
+            return
+          }
           auth.clear()
           reject(new ApiError('UNAUTHORIZED', '登录已过期，请重新登录'))
           return

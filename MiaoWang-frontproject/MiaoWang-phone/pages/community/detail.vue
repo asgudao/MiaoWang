@@ -50,23 +50,36 @@
 					<view class="card__head">
 						<view class="avatar"><text>{{ view.initial }}</text></view>
 						<view class="card__who">
-							<text class="card__author">{{ view.author }}</text>
+							<text class="card__author" @click="goUser(view.uid)">{{ view.author }}</text>
 							<text class="card__time">{{ view.timeText }}</text>
 						</view>
 					</view>
 
 					<text v-if="view.hasContent" class="card__content">{{ view.content }}</text>
 
-					<view v-if="view.hasImages" class="imgs">
-						<image
-							v-for="(url, idx) in view.images"
-							:key="idx"
-							class="imgs__one"
-							:src="url"
-							mode="aspectFill"
-							@click="previewImage(idx)"
-						/>
-					</view>
+					<!--
+						图片：**一张能渲染的图都没有 → 整块不渲染**（不是 display:none、也不是 height:0 遮丑）；
+						1 张 = 大图（保留原始长宽比、按真实比例限最大高，不裁成方块、不拉成长条）；
+						2 张一行两张 / 3 张一行三张 / 4 张 2×2 / 5-9 张 3×3 / >9 张只排 9 格、第 9 格右下角盖 +N。
+						格子正方形裁切（aspectFill）+ 间距一致；点开大图**从点的那一张开始**（previewImage 的 current）。
+						加载失败、或 load 回来是 8×8 占位图（真实脏数据：post 181）→ 把这张收掉。
+
+						⚠️ 2026-09-21 真机排错：图片区改成**与列表卡共用的 `PostImages` 组件**
+						（三份重复代码各错一次、各修一次必然再分叉）。列数由张数决定、格子宽度**相对容器**，
+						不再有"按假定卡片宽硬算的 rpx 边长"（那正是"9 张排成 2 列"的根因）。
+					-->
+					<!-- 🔴 详情页单图**不套「最宽 = 一行两格（媒体区 2/3）」上限**：`:wide="true"`。
+					     依据（2026-09-21 用户定稿）：列表里单图最宽 = 一行两格；「大图预览与详情页里的图不受此限」。 -->
+					<PostImages
+						v-if="view.hasImages"
+						:images="view.images"
+						:grid="view.grid"
+						:rows="view.rows"
+						:single-failed="view.singleFailed"
+						:wide="true"
+						@preview="previewImage"
+						@fail="onImageFail"
+					/>
 
 					<!-- 视频：整页只有一个播放器，且不自动播放（一屏挂一堆 video 会拖垮列表） -->
 					<view v-if="view.hasVideos" class="videos">
@@ -104,9 +117,23 @@
 
 					<view class="acts">
 						<view class="act" :class="{ 'act--on': view.liked }" @click="toggleLike">
+							<view class="act__icon">
+								<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+									stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M12 20s-7-4.4-7-9.3A4.2 4.2 0 0 1 12 8a4.2 4.2 0 0 1 7 2.7C19 15.6 12 20 12 20z"
+										:fill="view.liked ? 'currentColor' : 'none'" />
+								</svg>
+							</view>
 							<text>{{ view.likeText }}</text>
 						</view>
 						<view class="act" :class="{ 'act--on': view.favorited }" @click="toggleFavorite">
+							<view class="act__icon">
+								<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+									stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M6 4h12v16l-6-4.4L6 20z"
+										:fill="view.favorited ? 'currentColor' : 'none'" />
+								</svg>
+							</view>
 							<text>{{ view.favoriteText }}</text>
 						</view>
 					</view>
@@ -117,6 +144,32 @@
 					<text class="sec__title">评论</text>
 					<text class="sec__note">{{ commentsNote }}</text>
 				</view>
+
+				<!--
+					发评论：**真调 `POST /community/comment`**（body `{postId, content}`），
+					成功后把响应里的 `CommentRespDTO` **插到列表头部**并把"评论/回复总数" +1
+					（`commentCount` 含回复，所以叫"总数"），**不重拉整页**。
+					内容为空在本地就拦下（后端对空内容是 `B000313`，没内容可发，不必白跑一趟网络）；
+					其余失败（超 1000 字 `B000314` / 敏感词 `B000318` / 未登录 `B000310` / 帖子没了 `B000301`）
+					一律**照实显示后端给的话**（`communityErrorMessage` 映射），不自己编。
+				-->
+				<view class="compose">
+					<input
+						class="compose__input"
+						type="text"
+						:value="commentDraft"
+						:maxlength="commentMaxLength"
+						placeholder="说点什么…"
+						placeholder-class="compose__ph"
+						confirm-type="send"
+						@input="onCommentInput"
+						@confirm="postComment"
+					/>
+					<view class="compose__go" :class="{ 'compose__go--busy': commentPosting }" @click="postComment">
+						<text>{{ commentPosting ? '发送中' : '发送' }}</text>
+					</view>
+				</view>
+				<text v-if="commentPostError" class="compose__err">{{ commentPostError }}</text>
 
 				<text v-if="commentsLoading && !comments.length" class="hint">正在读取评论</text>
 				<view v-else-if="commentsError && !comments.length" class="state">
@@ -129,12 +182,24 @@
 					<view class="cmt__head">
 						<view class="avatar avatar--sm"><text>{{ c.initial }}</text></view>
 						<view class="cmt__who">
-							<text class="cmt__author">{{ c.author }}</text>
+							<text class="cmt__author" @click="goUser(c.uid)">{{ c.author }}</text>
 							<text class="cmt__time">{{ c.timeText }}</text>
 						</view>
-						<text class="cmt__like">{{ c.likeText }}</text>
+						<view
+							class="cmt__like"
+							:class="{ 'cmt__like--on': c.liked, 'cmt__like--busy': c.likeBusy }"
+							@click="toggleCommentLike(c.commentId)"
+						>
+							<view class="cmt__heart"></view>
+							<text>{{ c.likeText }}</text>
+						</view>
 					</view>
 					<text class="cmt__content">{{ c.content }}</text>
+
+					<view v-if="c.likeError" class="inline-err">
+						<text class="inline-err__text">{{ c.likeError }}</text>
+						<text class="inline-err__act" @click="toggleCommentLike(c.commentId)">重试</text>
+					</view>
 
 					<!-- 回复：默认用接口给的正序预览；展开后用游标分页拉回来的完整列表（两者同向） -->
 					<view v-if="c.replyOpen ? c.replyItems.length : c.children.length" class="reps">
@@ -143,9 +208,20 @@
 							:key="r.commentId"
 							class="rep"
 						>
-							<text class="rep__who">{{ r.author }}</text>
-							<text v-if="r.replyToText" class="rep__to">{{ r.replyToText }}</text>
-							<text class="rep__text">{{ r.content }}</text>
+							<view class="rep__main">
+								<text class="rep__who" @click="goUser(r.uid)">{{ r.author }}</text>
+								<text v-if="r.replyToText" class="rep__to">{{ r.replyToText }}</text>
+								<text class="rep__text">{{ r.content }}</text>
+							</view>
+							<view
+								class="rep__like"
+								:class="{ 'rep__like--on': r.liked, 'rep__like--busy': r.likeBusy }"
+								@click="toggleCommentLike(r.commentId)"
+							>
+								<view class="cmt__heart"></view>
+								<text>{{ r.likeText }}</text>
+							</view>
+							<text v-if="r.likeError" class="rep__err">{{ r.likeError }}</text>
 						</view>
 					</view>
 
@@ -163,14 +239,20 @@
 					</view>
 				</view>
 
-				<!-- 评论底部：触底会自动加载，这里同样给可点入口，失败不静默 -->
+				<!--
+					评论底部：**进页面就把评论循环拉完了**（用户要求"默认显示所有的评论"），
+					所以这里**没有**"加载更多评论"这类分页交互，只有两种真实状态：
+					① 还在续拉（加载中）；② 拉到一半失败 / 被页数上限截断 → 如实说 + 可重试续上。
+				-->
 				<view v-if="comments.length" class="foot">
 					<text v-if="commentsLoadingMore" class="foot__text">正在加载更多评论</text>
 					<view v-else-if="commentsMoreError" class="foot__err">
 						<text class="foot__err-text">{{ commentsMoreError }}</text>
 						<text class="foot__act" @click="loadComments(false)">重试</text>
 					</view>
-					<text v-else-if="commentsHasMore" class="foot__act" @click="loadComments(false)">加载更多评论</text>
+					<view v-else-if="commentsIncomplete" class="foot__err">
+						<text class="foot__err-text">{{ commentsIncompleteText }}</text>
+					</view>
 					<text v-else class="foot__text">{{ commentsEndText }}</text>
 				</view>
 			</template>
@@ -186,7 +268,9 @@
  * - `GET /post/{postId}` → `PostDetailRespDTO`：**详情才有** `content` / `images[{url,objectKey,sort}]` /
  *   `videos[{url,objectKey}]` / `topics[]`；**没有 `coverUrl`**（封面 = images 按 sort 的第 0 条）；
  *   **没有 `isTop`**（置顶标记只在列表 DTO 上，所以这页不显示置顶）
- * - ⚠️ 读详情会让后端 `viewCount` +1（不是幂等读）→ 只有真的进这一页才调
+ * - ⚠️ 读详情**默认**会让后端 `viewCount` +1（不是幂等读）→ 只有真的进这一页才调。
+ *   2026-09-21 定稿：详情多了请求参数 `countView`（默认 `true` = 上面的老行为；`false` = 一次都不写 `view_count`），
+ *   依据 `CommunityPostController.java:68-77`；本页**不传**它（= 默认 `true`，行为与从前一致）。
  * - 评论是**游标分页**（`{records,size,hasMore,nextCursor}`，**没有 total**）：
  *   一级评论用 `lastId` 触底续拉；每条评论的回复另走 `/comment/reply`（也是游标，原样回传 nextCursor）。
  *   ⚠️ 一级评论的 `parentId` 实测是**数字 `0`**、`children` 是**正序预览**（条数不保证，≤3 不是硬契约）；
@@ -194,6 +278,11 @@
  * - `commentCount`（详情 DTO）**把回复也算进去**（实测 178：2 一级 + 2 回复 = 4）→ 文案写明"含回复"
  * - 点赞 / 收藏是**写接口**：后端已用真实账号实测通过（幂等），**本端未真调过** →
  *   页面按乐观更新 + 失败回滚，失败一定把状态改回去并把后端的话显示出来（不静默）
+ * - **评论点赞**（2026-09-21 真账号 `probe114904` 实测）：`POST|DELETE /comment/like/{commentId}`，
+ *   `CommentRespDTO` 的 `liked`（布尔）与 `likeCount`（数字）**一级评论与回复项都有** → 回复也能点赞。
+ *   重复点赞 / 未点赞就取消一律 `code:"0"` 且计数不动；**评论不存在时 `POST` 回 `B000311`，
+ *   而 `DELETE` 回 `code:"0"` 静默成功**（不对称，见 `api/community.js`）。
+ *   本页同样走乐观更新 + 失败回滚，未登录沿用上面的软门槛，不新造登录弹窗。
  *
  * 性能取舍：**整页只挂一个 `<video>` 元素**，默认第一个视频、不自动播放，
  * 其余视频靠按钮切换 src。一屏挂一堆 video 会把列表拖垮，也违背"不要自动播一堆"。
@@ -201,23 +290,37 @@
 import { auth } from '@/store/auth.js'
 import { ApiError } from '@/utils/request.js'
 import {
+	COMMENT_MAX_LENGTH,
+	COMMENT_PAGE_SIZE,
 	CURSOR_SIZE,
+	createComment,
 	favoritePost,
 	getPost,
+	likeComment,
 	listComments,
 	listReplies,
 	unfavoritePost,
+	unlikeComment,
 	unlikePost,
 	likePost
 } from '@/api/community.js'
 import {
 	commentCard,
 	communityErrorMessage,
+	imageGridOf,
 	postDetailView,
 	replyCard
 } from '@/utils/community.js'
+import PostImages from '@/components/PostImages.vue'
+
+/**
+ * 「把评论循环拉完」的**页数上限**（防后端一直回 `hasMore=true` 把页面卡死）。
+ * 20 页 × `COMMENT_PAGE_SIZE`(50) = 最多 1000 条一级评论；撞上限时界面**如实**说明没拉完。
+ */
+const COMMENT_PAGE_LIMIT = 20
 
 export default {
+	components: { PostImages },
 	data() {
 		return {
 			statusBarHeight: 0,
@@ -237,6 +340,8 @@ export default {
 			},
 			/** 当前挂在播放器上的视频地址（整页只有一个播放器） */
 			activeVideoUrl: '',
+			/** 图片运行时状态：`{url:true}` = 这张**真的**加载失败（格子照留、如实提示，**不再剔掉**） */
+			brokenImages: {},
 			/** 正在提交的写操作：'' | 'like' | 'favorite' */
 			submitting: '',
 			flash: '',
@@ -248,8 +353,27 @@ export default {
 			commentsLoadingMore: false,
 			commentsError: '',
 			commentsMoreError: '',
+			/**
+			 * 撞到页数上限（`COMMENT_PAGE_LIMIT`）却还有更多 → `true`。
+			 * 界面据此**如实**写"还有没拉完的"，**不写"一级评论都在这儿了"**（那是假话）。
+			 */
+			commentsIncomplete: false,
+			/** 发评论的输入框内容（真提交时原样送后端，页面**不自己截断**） */
+			commentDraft: '',
+			/** 后端允许的评论长度上限（`CommunityConstant.MAX_COMMENT_LENGTH`），只用于输入框 maxlength */
+			commentMaxLength: COMMENT_MAX_LENGTH,
+			commentPosting: false,
+			commentPostError: '',
 			/** commentId -> { open, loading, error, items, cursor, hasMore }（回复懒加载状态） */
 			replyMap: {},
+			/**
+			 * commentId -> { liked, count, busy, error }（**评论点赞**的本地乐观状态）
+			 *
+			 * 只放"用户点过的那几条"：没点过的评论直接吃 DTO 给的 `liked` / `likeCount`（真源优先）。
+			 * 键一律在 methods 里创建（`likeState`），computed 里只读 —— 与 `replyMap` 同一套纪律，
+			 * 在 computed 里写响应式状态会触发重新求值，容易死循环。
+			 */
+			likeMap: {},
 			unauthorized: false
 		}
 	},
@@ -263,9 +387,24 @@ export default {
 		needLogin() {
 			return !this.loggedIn || this.sessionExpired
 		},
-		/** 详情 → 模板字段（摊平在 utils 里，模板只 {{ }}，不调函数） */
+		/** 详情 → 模板字段（摊平在 utils 里，模板只 {{ }}，不调函数）
+		 *  ⚠️ 这里再叠一层**运行时图片状态**：加载真失败的格子会被标 `failed`（**整块仍在**），
+		 *  然后重算网格（`imageGridOf` 与列表卡共用一份口径）。**一个 url 都没有**才 `hasImages=false`。
+		 *  ✅ 图片显示口径：恰好 1 张 → 原比例**不裁切**；≥2 张 → **裁成方形缩略格**（点开看原图）。
+		 *  正文（`content`）**不折叠**：微博 / QQ空间也是"列表折叠、点进详情看全文"。
+		 */
 		view() {
-			return this.detail ? postDetailView(this.detail, this.inter) : null
+			if (!this.detail) return null
+			const v = postDetailView(this.detail, this.inter)
+			const img = imageGridOf(v, { broken: this.brokenImages })
+			v.images = img.images
+			v.hasImages = img.hasImages
+			v.grid = img.grid
+			v.cells = img.cells
+			v.rows = img.rows
+			v.crop = img.crop
+			v.singleFailed = img.singleFailed
+			return v
 		},
 		videoChips() {
 			const v = this.view
@@ -281,29 +420,46 @@ export default {
 		 */
 		comments() {
 			const map = this.replyMap
+			const likes = this.likeMap
+			const self = this
 			return this.rawComments.map(function (c) {
 				const card = commentCard(c)
 				const st = map[c.commentId]
 				const preview = card.children.length
+				const items = st && st.items ? st.items : []
 				card.replyOpen = !!(st && st.open)
 				card.replyLoading = !!(st && st.loading)
 				card.replyError = (st && st.error) || ''
-				card.replyItems = st && st.items ? st.items.map(replyCard) : []
+				card.replyItems = items.map(replyCard)
 				card.replyHasMore = !!(st && st.hasMore)
 				// 回复全在预览里就不用给按钮；否则给"查看全部 N 条回复"。
 				// 预览条数不保证（"最多 3 条"不是硬契约）→ 用 replyCount 与预览实际条数比
 				card.showReplyToggle = card.replyCount > preview || card.replyOpen
 				card.replyToggleText = '查看全部 ' + card.replyCount + ' 条回复'
+				// 点赞：本地乐观状态优先，没点过的直接吃 DTO 给的 liked/likeCount（真源）
+				self.withLike(card, c, likes)
+				// 回复项同样能点赞（实测 CommentRespDTO 对回复也带 liked/likeCount）→ 逐条盖上。
+				// 卡片与原始 DTO 同序同长（都是同一数组 map 出来的），所以按下标取 DTO 是安全的
+				card.children = card.children.map(function (rc, i) {
+					return self.withLike(rc, c.children[i], likes)
+				})
+				card.replyItems = card.replyItems.map(function (rc, i) {
+					return self.withLike(rc, items[i], likes)
+				})
 				return card
 			})
 		},
 		commentsNote() {
-			return '一级评论按时间倒序（新的在前），回复与回复预览都按时间正序（旧的在前）。点「查看全部回复」展开这条评论，往下滑能加载更多。'
+			return '一级评论按时间倒序（新的在前），回复与回复预览都按时间正序（旧的在前）。点「查看全部回复」展开这条评论。'
 		},
 		commentsEndText() {
 			// `view.commentText` 那个数是 `commentCount`（**含回复**），这里的数是一级评论条数
 			// → 两者口径不同，文案必须写清是"一级评论"，别让人以为对不上
 			return this.rawComments.length ? '一级评论都在这儿了，共 ' + this.rawComments.length + ' 条' : ''
+		},
+		/** 被页数上限截断时的**如实**说明：不说"全部"，也不摆一个"查看更多"按钮（用户明确不要分页交互） */
+		commentsIncompleteText() {
+			return '已经加载了 ' + this.rawComments.length + ' 条一级评论，这条帖子还有更多没拉完'
 		}
 	},
 	onLoad(options) {
@@ -327,8 +483,10 @@ export default {
 		}
 	},
 	onReachBottom() {
+		// 评论**进页面就已经循环拉完了**（见 loadComments），这里不再负责续拉评论；
+		// 只有"被页数上限截断 / 中途失败"时才用底部的重试接着拉。
 		if (this.needLogin) return
-		if (this.commentsHasMore && !this.commentsLoading && !this.commentsLoadingMore) {
+		if (this.commentsIncomplete && !this.commentsLoading && !this.commentsLoadingMore && !this.commentsMoreError) {
 			this.loadComments(false)
 		}
 	},
@@ -336,6 +494,7 @@ export default {
 		async loadAll() {
 			this.unauthorized = false
 			await this.loadDetail()
+			// 详情拿到了才拉评论（评论接口要 postId；帖子不存在就没必要发第二个请求）
 			if (this.detail) await this.loadComments(true)
 		},
 
@@ -372,44 +531,113 @@ export default {
 		},
 
 		/**
-		 * 拉评论
-		 * @param {boolean} reset true = 第一页（换页/重试），false = 用 nextCursor 续拉
+		 * 拉评论：**默认把这条帖子的评论全拉完**。
+		 *
+		 * 用户 2026-09-21 定稿：「帖子里**默认显示所有的评论**就可以了」→ 进页面就把评论全部加载并显示，
+		 * **不要**"查看更多 / 展开 / 分页"这类交互。
+		 *
+		 * 接口能力（读源码）：`GET /community/comment` 是**游标分页**
+		 * （`lastId` = 上一页的 `nextCursor`，按 `commentId` **倒序**），`size` 由后端 `normalizeSize`
+		 * 归一化：null/<1 → `DEFAULT_PAGE_SIZE = 10`，上限 `MAX_PAGE_SIZE = 50`
+		 * （`CommentServiceImpl.java:380`）→ **一次拿不完**，所以这里**循环续拉直到 `hasMore=false`**。
+		 * 每次都用满 `COMMENT_PAGE_SIZE`(=上限 50) 减少往返。
+		 * ⚠️ 循环有页数上限 `COMMENT_PAGE_LIMIT`（防后端一直回 `hasMore=true` 把页面卡死）：
+		 * 真被上限截断时 `commentsIncomplete = true`，界面**如实说"还有没拉完的"**，**不假装"全部"**。
+		 *
+		 * @param {boolean} reset true = 从头拉（进页面 / 重试），false = 接着上次的游标继续
 		 */
 		async loadComments(reset) {
 			if (!this.postId) return
-			if (!reset && (this.commentsCursor === null || this.commentsCursor === undefined)) {
-				// 没有游标就别硬拉（否则会重复请求第一页）
-				this.commentsHasMore = false
-				return
-			}
 			if (reset) {
 				this.commentsLoading = true
 				this.commentsError = ''
+				this.commentsMoreError = ''
+				this.commentsIncomplete = false
 				this.commentsCursor = null
-				this.commentsHasMore = false
+				this.commentsHasMore = true
 				this.rawComments = []
+				// 整份评论被换掉 → 评论点赞的本地乐观状态一并作废，重新以接口的 liked/likeCount 为准
+				this.likeMap = {}
+			} else if (!this.commentsHasMore) {
+				// 没有更多（或没有游标）就别硬拉，否则会重复请求最后一页
+				return
 			} else {
 				this.commentsLoadingMore = true
 				this.commentsMoreError = ''
 			}
+			let rounds = 0
 			try {
-				const page = await listComments({
-					postId: this.postId,
-					lastId: reset ? undefined : this.commentsCursor,
-					size: CURSOR_SIZE
-				})
-				const records = (page && page.records) || []
-				this.rawComments = reset ? records : this.rawComments.concat(records)
-				this.commentsHasMore = !!(page && page.hasMore)
-				this.commentsCursor = page ? page.nextCursor : null
+				do {
+					const page = await listComments({
+						postId: this.postId,
+						lastId: this.commentsCursor === null || this.commentsCursor === undefined ? undefined : this.commentsCursor,
+						size: COMMENT_PAGE_SIZE
+					})
+					const records = (page && page.records) || []
+					this.rawComments = this.rawComments.concat(records)
+					// ⚠️ 游标只认响应字段：`hasMore=true` 但 `nextCursor` 为空 = 死循环入口，立刻收尾
+					const next = page ? page.nextCursor : null
+					this.commentsHasMore = !!(page && page.hasMore) && next !== null && next !== undefined
+					this.commentsCursor = next
+					rounds++
+				} while (this.commentsHasMore && rounds < COMMENT_PAGE_LIMIT)
+				// 撞到页数上限还有更多 → **如实标记**（界面会写"还没拉完"，不写"已到末尾"）
+				if (this.commentsHasMore) this.commentsIncomplete = true
 			} catch (e) {
 				if (this.noteAuth(e)) return
 				const text = communityErrorMessage(e)
-				if (reset) this.commentsError = text
+				// 一条都没拉到 = 首屏失败（说清原因）；拉到一半失败 = 底部续拉失败（可重试续上）
+				if (reset && !this.rawComments.length) this.commentsError = text
 				else this.commentsMoreError = text
 			} finally {
 				this.commentsLoading = false
 				this.commentsLoadingMore = false
+			}
+		},
+
+		/** 输入框内容变化（`input` 事件在 uni-app 里是 `e.detail.value`） */
+		onCommentInput(e) {
+			const d = (e && e.detail) || {}
+			this.commentDraft = d.value === undefined || d.value === null ? '' : String(d.value)
+		},
+
+		/**
+		 * 发评论：**真调 `POST /community/comment`**，成功后把返回的评论插到列表头部 + 总数 +1。
+		 *
+		 * - 空内容：本地拦下（没内容可发；后端对空内容是 `B000313`）→ 不算"请求失败"，文案直说
+		 * - 其余失败：**照实显示后端的话**（超长 `B000314` / 敏感词 `B000318` / 掉线 `B000310` / 帖子没了 `B000301`）
+		 * - 掉线（`noteAuth`）→ 切软门槛 + 去登录，不摆一堆红字
+		 * - 🔴 成功之后**不重拉整页**：响应就是一条 `CommentRespDTO`，直接插到头部
+		 */
+		async postComment() {
+			const text = String(this.commentDraft || '').trim()
+			if (!text) {
+				// 空内容不发请求：这不是"网络失败"，如实说清"先写点什么"
+				this.commentPostError = '先写点什么再发'
+				return
+			}
+			if (this.commentPosting) return
+			this.commentPosting = true
+			this.commentPostError = ''
+			try {
+				const created = await createComment({ postId: this.postId, content: text })
+				// 后端回的就是评论对象；万一形状不对（脏响应）也不许编一条假的进列表
+				if (created && created.commentId) {
+					this.rawComments = [created].concat(this.rawComments)
+					this.inter.commentCount = (Number(this.inter.commentCount) || 0) + 1
+					this.commentDraft = ''
+					this.flash = '评论发出去了'
+				} else {
+					this.commentPostError = '评论接口这次没有返回评论内容，去评论列表看看是否已经发出去'
+				}
+			} catch (e) {
+				if (this.noteAuth(e)) {
+					this.commentPosting = false
+					return
+				}
+				this.commentPostError = communityErrorMessage(e)
+			} finally {
+				this.commentPosting = false
 			}
 		},
 
@@ -487,6 +715,106 @@ export default {
 			this.loadReplies(commentId, !st.items.length)
 		},
 
+		/* ---------------- 评论点赞（2026-09-21 实测过的写接口） ---------------- */
+
+		/**
+		 * 把评论点赞的本地乐观状态盖到摊平后的卡片上。
+		 *
+		 * **只读** `likeMap`（不建键）：键一律由 `likeState` 在点击时创建。
+		 * @param {object} card commentCard / replyCard 的产物
+		 * @param {object} dto 这一条对应的**原始 CommentRespDTO**（没点过时以它为准）
+		 * @param {object} likes this.likeMap
+		 */
+		withLike(card, dto, likes) {
+			const st = likes && likes[card.commentId]
+			const liked = st ? !!st.liked : !!(dto && dto.liked)
+			const count = st ? Number(st.count) || 0 : Math.max(0, Number(dto && dto.likeCount) || 0)
+			card.liked = liked
+			card.likeCount = count
+			card.likeText = (liked ? '已赞 ' : '赞 ') + count
+			card.likeBusy = !!(st && st.busy)
+			card.likeError = (st && st.error) || ''
+			return card
+		},
+
+		/**
+		 * 评论点赞的本地状态（在 methods 里创建键，computed 里只读）。
+		 *
+		 * 初值取**接口给的真源**：从已加载的评论 / 回复预览 / 回复桶里找这条 DTO。
+		 * 找不到（不该发生）就按"未点赞 + 0"起步，**不编数字**。
+		 */
+		likeState(commentId) {
+			if (!this.likeMap[commentId]) {
+				const dto = this.findCommentDto(commentId)
+				this.likeMap[commentId] = {
+					liked: !!(dto && dto.liked),
+					count: Math.max(0, Number(dto && dto.likeCount) || 0),
+					busy: false,
+					error: ''
+				}
+			}
+			return this.likeMap[commentId]
+		},
+
+		/** 在"一级评论 / 预览回复 / 已展开的回复"里找一条原始 DTO */
+		findCommentDto(commentId) {
+			for (let i = 0; i < this.rawComments.length; i++) {
+				const c = this.rawComments[i]
+				if (c.commentId === commentId) return c
+				const children = Array.isArray(c.children) ? c.children : []
+				for (let j = 0; j < children.length; j++) {
+					if (children[j].commentId === commentId) return children[j]
+				}
+			}
+			const keys = Object.keys(this.replyMap)
+			for (let k = 0; k < keys.length; k++) {
+				const items = this.replyMap[keys[k]].items || []
+				for (let i = 0; i < items.length; i++) {
+					if (items[i].commentId === commentId) return items[i]
+				}
+			}
+			return null
+		},
+
+		/**
+		 * 评论 / 回复的点赞与取消（写接口，**2026-09-21 真账号实测过**）
+		 *
+		 * 乐观更新：先改本地，失败再回滚，并把后端的话显示在这条评论下面（+ toast）。
+		 * 与帖子点赞同一套写法；未登录沿用本页既有的软门槛，**不新造登录弹窗**。
+		 */
+		async toggleCommentLike(commentId) {
+			if (this.needLogin) {
+				this.toast('先登录再点赞')
+				return
+			}
+			if (!commentId) return
+			const st = this.likeState(commentId)
+			if (st.busy) return
+			const next = !st.liked
+			const before = st.count
+			st.liked = next
+			st.count = Math.max(0, before + (next ? 1 : -1))
+			st.busy = true
+			st.error = ''
+			try {
+				if (next) await likeComment(commentId)
+				else await unlikeComment(commentId)
+			} catch (e) {
+				st.liked = !next
+				st.count = before
+				const text = communityErrorMessage(e)
+				st.error = (next ? '点赞没成功：' : '取消点赞没成功：') + text
+				// 写操作掉线要显式处理：光说"登录已过期"却不给下一步，用户会卡在原地反复点
+				if (this.noteAuth(e)) {
+					this.toast('登录已过期，请重新登录')
+					return
+				}
+				this.toast(text)
+			} finally {
+				st.busy = false
+			}
+		},
+
 		/**
 		 * 点赞 / 取消（写接口，**未实测**）
 		 * 乐观更新：先改本地，失败再回滚并把后端的话显示出来。
@@ -554,10 +882,27 @@ export default {
 			}
 		},
 
+		/**
+		 * 点图看大图（`previewImage`）：`current` 必须是**点的那一张**。
+		 *
+		 * 🔴 传进去的是 `view.images` = **原图 url**：卡片/详情里的 `aspectFill` 只裁**缩略格**，
+		 * 点开看到的是**完整原图**（用户定稿要求）。
+		 */
 		previewImage(index) {
 			const urls = this.view ? this.view.images : []
 			if (!urls.length) return
-			uni.previewImage({ urls: urls, current: urls[index] })
+			const at = Number(index) > 0 && Number(index) < urls.length ? Number(index) : 0
+			uni.previewImage({ urls: urls, current: urls[at] })
+		},
+
+		/**
+		 * 图片**真的**加载失败（`@error`）→ 记下这张 url；`view` 里这一格标成 `failed`，
+		 * 组件**留在原地**写「图片加载失败」（2026-09-21 定稿：**不再剔掉**，剔掉就等于"静默当没图"）。
+		 */
+		onImageFail(url) {
+			if (!url) return
+			if (this.brokenImages[url]) return
+			this.brokenImages = Object.assign({}, this.brokenImages, { [url]: true })
 		},
 
 		playVideo(url) {
@@ -578,6 +923,15 @@ export default {
 			else uni.switchTab({ url: '/pages/community/community' })
 		},
 
+		/**
+		 * 点作者名进他的主页（uid 只能从社区 DTO 带过去：`GET /user/{username}` 的 id 恒 null、
+		 * user 模块没有按 uid 查的接口 → 页面参数是唯一入口）。没带 uid 的旧数据不跳，免得进空页。
+		 */
+		goUser(uid) {
+			if (!uid) return
+			uni.navigateTo({ url: '/pages/user/profile?uid=' + uid })
+		},
+
 		goLogin() {
 			if (this.unauthorized) auth.clearSession()
 			uni.navigateTo({ url: '/pages/login/login' })
@@ -594,6 +948,12 @@ export default {
 			this.detailError = ''
 			this.commentsError = ''
 			this.commentsMoreError = ''
+			// 评论点赞是逐条的行内报错：掉线时同样清掉，别让"点赞没成功：登录已过期"挂一屏
+			const ids = Object.keys(this.likeMap)
+			for (let i = 0; i < ids.length; i++) {
+				this.likeMap[ids[i]].error = ''
+				this.likeMap[ids[i]].busy = false
+			}
 			this.detailLoading = false
 			this.commentsLoading = false
 			this.commentsLoadingMore = false
@@ -673,7 +1033,7 @@ export default {
 	width: 72rpx;
 	height: 72rpx;
 	border-radius: 50%;
-	background: rgba(10, 125, 109, 0.1);
+	background: rgba(194, 65, 12, 0.1);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -715,20 +1075,13 @@ export default {
 	color: $mw-ink;
 }
 
-/* ---- 图片（九宫格，点开可看大图） ---- */
-.imgs {
-	display: flex;
-	flex-wrap: wrap;
-	margin-top: $mw-space-3;
-}
-.imgs__one {
-	width: 218rpx;
-	height: 218rpx;
-	margin-right: $mw-space-1;
-	margin-bottom: $mw-space-1;
-	border-radius: $mw-radius-input;
-	background: $mw-canvas;
-}
+/* ---- 图片区已搬进共用组件 `components/PostImages.vue` ----
+ * 1 张大图 / 2 张一行两张 / 3 张一行三张 / 4 张 2×2 / 5-9 张 3×3 / >9 张第 9 格盖 +N。
+ * ⚠️ 无图时**整块不渲染**（模板是 `v-if="view.hasImages"`），组件里**不写** display:none / height:0 的兜底，
+ *    否则就成了"渲染了但看不见"——那正是本项目吃过亏的写法。
+ * 🔴 这里**故意不再有** `.imgs__cell / .imgs__one / .imgs--*` 那套样式：
+ *    它们是三份重复代码中的一份（"9 张排成 2 列"的现场），留在页面上就会有人照着改回来。
+ */
 
 /* ---- 视频（只挂一个播放器，不自动播放） ---- */
 .videos {
@@ -780,7 +1133,7 @@ export default {
 	margin-bottom: 6rpx;
 	padding: 4rpx 14rpx;
 	border-radius: $mw-radius-tag;
-	background: rgba(10, 125, 109, 0.12);
+	background: rgba(74, 118, 56, 0.12);
 	font-size: 20rpx;
 	font-weight: 600;
 	color: $mw-success;
@@ -821,12 +1174,69 @@ export default {
 	color: $mw-ink;
 	font-variant-numeric: tabular-nums;
 }
+/* 自绘 SVG 图标（与 tabbar / 列表卡同一套方案）；颜色走 `currentColor`，不写死色值 */
+.act__icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-right: 6rpx;
+	color: $mw-ink;
+}
 .act--on {
 	background: $mw-brand-ink;
 	border-color: $mw-brand-ink;
 }
 .act--on text {
-	color: #ffffff;
+	color: $mw-on-night;
+}
+.act--on .act__icon {
+	color: $mw-on-night;
+}
+/* ---- 发评论：输入框 + 发送（真调 POST /community/comment；触达 ≥ $mw-touch-min） ---- */
+.compose {
+	display: flex;
+	align-items: center;
+	margin-top: $mw-space-2;
+}
+.compose__input {
+	flex: 1;
+	height: $mw-touch-min;
+	padding: 0 $mw-space-3;
+	background: $mw-surface;
+	border: 1px solid $mw-line;
+	border-radius: $mw-radius-input;
+	font-size: $mw-font-caption;
+	color: $mw-ink;
+}
+.compose__ph {
+	color: $mw-muted;
+}
+.compose__go {
+	margin-left: $mw-space-2;
+	min-width: 128rpx;
+	height: $mw-touch-min;
+	padding: 0 $mw-space-3;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: $mw-brand-ink;
+	border-radius: $mw-radius-pill;
+}
+.compose__go text {
+	font-size: $mw-font-caption;
+	font-weight: 600;
+	color: $mw-on-night;
+}
+/* 提交中：降低不透明度（**不写死颜色**），点击在方法里被 `commentPosting` 挡住 */
+.compose__go--busy {
+	opacity: 0.6;
+}
+.compose__err {
+	display: block;
+	margin-top: $mw-space-1;
+	font-size: $mw-font-micro;
+	line-height: 1.6;
+	color: $mw-danger;
 }
 .flash {
 	display: block;
@@ -883,9 +1293,37 @@ export default {
 	color: $mw-muted;
 }
 .cmt__like {
+	flex: none;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	/* 触控下限 88rpx ≈ 44px：点赞是可点区域，不能只是个小数字 */
+	min-width: $mw-touch-min;
+	min-height: $mw-touch-min;
+	padding: 0 $mw-space-1;
+	border-radius: $mw-radius-pill;
 	font-size: 22rpx;
 	color: $mw-muted;
 	font-variant-numeric: tabular-nums;
+}
+.cmt__like--on {
+	color: $mw-brand-ink;
+}
+.cmt__like--busy {
+	opacity: 0.5;
+}
+/* 自绘小桃心（素材已废弃，不用 PNG），只拿边框画，配色全走既有令牌 */
+.cmt__heart {
+	width: 16rpx;
+	height: 16rpx;
+	margin-right: 6rpx;
+	border: 2rpx solid currentColor;
+	border-radius: 50%;
+	flex: none;
+}
+.cmt__like--on .cmt__heart,
+.rep__like--on .cmt__heart {
+	background: currentColor;
 }
 .cmt__content {
 	display: block;
@@ -901,10 +1339,43 @@ export default {
 	border-radius: $mw-radius-input;
 }
 .rep {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
 	margin-bottom: $mw-space-1;
 }
 .rep:last-child {
 	margin-bottom: 0;
+}
+.rep__main {
+	flex: 1;
+	min-width: 0;
+}
+.rep__like {
+	flex: none;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	min-width: $mw-touch-min;
+	min-height: $mw-touch-min;
+	padding-left: $mw-space-1;
+	font-size: 22rpx;
+	color: $mw-muted;
+	font-variant-numeric: tabular-nums;
+}
+.rep__like--on {
+	color: $mw-brand-ink;
+}
+.rep__like--busy {
+	opacity: 0.5;
+}
+.rep__err {
+	display: block;
+	width: 100%;
+	padding-bottom: $mw-space-1;
+	font-size: 22rpx;
+	line-height: 1.5;
+	color: $mw-danger;
 }
 .rep__who {
 	font-size: $mw-font-micro;
