@@ -23,7 +23,15 @@ import java.util.Map;
 public class MinioProperties {
 
     /**
-     * MinIO 服务地址（S3 API 端口，不是控制台端口 9001）
+     * MinIO <b>内网</b>服务地址（S3 API 端口，不是控制台端口 9001）
+     * <p>
+     * 这是<b>服务自己</b>读写对象（putObject / getObject / 建桶 / 设桶策略）用的地址，
+     * 由 {@code MinioConfig} 装配 {@code MinioClient} 时消费 —— <b>永远不变</b>。
+     * <b>不要拿它拼下发给客户端的 URL</b>：客户端不一定访问得到这个地址。
+     * 下发 URL 的取址见 {@link #publicBaseUrl} / {@link #publicPort}，
+     * 以及 {@code ObjectStorageUrlBuilder} 的三级优先级（本字段是最后一级兜底）。
+     * <p>
+     * 顺带兼作"推导端口"的来源：{@link #publicPort} 不配时，按本地址的端口推导（今天 = 9000）。
      */
     private String endpoint = "http://192.168.137.128:9000";
 
@@ -48,12 +56,36 @@ public class MinioProperties {
             FileBizTypeEnum.HEALTH_IMAGE.getBucketKey(), "miaowang-health"));
 
     /**
-     * 对象公共读访问入口（<b>不含桶名</b>），可选；不配则用 endpoint。
+     * 对象<b>对外可达</b>入口（Nacos key：{@code minio.public-base-url}，<b>不含桶名</b>），可选，
+     * 是"下发 URL 取址"的<b>第 1 优先级</b>。
      * <p>
-     * 最终 URL = publicBaseUrl + "/" + 桶名 + "/" + objectKey。
-     * 留空即可（默认拼 endpoint），只有当外部访问地址和内部 endpoint 不一致时才需要配。
+     * 最终下发给客户端的 URL = publicBaseUrl + "/" + 桶名 + "/" + objectKey。
+     * <p>
+     * <b>留空（默认）不再直接回退 endpoint</b>，而是先按本次请求的 Host 推导
+     * （见 {@code ObjectStorageUrlBuilder} 的三级取址）；只有拿不到请求上下文时才回退
+     * {@link #endpoint}。所以：
+     * <ul>
+     *   <li>开发/局域网：<b>什么都不用配</b> —— 手机用哪个 IP 调接口，图片地址就用哪个 IP</li>
+     *   <li>生产：填公网 endpoint 或 CDN 域名（如 {@code https://cdn.example.com}）。
+     *       配了就完全不看请求头，也就没有 Host 头被伪造的顾虑</li>
+     * </ul>
+     * <p>
+     * 拼装点唯一收敛在 {@code ObjectStorageUrlBuilder#buildPublicUrl}，改这里即可全局生效
+     * （社区图片/视频、头像、健康档案）。
      */
     private String publicBaseUrl;
+
+    /**
+     * 按请求 Host 推导"对外地址"时用的端口（Nacos key：{@code minio.public-port}），可选。
+     * <p>
+     * <b>默认（不配）= {@link #endpoint} 里的端口</b>，今天即 <b>9000</b>；解析不出来才兜 9000。
+     * 之所以默认跟着 endpoint 的端口走而不是写死：内网 MinIO 换端口时推导端口应当跟着换。
+     * <p>
+     * 什么时候需要显式配：<b>客户端访问对象存储的端口 ≠ MinIO 端口</b>。
+     * 典型是开发期用 {@code MiaoWang-frontproject/tools/minio-forward.js} 转发，
+     * 而本机 9000 已被占用、转发工具改听 9100 → 这里配 {@code 9100}。
+     */
+    private Integer publicPort;
 
     /**
      * 允许上传的图片扩展名，逗号分隔

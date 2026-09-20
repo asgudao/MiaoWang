@@ -36,6 +36,10 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     private final MinioClient minioClient;
     private final MinioProperties minioProperties;
+    /**
+     * 下发 URL 的唯一拼装点：内部 SDK 用内网 endpoint，返回给客户端的 URL 用对外可达地址
+     */
+    private final ObjectStorageUrlBuilder objectStorageUrlBuilder;
 
     @Override
     public FileUploadRespDTO uploadImage(MultipartFile file, FileBizTypeEnum bizType) {
@@ -77,7 +81,9 @@ public class FileStorageServiceImpl implements FileStorageService {
         }
         FileUploadRespDTO respDTO = new FileUploadRespDTO();
         respDTO.setObjectKey(objectKey);
-        respDTO.setUrl(buildPublicUrl(bucket, objectKey));
+        // 下发给客户端的直链：走对外可达地址（minio.public-base-url，不配则回退内网 endpoint）——
+        // 图片本体是 SDK 传的（内网），URL 是给外部设备访问的（可能不是同一个地址）
+        respDTO.setUrl(objectStorageUrlBuilder.buildPublicUrl(bucket, objectKey));
         return respDTO;
     }
 
@@ -123,13 +129,5 @@ public class FileStorageServiceImpl implements FileStorageService {
         return "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\","
                 + "\"Principal\":{\"AWS\":[\"*\"]},\"Action\":[\"s3:GetObject\"],"
                 + "\"Resource\":[\"arn:aws:s3:::" + bucket + "/*\"]}]}";
-    }
-
-    private String buildPublicUrl(String bucket, String objectKey) {
-        String baseUrl = minioProperties.getPublicBaseUrl();
-        if (StrUtil.isBlank(baseUrl)) {
-            baseUrl = minioProperties.getEndpoint();
-        }
-        return StrUtil.removeSuffix(baseUrl, "/") + "/" + bucket + "/" + objectKey;
     }
 }
