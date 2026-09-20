@@ -37,6 +37,18 @@ public interface VipOrderService {
     String handleNotify(String channelCode, Map<String, String> params);
 
     /**
+     * 主动查单对账：向渠道问这笔单，渠道说付了就补走回调那条链路发货
+     *
+     * <p><b>为什么需要</b>：异步回调会丢 —— 公网抖动、渠道重试次数耗尽、开发机在局域网内
+     * 压根收不到回调。「渠道说付了、我们这边还是待支付」必须能自愈，否则用户付了钱拿不到会员；
+     * 真实支付里也必须能主动对账，所以这不是联调权宜之计。
+     *
+     * <p>仅订单本人可调（越权按"订单不存在"处理）；幂等：订单已不是待支付就直接回读当前状态，
+     * 渠道说没付也只是回读，都不会重复发会员。
+     */
+    VipOrderRespDTO syncOrder(String orderNo);
+
+    /**
      * 订单退款（仅本人、仅已支付、仅窗口期内；幂等）
      */
     VipOrderRespDTO refund(String orderNo, VipRefundReqDTO requestParam);

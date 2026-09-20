@@ -26,6 +26,7 @@ import com.MapleLeaf.MiaoWang.pay.MockPayChannel;
 import com.MapleLeaf.MiaoWang.pay.PayChannel;
 import com.MapleLeaf.MiaoWang.pay.PayChannelRegistry;
 import com.MapleLeaf.MiaoWang.pay.PayNotifyResult;
+import com.MapleLeaf.MiaoWang.pay.PayQueryResult;
 import com.MapleLeaf.MiaoWang.pay.PayRefundResult;
 import com.MapleLeaf.MiaoWang.service.VipOrderService;
 import com.MapleLeaf.MiaoWang.support.VipPaySignUtil;
@@ -70,6 +71,12 @@ import java.util.stream.Collectors;
  * 验签 → 时间戳新鲜度 → 找订单 → 已是已支付就幂等应答（<b>必须在 nonce 校验之前</b>，
  * 否则渠道正常的重复回调会被当成重放拒掉，渠道会一直重试）→ 金额校验（按<b>应付金额</b>）→
  * nonce 一次性 → CAS → 发会员 → 核销优惠码。
+ *
+ * <h3>四、主动查单与回调共用同一条落地链路</h3>
+ * 回调会丢（公网抖动、渠道重试耗尽、开发机在局域网内收不到），所以 {@link #syncOrder} 允许
+ * <b>订单本人</b>让服务端主动去问渠道。查到已支付就收敛成与回调同形状的 {@code PayNotifyResult}，
+ * 走同一个 {@link #applyPaidResult} —— 金额校验、CAS、发会员、核销码只有一份实现，
+ * 两条路径不会算出不一样的到期时间。查单路径没有可重放的渠道回调，所以跳过 nonce 校验。
  */
 @Slf4j
 @Service
@@ -138,7 +145,7 @@ public class VipOrderServiceImpl implements VipOrderService {
             VipOrderDO existOrder = findByRequestId(uid, requestParam.getRequestId());
             if (existOrder != null) {
                 log.info("requestId={} 重复下单，直接返回已有订单 {}", requestParam.getRequestId(), existOrder.getOrderNo());
-                return toRespDTO(existOrder, channel.createPayment(existOrder));
+                return toRespDTO(existOrder, channel.createPayment(existOrder, requestParam.getPayScene()));
             }
         }
         // 幂等②：同一档位 + 同一优惠码还有未超时的待支付单就直接复用（用户连点不会出一堆单）
@@ -146,7 +153,7 @@ public class VipOrderServiceImpl implements VipOrderService {
                 promoCode == null ? null : promoCode.getId());
         if (pendingOrder != null) {
             log.info("用户 {} 在档位 {} 已有待支付订单 {}，复用该订单", uid, planDO.getPlanCode(), pendingOrder.getOrderNo());
-            return toRespDTO(pendingOrder, channel.createPayment(pendingOrder));
+            return toRespDTO(pendingOrder, channel.createPayment(pendingOrder, requestParam.getPayScene()));
         }
         // 到这里才需要拦"这个码我已经用过了"：如果只是重复点击，上面复用的分支已经把它接住了
         if (promoCode != null && vipPromoCodeSupport.findRedeem(promoCode.getId(), uid) != null) {
@@ -182,12 +189,13 @@ public class VipOrderServiceImpl implements VipOrderService {
                 throw e;
             }
             log.info("requestId={} 并发下单撞唯一索引，返回已有订单 {}", requestParam.getRequestId(), existOrder.getOrderNo());
-            return toRespDTO(existOrder, channel.createPayment(existOrder));
+            return toRespDTO(existOrder, channel.createPayment(existOrder, requestParam.getPayScene()));
         }
-        log.info("用户 {}（uid={}）创建会员订单 {}：档位 {}，原价 {}，优惠 {}，应付 {}，渠道 {}，优惠码 {}",
+        log.info("用户 {}（uid={}）创建会员订单 {}：档位 {}，原价 {}，优惠 {}，应付 {}，渠道 {}，场景 {}，优惠码 {}",
                 username, uid, orderDO.getOrderNo(), planDO.getPlanCode(), orderDO.getAmount(),
-                orderDO.getDiscountAmount(), orderDO.getPayableAmount(), channel.code(), orderDO.getPromoCode());
-        return toRespDTO(orderDO, channel.createPayment(orderDO));
+                orderDO.getDiscountAmount(), orderDO.getPayableAmount(), channel.code(),
+                StrUtil.blankToDefault(requestParam.getPayScene(), "渠道默认"), orderDO.getPromoCode());
+        return toRespDTO(orderDO, channel.createPayment(orderDO, requestParam.getPayScene()));
     }
 
     @Override
@@ -209,41 +217,99 @@ public class VipOrderServiceImpl implements VipOrderService {
         PayChannel channel = payChannelRegistry.require(channelCode);
         // ① 验签 + 时间戳新鲜度：验不过直接抛，绝不能"验不过也放过"
         PayNotifyResult notifyResult = channel.verifyAndParse(params);
+        // 回调路径必须带 nonce：用空白兜住"渠道压根没给 nonce"的情况，
+        // 让它被 requireFreshNonce 拦下（而不是被当成"服务端主动查单"跳过防重放）
+        return applyPaidResult(channel, notifyResult,
+                StrUtil.blankToDefault(params.get(VipPaySignUtil.NONCE_FIELD), StrUtil.EMPTY));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public VipOrderRespDTO syncOrder(String orderNo) {
+        VipOrderDO orderDO = requireMyOrder(orderNo);
+        // 状态机已有定论的单子（已支付/已关闭/已退款）查单没有意义，直接回读当前状态：
+        // 前端支付后反复点"对账"也不会重复发会员
+        if (VipPayStatusEnum.of(orderDO.getPayStatus()) != VipPayStatusEnum.PENDING) {
+            log.info("订单 {} 当前状态【{}】，主动查单按幂等回读", orderNo,
+                    VipPayStatusEnum.descOf(orderDO.getPayStatus()));
+            return toRespDTO(orderDO, null);
+        }
+        PayChannel channel = payChannelRegistry.require(orderDO.getPayType());
+        PayQueryResult queryResult = channel.queryTrade(orderDO.getOrderNo());
+        if (queryResult == null) {
+            // 渠道没实现查单（如 mock）：如实回读，不猜、不假装成功
+            log.info("订单 {} 的渠道 {} 不支持主动查单，回读当前状态", orderNo, orderDO.getPayType());
+            return toRespDTO(orderDO, null);
+        }
+        if (!queryResult.paid()) {
+            log.info("订单 {} 主动查单：渠道状态 {}，尚未支付", orderNo, queryResult.tradeStatus());
+            return toRespDTO(orderDO, null);
+        }
+        // ② 复用回调那条链路（金额校验 → CAS → 发会员 → 核销优惠码）：
+        //    nonce 传 null 表示"这是服务端自己查出来的结果，没有可重放的渠道回调"，
+        //    金额与幂等仍然由同一份代码把关
+        log.info("订单 {} 主动查单：渠道判定已支付（tradeStatus={}，channelTradeNo={}），补走回调链路发货",
+                orderNo, queryResult.tradeStatus(), queryResult.channelTradeNo());
+        applyPaidResult(channel, queryResult.toNotifyResult(), null);
+        // 回读一次：状态与会员区间都已变，直接返回旧对象前端会以为没生效
+        return toRespDTO(findByOrderNo(orderNo), null);
+    }
+
+    /**
+     * 「渠道说钱到了」之后的统一落地路径：<b>回调与主动查单共用</b>
+     *
+     * <p>抽出来的理由：{@link #handleNotify}（渠道推给我们）与 {@link #syncOrder}（我们主动去问）
+     * 必须走<b>同一份</b>金额校验、CAS 状态流转、发会员、核销优惠码的代码 —— 两条路径各写一遍，
+     * 迟早会出现"回调发的会员和查单发的会员到期时间不一样"这种对不上的账。
+     *
+     * @param channel      渠道实现（取 ackBody、判要不要 nonce）
+     * @param notifyResult 渠道告知的支付结果（回调解析出来 / 查单收敛出来）
+     * @param nonce        回调 nonce（防重放）；主动查单没有可重放的渠道回调，传 null
+     */
+    private String applyPaidResult(PayChannel channel, PayNotifyResult notifyResult, String nonce) {
         VipOrderDO orderDO = findByOrderNo(notifyResult.orderNo());
         if (orderDO == null) {
-            log.warn("支付回调找不到订单：channel={}，orderNo={}", channelCode, notifyResult.orderNo());
+            log.warn("支付结果找不到订单：channel={}，orderNo={}", channel.code(), notifyResult.orderNo());
             throw new ClientException(VipErrorCodeEnum.VIP_ORDER_NOT_EXIST);
         }
-        // ② 渠道明确告知支付失败：不动状态，用户在有效期内可以重新支付
+        // 渠道明确告知支付失败：不动状态，用户在有效期内可以重新支付
         if (!notifyResult.success()) {
-            log.warn("支付回调为失败状态：orderNo={}，原因={}", notifyResult.orderNo(), notifyResult.failReason());
+            log.warn("支付结果为失败状态：orderNo={}，原因={}", notifyResult.orderNo(), notifyResult.failReason());
             return channel.ackBody();
         }
         VipPayStatusEnum payStatus = VipPayStatusEnum.of(orderDO.getPayStatus());
-        // ③ 重复回调：直接应答成功（真实渠道会重试到收到成功应答为止）。
-        //    这一步必须在 nonce 校验之前 —— 否则渠道的正常重试会被判成重放、不断重试下去。
+        // 重复回调：直接应答成功（真实渠道会重试到收到成功应答为止）。
+        // 这一步必须在 nonce 校验之前 —— 否则渠道的正常重试会被判成重放、不断重试下去。
         if (payStatus == VipPayStatusEnum.PAID) {
             log.info("订单 {} 已是已支付，重复回调按幂等应答（channelTradeNo={}）",
                     orderDO.getOrderNo(), notifyResult.channelTradeNo());
             return channel.ackBody();
         }
         if (payStatus != VipPayStatusEnum.PENDING) {
-            // 已关闭/已退款不能再被改成已支付，否则等于凭空发会员
-            log.warn("订单 {} 当前状态【{}】不接受支付回调", orderDO.getOrderNo(), VipPayStatusEnum.descOf(orderDO.getPayStatus()));
+            // 已关闭/已退款不能再被改成已支付，否则等于凭空发会员。
+            // ⚠️ 已关闭的单子在渠道侧真的付成功了属于"钱收了但没发会员"，
+            //    日志里留清楚线索，只能人工退款（见 README 挂账）
+            log.warn("订单 {} 当前状态【{}】不接受支付结果，渠道单号 {}",
+                    orderDO.getOrderNo(), VipPayStatusEnum.descOf(orderDO.getPayStatus()),
+                    notifyResult.channelTradeNo());
             throw new ClientException(VipErrorCodeEnum.VIP_ORDER_STATUS_ERROR);
         }
-        // ④ 金额必须和订单一致：有优惠码时比的是「应付金额」，不是原价。
-        //    否则就是"改小金额骗会员"（真实渠道同样要校验）
+        // 金额必须和订单一致：有优惠码时比的是「应付金额」，不是原价。
+        // 否则就是"改小金额骗会员"（真实渠道同样要校验）
         BigDecimal payableAmount = effectivePayableAmount(orderDO);
         if (notifyResult.amount() == null || payableAmount == null
                 || notifyResult.amount().compareTo(payableAmount) != 0) {
-            log.error("支付回调金额与订单不一致：orderNo={}，回调={}，应付={}",
+            log.error("支付金额与订单不一致：orderNo={}，渠道={}，应付={}",
                     orderDO.getOrderNo(), notifyResult.amount(), payableAmount);
             throw new ClientException(VipErrorCodeEnum.VIP_PAY_AMOUNT_MISMATCH);
         }
-        // ⑤ nonce 一次性：挡住"录下一条合法回调反复重放"
-        requireFreshNonce(params.get(VipPaySignUtil.NONCE_FIELD));
-        // ⑥ CAS 状态流转：并发回调只有一条 update 能命中 pay_status=0，也就只有一次发会员
+        // nonce 一次性：挡住"录下一条合法回调反复重放"。
+        // 只有自带 nonce 的渠道需要（mock 的 HMAC 自签）；支付宝的异步通知没有 nonce 字段，
+        // 它的重放防护是「已支付即幂等应答」+ 下面的 CAS，见 PayChannel#notifyNonceRequired
+        if (channel.notifyNonceRequired()) {
+            requireFreshNonce(nonce);
+        }
+        // CAS 状态流转：并发回调只有一条 update 能命中 pay_status=0，也就只有一次发会员
         Date now = new Date();
         int updated = vipOrderMapper.update(null, Wrappers.lambdaUpdate(VipOrderDO.class)
                 .eq(VipOrderDO::getOrderNo, orderDO.getOrderNo())
@@ -258,9 +324,9 @@ public class VipOrderServiceImpl implements VipOrderService {
             log.info("订单 {} 已被并发回调处理，本次按幂等忽略", orderDO.getOrderNo());
             return channel.ackBody();
         }
-        // ⑦ 发会员：与状态流转同一事务，任一步失败整体回滚，不会留下"已支付但没发会员"
+        // 发会员：与状态流转同一事务，任一步失败整体回滚，不会留下"已支付但没发会员"
         grantMembership(orderDO);
-        // ⑧ 核销「立减」优惠码：到这一步钱已经收了，所以名额没抢到也只记 error，不影响发会员
+        // 核销「立减」优惠码：到这一步钱已经收了，所以名额没抢到也只记 error，不影响发会员
         if (orderDO.getPromoCodeId() != null) {
             vipPromoCodeSupport.consumeDiscountQuietly(orderDO.getPromoCodeId(), orderDO.getPromoCode(),
                     orderDO.getUid(), orderDO.getUsername(), orderDO.getOrderNo());

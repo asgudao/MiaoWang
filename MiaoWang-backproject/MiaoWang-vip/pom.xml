@@ -44,6 +44,11 @@
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
         </dependency>
+        <!--支付宝支付渠道（沙箱）：用 AlipayTradePagePayRequest 生成 PC 网页支付地址、查单与退款，版本由父 pom 管理-->
+        <dependency>
+            <groupId>com.alipay.sdk</groupId>
+            <artifactId>alipay-sdk-java</artifactId>
+        </dependency>
     </dependencies>
     <!--添加maven插件，项目的打包工具，打成jar包，否则在打包运行时报错   -->
     <build>

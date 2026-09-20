@@ -84,6 +84,19 @@ public class VipOrderRespDTO {
     private String payStatusDesc;
 
     /**
+     * 渠道交易号（支付宝的 {@code trade_no}、mock 的 {@code MOCK...}）：待支付时为 null
+     *
+     * <p>排查支付问题（"渠道说付了、我们这边什么状态"）必须靠它去渠道后台对单，
+     * 所以对外也要给出去，不能只留在库里。
+     */
+    private String channelTradeNo;
+
+    /**
+     * 退款单号（支付宝的 {@code out_request_no}，由我们生成并对渠道幂等）：未退款时为 null
+     */
+    private String refundNo;
+
+    /**
      * 订阅时长（天）
      */
     private Integer durationDays;

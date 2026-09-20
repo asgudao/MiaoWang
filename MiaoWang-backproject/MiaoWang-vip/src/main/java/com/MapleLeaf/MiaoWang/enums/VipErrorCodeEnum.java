@@ -51,6 +51,8 @@ public enum VipErrorCodeEnum implements IErrorCode {
     VIP_ADMIN_LOGIN_FAILED("B000530", "账号或密码错误"),
     VIP_ADMIN_DISABLED("B000531", "账号已被禁用"),
     VIP_ADMIN_USERNAME_EXIST("B000532", "登录名已存在"),
+    VIP_PAY_CHANNEL_NOT_CONFIGURED("B000533", "支付渠道未配置，请先在后端配置渠道密钥"),
+    VIP_PAY_CHANNEL_ERROR("B000534", "支付渠道调用失败，请稍后重试"),
     ;
 
     private final String code;

@@ -24,12 +24,17 @@ import java.util.List;
  *   <li>POST /order                   下单：只创建「待支付」订单，<b>不发会员</b></li>
  *   <li>GET  /order                   我的订单列表（顺手关掉超时未支付的单）</li>
  *   <li>POST /order/{orderNo}/pay     模拟支付（联调用；走的是和真实回调完全相同的链路）</li>
+ *   <li>POST /order/{orderNo}/sync    主动查单对账（真实渠道回调丢了/打不进来时用，仅本人）</li>
  *   <li>POST /order/{orderNo}/refund  退款（窗口期内自助，退款成功会回收会员时长）</li>
  * </ul>
  *
  * <p>真实支付流程：前端 {@code POST /vip/order} 拿到支付参数 → 用户付款 →
  * 渠道回调 {@code POST /vip/pay/notify/{channel}} → 订单转「已支付」并发放会员 →
  * 前端轮询订单详情或靠长连接感知成功。
+ *
+ * <p>回调不是唯一出路：{@code POST /vip/order/{orderNo}/sync} 让服务端主动去渠道查单，
+ * 查到已支付就补走同一条发货链路（幂等）。开发机在局域网内收不到支付宝的异步回调，
+ * 只能靠 return_url 跳回 + 这个接口对账；真实支付里回调也会丢，所以它在生产同样有用。
  */
 @RestController
 @RequestMapping("/mapleleaf/miaowang/v1/vip/order")
@@ -60,6 +65,17 @@ public class VipOrderController {
     @PostMapping("/{orderNo}/pay")
     public Result<VipOrderRespDTO> mockPay(@PathVariable("orderNo") String orderNo) {
         return Results.success(vipOrderService.mockPay(orderNo));
+    }
+
+    /**
+     * 主动查单对账：仅本人可调。
+     *
+     * <p>向渠道查这笔单，查到已支付就复用支付回调那条链路发货（金额校验 → CAS → 发会员 → 核销优惠码），
+     * 然后返回刷新后的订单。订单已不是待支付、或渠道说还没付款，都只是回读当前状态，天然幂等。
+     */
+    @PostMapping("/{orderNo}/sync")
+    public Result<VipOrderRespDTO> syncOrder(@PathVariable("orderNo") String orderNo) {
+        return Results.success(vipOrderService.syncOrder(orderNo));
     }
 
     /**
