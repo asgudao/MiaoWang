@@ -9,6 +9,8 @@
  * ⚠️ 本工程是 HBuilderX + JS，不引 npm/Pinia；状态用 reactive 模块手写。
  */
 
+import { clearManualHost, ensureHost, getBase, getHost, setManualHost } from './host.js'
+
 const API_PREFIX = '/mapleleaf/miaowang/v1'
 
 /** 网关按 Nacos 服务名自动路由 */
@@ -24,15 +26,10 @@ export const SERVICE = {
 }
 
 /**
- * baseURL：
- * - H5 开发：用相对路径，由 manifest.json 的 devServer 代理（/miaowang-* → 网关 7000）转发，绕开后端 CORS
- * - 真机/App：localhost 手机访问不到，**必须换成电脑的局域网 IP**（手机与电脑同网段）
- */
-/**
  * 网关地址
  *
  * H5：留空走相对路径 → manifest.json 的 devServer 代理（/miaowang-* → 网关 7000），绕开后端 CORS
- * 非 H5（真机 / 小程序）：必须写你电脑的局域网 IP，手机访问不到 localhost
+ * 非 H5（真机 / 小程序）：手机访问不到 localhost，地址由 utils/host.js 动态解析（不再写死）
  *
  * 写法说明：**先声明一次、再条件赋值**。若写成两个 `let BASE = ...` 分放在 #ifdef/#ifndef 里，
  * 条件编译没生效时就是"重复声明"硬错误；这种写法无论预处理与否都是合法 JS。
@@ -42,15 +39,32 @@ let BASE
 BASE = ''
 // #endif
 // #ifndef H5
-// ️ 真机必须写**电脑的局域网 IP**（手机访问不到 localhost），且手机要与电脑在同一个 Wi-Fi。
-// 查法：Windows 上 `ipconfig` → 看「无线局域网适配器 WLAN」的 IPv4（**别用 VMware 的 VMnet 地址**）。
-// 2026-09-17 本机实测：WLAN = 192.168.225.183。原先写的 192.168.137.1 是 VMware 网段（本机该网段只有 .2），
-// 真机必然连不上 —— 这是"连不上后端"的第一大原因。
-// 还要确认 Windows 防火墙放行 7000 入站。自检：用**手机浏览器**打开
-//   http://192.168.225.183:7000/miaowang-user/mapleleaf/miaowang/v1/user/captcha
-// 能返回 JSON 就说明链路通了（返回不了就是 IP / 同网段 / 防火墙三件事之一）。
-BASE = 'http://192.168.225.183:7000'
+// 真机地址**不再写死**：由 utils/host.js 解析 —— 手填 > 上次探测成功 > 内置候选 > 扫网段自动发现。
+// 为什么会变：DHCP 换租约、换 Wi-Fi、无线切有线、开热点都会换地址，写死就必然"昨天能连今天连不上"
+// （2026-09-17 真踩过：WLAN 一断，192.168.225.183 这个地址就废了，放行防火墙也没用）。
+// 网络失败时 request() 还会调 ensureHost() 自愈一次（换地址后自动重试一次请求）。
+// 防火墙要按**端口 7000**放行，别按 java.exe：网关用的是 E:\jdk\bin\java.exe，常见的 Java 允许规则覆盖不到它。
+// 一键脚本：MiaoWang-frontproject/tools/allow-lan-access.ps1
+BASE = getBase()
 // #endif
+
+/** 当前后端地址（设置界面显示用；H5 下无意义） */
+export function currentHost () {
+  return getHost()
+}
+
+/** 手动指定后端地址（`192.168.1.5` 或 `192.168.1.5:7000` 都行）；返回规整后的地址，非法返回 '' */
+export function applyHost (input) {
+  const h = setManualHost(input)
+  if (h && BASE) BASE = 'http://' + h
+  return h
+}
+
+/** 清除手填地址，回到自动解析 */
+export function resetHost () {
+  clearManualHost()
+  if (BASE) BASE = 'http://' + getHost()
+}
 
 const TOKEN_KEY = 'mw_token'
 const USERNAME_KEY = 'mw_username'
@@ -70,6 +84,21 @@ export const auth = {
     uni.removeStorageSync(USERNAME_KEY)
     uni.removeStorageSync(TOKEN_KEY)
   }
+}
+
+/**
+ * 自己解流的场景（SSE）用：按与 request() 完全相同的规则拼鉴权头。
+ * 走网关两个头都要带（网关只校验 token，但下游服务读 username）。
+ */
+export function authHeaders () {
+  const header = {}
+  const username = auth.getUsername()
+  const token = auth.getToken()
+  if (username && token) {
+    header.username = username
+    header.token = token
+  }
+  return header
 }
 
 /** 业务错误码里代表"未登录/过期"的几种写法（每个服务各写一套，见 miaowang-api-contract） */
@@ -110,7 +139,7 @@ export class ApiError extends Error {
   }
 }
 
-function buildUrl (service, path, query) {
+export function buildUrl (service, path, query) {
   let url = BASE + '/' + SERVICE[service] + API_PREFIX + path
   if (query) {
     const parts = []
@@ -138,6 +167,15 @@ function unwrap (env) {
     throw new ApiError(env.code, env.message, env)
   }
   return env
+}
+
+/** 网络层失败的统一文案：把"打到哪"带进消息，便于自查（真机地址过期 / 防火墙拦 / H5 代理没起都走这里） */
+function networkError (err) {
+  return new ApiError(
+    'NETWORK',
+    '连不上后端（' + describeTarget() + '）：真机可能是地址过期（已尝试自动查找）、手机与电脑不同网段、或防火墙没放行 7000；H5 要确认业务服务已注册到 Nacos',
+    err
+  )
 }
 
 /**
@@ -168,7 +206,8 @@ export function request (service, path, options) {
       method: method,
       header: header,
       data: opt.body,
-      timeout: 15000,
+      // AI 问答这类接口后端要十几秒，调用方可以传 opt.timeout 放宽（默认 15s）
+      timeout: opt.timeout || 15000,
       success: function (res) {
         if (res.statusCode === 401 || res.statusCode === 403) {
           auth.clear()
@@ -182,12 +221,24 @@ export function request (service, path, options) {
         }
       },
       fail: function (err) {
-        // 真机 BASE 写错 / 防火墙拦了 / H5 代理没起，都走这里 → 把"打到哪"带进消息，便于自查
-        reject(new ApiError(
-          'NETWORK',
-          '连不上后端（' + describeTarget() + '）：真机要确认该 IP 是电脑的局域网地址、手机同 Wi-Fi、防火墙放行 7000；H5 要确认业务服务已注册到 Nacos',
-          err
-        ))
+        // 真机地址过期（换网卡/换 Wi-Fi/换租约）也走这里 → 先自愈：重新找一个地址再重试一次。
+        // H5 的 BASE 是空的（走 devServer 代理），没有"换地址"这回事，直接报错。
+        if (!BASE || opt.__retried) {
+          reject(networkError(err))
+          return
+        }
+        const before = getHost()
+        ensureHost().then(function (next) {
+          if (!next || next === before) {
+            reject(networkError(err))
+            return
+          }
+          BASE = 'http://' + next
+          // 换到新地址后重试一次；再失败就是真的不通（__retried 挡住无限重试）
+          request(service, path, Object.assign({}, opt, { __retried: true })).then(resolve, reject)
+        }, function () {
+          reject(networkError(err))
+        })
       }
     })
   })

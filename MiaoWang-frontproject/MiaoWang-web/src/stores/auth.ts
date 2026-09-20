@@ -8,6 +8,8 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { ApiError, auth } from '@/api/request'
 import * as userApi from '@/api/user'
+import { usePetsStore } from '@/stores/pets'
+import { useAiStore } from '@/stores/ai'
 
 export const useAuthStore = defineStore('auth', () => {
   const username = ref(auth.username ?? '')
@@ -36,6 +38,9 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = ''
     info.value = null
     auth.clear()
+    // 会话失效时把"跟账号走"的 store 一起清掉，否则换账号还能看到上一个人的宠物与 AI 对话
+    usePetsStore().reset()
+    useAiStore().reset()
   }
 
   /** 网络层失败（后端没起/代理没通）与鉴权失败要分开处理 */

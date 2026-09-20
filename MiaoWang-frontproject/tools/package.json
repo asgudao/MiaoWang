@@ -1,0 +1,21 @@
+{
+  "name": "miaowang-tools",
+  "private": true,
+  "version": "1.0.0",
+  "description": "喵汪双端离线校验脚本。Agent 无法运行 HBuilderX，用这些脚本兜住静态错误（已抓到过真实编译错误）",
+  "scripts": {
+    "check": "node check-tokens.js && node check-phone.js",
+    "check:tokens": "node check-tokens.js",
+    "check:phone": "node check-phone.js",
+    "check:community": "node check-community-api.js",
+    "check:community:phone": "node check-community-phone.mjs",
+    "fetch:community": "node fetch-community-fixtures.js",
+    "check:sfc": "node check-sfc.js",
+    "forward:minio": "node minio-forward.js",
+    "probe:minio-url": "node probe-minio-url.js"
+  },
+  "devDependencies": {
+    "@vue/compiler-sfc": "^3.5.0",
+    "acorn": "^8.14.0"
+  }
+}

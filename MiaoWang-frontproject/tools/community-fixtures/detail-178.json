@@ -1,0 +1,25 @@
+{
+  "postId": 178,
+  "sectionId": 1,
+  "uid": 7,
+  "username": "probe114904",
+  "title": "【实测种子】午后阳光里的橘猫",
+  "content": "下午三点，橘猫准时占领窗台。\n#猫咪日常 这个位置一天只让给我坐十分钟。\n（本条为接口实测种子数据）",
+  "status": 2,
+  "viewCount": 3,
+  "likeCount": 0,
+  "favoriteCount": 0,
+  "commentCount": 4,
+  "liked": false,
+  "favorited": false,
+  "createTime": "2026-09-19T11:50:04.000+00:00",
+  "images": [],
+  "topics": [
+    {
+      "topicId": 68,
+      "name": "猫咪日常",
+      "postCount": 2
+    }
+  ],
+  "videos": []
+}

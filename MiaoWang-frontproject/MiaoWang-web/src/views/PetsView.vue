@@ -5,6 +5,7 @@
  * 已接真接口。原来这张页面是演示数据（体重 4.2kg、疫苗倒计时等），
  * 那些字段属于 healthy 模块、pet 接口里没有 —— **不编造**，所以卡片只展示真实有的字段：
  * 名字、大类与品种、按出生日期算的年龄、性别、绝育状态、它怎么称呼你。
+ * （体重与疫苗的真实数据在 `/pets/:pid/health` 里，卡片上不放"看起来像真数据"的假倒计时。）
  */
 import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
@@ -115,7 +116,7 @@ const showSkeleton = computed(() => loading.value && !loaded.value)
     </ul>
 
     <p v-if="!showSkeleton && !error && list.length" class="mw-caption tail">
-      体重、疫苗与驱虫记录在健康模块里管，那个模块还没接上。
+      体重、疫苗与驱虫这些记录都在每只宠物的健康模块里，点进档案就能打开。
     </p>
   </div>
 </template>

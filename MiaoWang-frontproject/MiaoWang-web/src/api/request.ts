@@ -55,6 +55,19 @@ const UNAUTHORIZED_CODES = new Set(['UNAUTHORIZED', '-1', 'B000310', 'B000204', 
  */
 const UNAUTHORIZED_PATTERN = /未登录|登录已过期|登录失效|登录状态已失效/
 
+/**
+ * 自己解流的场景（SSE）用：按与 request() 完全相同的规则拼鉴权头。
+ * 走网关时两个头都要带（网关只校验 token，但下游服务读 username）。
+ */
+export function authHeaders(): Record<string, string> {
+  const h: Record<string, string> = {}
+  if (auth.username && auth.token) {
+    h.username = auth.username
+    h.token = auth.token
+  }
+  return h
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly code: string,
@@ -91,7 +104,7 @@ export interface RequestOptions {
   signal?: AbortSignal
 }
 
-function buildUrl(service: ServiceKey, path: string, query?: Query) {
+export function buildUrl(service: ServiceKey, path: string, query?: Query) {
   const url = `${BASE}/${SERVICE[service]}${API_PREFIX}${path}`
   if (!query) return url
   const qs = new URLSearchParams()

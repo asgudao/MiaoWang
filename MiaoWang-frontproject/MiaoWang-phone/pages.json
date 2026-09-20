@@ -9,7 +9,18 @@
 		{
 			"path": "pages/community/community",
 			"style": {
-				"navigationBarTitleText": "社区"
+				"navigationBarTitleText": "社区",
+				// 社区信息流是页码分页 → 需要下拉刷新与触底加载
+				"enablePullDownRefresh": true,
+				"backgroundTextStyle": "dark",
+				"onReachBottomDistance": 100
+			}
+		},
+		{
+			"path": "pages/community/detail",
+			"style": {
+				"navigationBarTitleText": "帖子详情",
+				"onReachBottomDistance": 100
 			}
 		},
 		{
@@ -52,6 +63,72 @@
 			"path": "pages/pet-edit/pet-edit",
 			"style": {
 				"navigationBarTitleText": "编辑宠物"
+			}
+		},
+		{
+			"path": "pages/ai/ai",
+			"style": {
+				"navigationBarTitleText": "AI 问诊"
+			}
+		},
+		{
+			"path": "pages/vip/vip",
+			"style": {
+				"navigationBarTitleText": "喵汪会员"
+			}
+		},
+		{
+			"path": "pages/health/health",
+			"style": {
+				"navigationBarTitleText": "健康档案"
+			}
+		},
+		{
+			"path": "pages/health/weight",
+			"style": {
+				"navigationBarTitleText": "体重曲线"
+			}
+		},
+		{
+			"path": "pages/health/preventive",
+			"style": {
+				"navigationBarTitleText": "疫苗与驱虫"
+			}
+		},
+		{
+			"path": "pages/health/medical",
+			"style": {
+				"navigationBarTitleText": "就诊与病史"
+			}
+		},
+		{
+			"path": "pages/health/medication",
+			"style": {
+				"navigationBarTitleText": "用药"
+			}
+		},
+		{
+			"path": "pages/health/allergy",
+			"style": {
+				"navigationBarTitleText": "过敏史"
+			}
+		},
+		{
+			"path": "pages/health/symptom",
+			"style": {
+				"navigationBarTitleText": "症状日记"
+			}
+		},
+		{
+			"path": "pages/health/timeline",
+			"style": {
+				"navigationBarTitleText": "健康时间线"
+			}
+		},
+		{
+			"path": "pages/health/record-edit",
+			"style": {
+				"navigationBarTitleText": "健康记录"
 			}
 		}
 	],

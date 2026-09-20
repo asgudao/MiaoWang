@@ -1,0 +1,68 @@
+{
+  "records": [
+    {
+      "commentId": 102,
+      "postId": 178,
+      "uid": 7,
+      "username": "probe114904",
+      "content": "同款窗台猫，我家的会顺便把窗帘拽下来。",
+      "likeCount": 0,
+      "liked": false,
+      "createTime": "2026-09-19T11:50:24.000+00:00",
+      "parentId": 0,
+      "replyUid": null,
+      "replyUsername": null,
+      "replyCount": 0,
+      "children": []
+    },
+    {
+      "commentId": 101,
+      "postId": 178,
+      "uid": 7,
+      "username": "probe114904",
+      "content": "第一排围观，橘猫果然是对称的。",
+      "likeCount": 1,
+      "liked": true,
+      "createTime": "2026-09-19T11:50:24.000+00:00",
+      "parentId": 0,
+      "replyUid": null,
+      "replyUsername": null,
+      "replyCount": 2,
+      "children": [
+        {
+          "commentId": 103,
+          "postId": 178,
+          "uid": 7,
+          "username": "probe114904",
+          "content": "窗帘还好吗？我家的已经牺牲两幅了。",
+          "likeCount": 0,
+          "liked": false,
+          "createTime": "2026-09-19T11:50:24.000+00:00",
+          "parentId": 101,
+          "replyUid": 7,
+          "replyUsername": "probe114904",
+          "replyCount": null,
+          "children": null
+        },
+        {
+          "commentId": 104,
+          "postId": 178,
+          "uid": 7,
+          "username": "probe114904",
+          "content": "（这条是三级评论试探，用来验证两级封顶）",
+          "likeCount": 0,
+          "liked": false,
+          "createTime": "2026-09-19T11:50:24.000+00:00",
+          "parentId": 101,
+          "replyUid": 7,
+          "replyUsername": "probe114904",
+          "replyCount": null,
+          "children": null
+        }
+      ]
+    }
+  ],
+  "size": 10,
+  "hasMore": false,
+  "nextCursor": null
+}

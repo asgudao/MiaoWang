@@ -1,0 +1,50 @@
+[
+  {
+    "sectionId": 1,
+    "name": "宠物美照",
+    "code": "photo",
+    "description": "晒出你家毛孩子的高光时刻",
+    "iconUrl": null,
+    "sort": 1
+  },
+  {
+    "sectionId": 2,
+    "name": "宠物知识",
+    "code": "knowledge",
+    "description": "养宠经验与知识分享",
+    "iconUrl": null,
+    "sort": 2
+  },
+  {
+    "sectionId": 3,
+    "name": "幼宠专区",
+    "code": "baby",
+    "description": "幼猫幼犬喂养与护理交流",
+    "iconUrl": null,
+    "sort": 3
+  },
+  {
+    "sectionId": 4,
+    "name": "品种鉴定",
+    "code": "breed",
+    "description": "发照片，大家一起帮你看品种",
+    "iconUrl": null,
+    "sort": 4
+  },
+  {
+    "sectionId": 5,
+    "name": "病症鉴定",
+    "code": "symptom",
+    "description": "症状交流参考，不替代兽医诊断",
+    "iconUrl": null,
+    "sort": 5
+  },
+  {
+    "sectionId": 6,
+    "name": "活动专区",
+    "code": "activity",
+    "description": "官方活动与话题",
+    "iconUrl": null,
+    "sort": 6
+  }
+]

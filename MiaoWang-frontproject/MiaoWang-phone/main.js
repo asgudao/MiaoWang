@@ -15,8 +15,12 @@ app.$mount()
 import {
 	createSSRApp
 } from 'vue'
+import { installRenderGuard } from './utils/render-guard.js'
 export function createApp() {
 	const app = createSSRApp(App)
+	// 渲染错误兜底：手机端没 devtools，Vue3 render 抛错会整页白屏且零信息
+	// → 至少把"渲染出错了"和下一步提示出来（详见 utils/render-guard.js）
+	installRenderGuard(app)
 	return {
 		app
 	}

@@ -7,11 +7,39 @@
 import { computed, onMounted, ref } from 'vue'
 import { PhBell, PhChatCircleDots, PhInfo, PhUserCircle } from '@phosphor-icons/vue'
 import { useAuthStore } from '@/stores/auth'
+import { getMyBenefit, limitText, quotaText, type VipBenefit } from '@/api/vip'
 
 const auth = useAuthStore()
 const busy = ref(false)
 /** 退出用按钮内二次确认，不用浏览器原生 confirm（丑且打断） */
 const confirming = ref(false)
+
+/** 会员卡片的数据（真实接口；读不到就显示原因，不假装有档位） */
+const vip = ref<VipBenefit | null>(null)
+const vipError = ref('')
+
+const expireText = computed(() => {
+  const iso = vip.value?.expireTime
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+})
+
+async function loadVip() {
+  if (!auth.isLoggedIn) {
+    vip.value = null
+    return
+  }
+  vipError.value = ''
+  try {
+    vip.value = await getMyBenefit()
+  } catch (e) {
+    vip.value = null
+    vipError.value = e instanceof Error ? e.message : '会员权益没能读到'
+  }
+}
 
 const rows = [
   { key: 'profile', label: '个人资料', desc: '昵称、手机号、头像', icon: PhUserCircle },
@@ -43,6 +71,7 @@ async function onLogout() {
 onMounted(() => {
   // 直接进本页（没走过首页）时也要把资料补齐
   void auth.restore()
+  void loadVip()
 })
 </script>
 
@@ -99,8 +128,40 @@ onMounted(() => {
       <div class="side">
         <div class="panel panel--vip">
           <h2 class="panel__title">喵汪会员</h2>
-          <p class="panel__desc">解锁无限 AI 对话次数与多只宠物档案。</p>
-          <button class="mw-btn mw-btn--primary" type="button">查看权益</button>
+
+          <template v-if="auth.isLoggedIn">
+            <p v-if="vipError" class="mw-field__error">{{ vipError }}</p>
+            <template v-else-if="vip">
+              <p class="vip__state">
+                <span class="mw-badge" :class="vip.vip ? 'mw-badge--done' : 'vip__free'">
+                  {{ vip.vip ? '会员有效' : '免费档' }}
+                </span>
+                <span v-if="vip.vip && expireText" class="mw-badge mw-badge--time">
+                  到期 {{ expireText }}
+                </span>
+              </p>
+              <p class="panel__desc">
+                {{ vip.vip ? vip.planNames.join('、') : '还没开通，现在按免费档给量' }}。AI 问答{{
+                  quotaText(vip.ragRemaining)
+                }}，宠物上限 {{ limitText(vip.petLimitPerType, '只') }}。
+              </p>
+            </template>
+            <p v-else class="panel__desc">正在读取会员权益。</p>
+
+            <RouterLink class="mw-btn mw-btn--primary vip__cta" :to="{ name: 'vip' }">
+              {{ vip && vip.vip ? '查看权益与订单' : '去开通会员' }}
+            </RouterLink>
+          </template>
+
+          <template v-else>
+            <p class="panel__desc">登录后可以看到自己的档位、到期时间与订单。</p>
+            <RouterLink
+              class="mw-btn mw-btn--ghost vip__cta"
+              :to="{ name: 'login', query: { redirect: '/vip' } }"
+            >
+              登录后查看
+            </RouterLink>
+          </template>
         </div>
 
         <template v-if="auth.isLoggedIn">
@@ -264,6 +325,27 @@ onMounted(() => {
 .panel--vip {
   background:
     linear-gradient(0deg, rgba(10, 125, 109, 0.06), rgba(10, 125, 109, 0.06)), var(--mw-surface);
+}
+/* 会员卡片：状态徽标 + 真实权益数值 + 一个明确的下一步 */
+.vip__state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mw-space-2);
+  margin-bottom: var(--mw-space-2);
+}
+.vip__free {
+  background: var(--mw-canvas);
+  color: var(--mw-ink-2);
+}
+.vip__cta {
+  width: 100%;
+  min-height: 40px;
+  font-size: var(--mw-font-caption);
+}
+/* 错误态没有 .panel__desc 撑间距，这里补上，保证按钮与上面文字的距离一致 */
+.panel--vip .mw-field__error {
+  margin-bottom: var(--mw-space-4);
 }
 .logout {
   width: 100%;

@@ -3,12 +3,13 @@
  * 宠物档案详情（Web）
  *
  * 数据来源是列表 store（列表已经拉过就不再请求）；刷新只做一次，成功后不再自动重拉。
- * 未接的模块（体重/疫苗/AI 解读）**如实标注**，不做假数据。
+ * 健康记录已经有真实入口（`/pets/:pid/health`），这里只给入口与一句话说明，不在本页重复拉健康数据
+ * （避免进一次档案页就打两遍健康接口）。
  */
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { PhArrowLeft, PhPencilSimple, PhTrash } from '@phosphor-icons/vue'
+import { PhArrowLeft, PhHeartbeat, PhPencilSimple, PhTrash } from '@phosphor-icons/vue'
 import { usePetsStore } from '@/stores/pets'
 import {
   ageLabel,
@@ -130,13 +131,37 @@ async function onDelete() {
       </section>
 
       <section class="mw-card panel">
-        <h2 class="mw-h2">接下来</h2>
-        <ul class="soon">
-          <li>体重曲线</li>
-          <li>疫苗与驱虫提醒</li>
-          <li>AI 解读症状</li>
-        </ul>
-        <p class="mw-caption">这些归健康模块管，那个模块还没接上，现在点进去也没有数据。</p>
+        <h2 class="mw-h2">健康记录</h2>
+        <p class="mw-caption health__desc">
+          体重曲线、疫苗与驱虫提醒、就诊、用药、过敏史、症状日记都在健康模块里。概览页会算出"该做什么"（含逾期提醒）与"最近发生了什么"，记录本身在各自的分类页里增删改。
+        </p>
+        <div class="health__actions">
+          <RouterLink
+            class="mw-btn mw-btn--primary"
+            :to="{ name: 'health-overview', params: { pid: pet.pid } }"
+          >
+            <PhHeartbeat :size="16" aria-hidden="true" />
+            打开健康记录
+          </RouterLink>
+          <RouterLink
+            class="mw-btn mw-btn--ghost"
+            :to="{ name: 'health-weight', params: { pid: pet.pid } }"
+          >
+            体重曲线
+          </RouterLink>
+          <RouterLink
+            class="mw-btn mw-btn--ghost"
+            :to="{ name: 'health-preventive', params: { pid: pet.pid } }"
+          >
+            疫苗与驱虫
+          </RouterLink>
+          <RouterLink
+            class="mw-btn mw-btn--ghost"
+            :to="{ name: 'health-record-new', params: { pid: pet.pid, kind: 'weight' } }"
+          >
+            记一条体重
+          </RouterLink>
+        </div>
       </section>
 
       <div v-if="error" class="mw-alert mw-alert--danger">
@@ -265,20 +290,20 @@ async function onDelete() {
   font-weight: 600;
 }
 
-.soon {
+.health__desc {
+  margin-bottom: var(--mw-space-4);
+  max-width: 680px;
+}
+.health__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--mw-space-2);
-  margin: 0 0 var(--mw-space-3);
-  padding: 0;
-  list-style: none;
 }
-.soon li {
-  padding: 4px 10px;
-  border-radius: var(--mw-radius-tag);
-  background: var(--mw-canvas);
-  font-size: var(--mw-font-micro);
-  color: var(--mw-ink-2);
+.health__actions .mw-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mw-space-2);
+  text-decoration: none;
 }
 
 .zone {

@@ -29,10 +29,14 @@
 			</view>
 		</view>
 
-		<view class="vip" @click="toast">
-			<text class="vip__title">喵汪会员</text>
-			<text class="vip__desc">解锁无限 AI 对话次数与多只宠物档案</text>
-			<view class="vip__btn"><text>查看权益</text></view>
+		<!-- 会员入口：整卡可点，进会员页。文案不吹（权益数值以接口为准） -->
+		<view class="vip" @click="goVip">
+			<view class="vip__head">
+				<text class="vip__title">喵汪会员</text>
+				<text class="vip__badge">{{ vipBadge }}</text>
+			</view>
+			<text class="vip__desc">{{ vipDesc }}</text>
+			<view class="vip__btn"><text>查看档位与权益</text></view>
 		</view>
 
 		<view class="rows">
@@ -61,6 +65,7 @@
 import FloatingTabBar from '@/components/FloatingTabBar.vue'
 import { hideNativeTabBar } from '@/utils/tabbar.js'
 import { auth } from '@/store/auth.js'
+import { vip } from '@/store/vip.js'
 import { describeTarget } from '@/utils/request.js'
 
 export default {
@@ -109,6 +114,27 @@ export default {
 		/** 出错时告诉用户"请求打到哪了"，省得猜是 H5 还是真机的问题 */
 		target() {
 			return describeTarget()
+		},
+		/**
+		 * 会员卡角标：只在**拿得到权益**时才显示状态，拿不到就如实说取不到。
+		 * 不猜、不写死免费档数值（权益一律以接口为准）；失败也不能留一个空胶囊在标题右边。
+		 */
+		vipBadge() {
+			if (!this.loggedIn) return ''
+			if (vip.benefitError) return '读取失败'
+			const b = vip.benefit
+			if (!b) return '读取中'
+			return b.vip ? '生效中' : '未开通'
+		},
+		vipDesc() {
+			// 失败要说出来（进会员页可以重试），不能假装是"未开通"
+			if (this.loggedIn && vip.benefitError) return '会员状态没读到，点进去可以重试'
+			const b = vip.benefit
+			if (b && b.vip) {
+				const names = (b.planNames || []).join('、')
+				return names ? names + ' 生效中，点进去看用量与订单' : '会员生效中，点进去看用量与订单'
+			}
+			return '用兑换码或直接开通，看当前档位与 9 项权益'
 		}
 	},
 	onLoad() {
@@ -118,10 +144,15 @@ export default {
 		hideNativeTabBar()
 		// 直接进本页（没走过首页）时也要把资料补齐
 		auth.restore()
+		// 会员卡角标要用权益数据；未登录时这个接口不需要调（拿不到身份）
+		if (auth.isLoggedIn()) vip.fetchBenefit()
 	},
 	methods: {
 		toast() {
 			uni.showToast({ title: '功能开发中', icon: 'none' })
+		},
+		goVip() {
+			uni.navigateTo({ url: '/pages/vip/vip' })
 		},
 		async onLogout() {
 			if (this.busy) return
@@ -280,6 +311,19 @@ export default {
 	background: linear-gradient(0deg, rgba(10, 125, 109, 0.06), rgba(10, 125, 109, 0.06)), $mw-surface;
 	border: 1px solid $mw-line;
 	border-radius: $mw-radius-card;
+}
+.vip__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+.vip__badge {
+	padding: 4rpx 12rpx;
+	border-radius: $mw-radius-tag;
+	background: rgba(10, 125, 109, 0.12);
+	font-size: $mw-font-micro;
+	font-weight: 600;
+	color: $mw-brand-ink;
 }
 .vip__title {
 	display: block;

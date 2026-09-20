@@ -1,0 +1,25 @@
+{
+  "postId": 181,
+  "sectionId": 4,
+  "uid": 7,
+  "username": "probe114904",
+  "title": "【实测种子】一张图证明猫真的会缩成一条",
+  "content": "上传链路实测配图，1x1 像素占位图。",
+  "status": 2,
+  "viewCount": 4,
+  "likeCount": 0,
+  "favoriteCount": 0,
+  "commentCount": 0,
+  "liked": false,
+  "favorited": false,
+  "createTime": "2026-09-19T11:51:53.000+00:00",
+  "images": [
+    {
+      "url": "http://192.168.137.128:9000/miaowang-community/community/post/2026/09/19/821590127bf640f48068d57b26958b97.png",
+      "objectKey": "community/post/2026/09/19/821590127bf640f48068d57b26958b97.png",
+      "sort": 0
+    }
+  ],
+  "topics": [],
+  "videos": []
+}

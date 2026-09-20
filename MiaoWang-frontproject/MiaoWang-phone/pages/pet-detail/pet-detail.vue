@@ -61,8 +61,70 @@
 			</view>
 
 			<view class="panel">
-				<text class="panel__title">接下来</text>
-				<text class="panel__note">体重曲线、疫苗与驱虫提醒、AI 解读症状都归健康模块管，那个模块还没接上，现在点进去也没有数据。</text>
+				<view class="panel__head">
+					<text class="panel__title">健康档案</text>
+					<text class="panel__act" @click="goHealth()">总览</text>
+				</view>
+				<text class="panel__note">疫苗驱虫、就诊、用药、过敏、症状、体重六类记录都归健康模块管，入口就在下面。健康接口全都要登录，未登录时页内会直接给「去登录」的门槛而不是白屏。</text>
+				<view class="links">
+					<view class="link" @click="goHealth()">
+						<view class="link__main">
+							<text class="link__name">健康概览</text>
+							<text class="link__desc">六类条数、最新体重与 30 天变化、逾期提醒、最近动静</text>
+						</view>
+						<view class="chev chev--right"></view>
+					</view>
+					<view class="link" @click="goHealth('weight')">
+						<view class="link__main">
+							<text class="link__name">体重曲线</text>
+							<text class="link__desc">按月切换，手写折线；同一段里还能记一次体重</text>
+						</view>
+						<view class="chev chev--right"></view>
+					</view>
+					<view class="link" @click="goHealth('preventive')">
+						<view class="link__main">
+							<text class="link__name">疫苗与驱虫</text>
+							<text class="link__desc">按「还有几天 / 已逾期几天」分档提醒，逾期由前端自己算</text>
+						</view>
+						<view class="chev chev--right"></view>
+					</view>
+					<view class="link" @click="goHealth('medical')">
+						<view class="link__main">
+							<text class="link__name">就诊与病史</text>
+							<text class="link__desc">诊断、处置、费用与化验单附件</text>
+						</view>
+						<view class="chev chev--right"></view>
+					</view>
+					<view class="link" @click="goHealth('medication')">
+						<view class="link__main">
+							<text class="link__name">用药</text>
+							<text class="link__desc">用药中 / 已结束 / 已停用，可一键标记已结束</text>
+						</view>
+						<view class="chev chev--right"></view>
+					</view>
+					<view class="link" @click="goHealth('allergy')">
+						<view class="link__main">
+							<text class="link__name">过敏史</text>
+							<text class="link__desc">过敏原与严重度，重度排在前面</text>
+						</view>
+						<view class="chev chev--right"></view>
+					</view>
+					<view class="link" @click="goHealth('symptom')">
+						<view class="link__main">
+							<text class="link__name">症状日记</text>
+							<text class="link__desc">可从症状库选（猫 52 条），也能自己填写</text>
+						</view>
+						<view class="chev chev--right"></view>
+					</view>
+					<view class="link link--last" @click="goHealth('timeline')">
+						<view class="link__main">
+							<text class="link__name">健康时间线</text>
+							<text class="link__desc">六类合并按时间倒序，可按类型与条数筛选</text>
+						</view>
+						<view class="chev chev--right"></view>
+					</view>
+				</view>
+				<text class="panel__foot">AI 解读症状与导出完整档案的入口在健康概览页。这两项是会员功能，当前档位不够时页面会直接说明，不算故障。</text>
 			</view>
 
 			<view v-if="error" class="alert">
@@ -76,7 +138,7 @@
 				</view>
 				<view v-if="confirming" class="btn btn--ghost" @click="confirming = false"><text>先不删</text></view>
 			</view>
-			<text class="foot">{{ confirming ? '删除后它会从列表里消失（后端做的是标记删除，原始数据仍留在库里）' : '删除会同时失去它的健康记录入口' }}</text>
+			<text class="foot">{{ confirming ? '删除是标记删除：它会从列表里消失，健康记录不会被一并删掉，但档案与健康入口都进不去了' : '删除会同时失去它的健康档案入口' }}</text>
 		</template>
 	</view>
 </template>
@@ -153,6 +215,14 @@ export default {
 		},
 		goEdit() {
 			uni.navigateTo({ url: '/pages/pet-edit/pet-edit?pid=' + this.pid })
+		},
+		/** 健康模块入口：不带 kind 进健康概览，带 kind 直接进对应列表页（都在这只宠物的 pid 下） */
+		goHealth(kind) {
+			if (!kind) {
+				uni.navigateTo({ url: '/pages/health/health?pid=' + this.pid })
+				return
+			}
+			uni.navigateTo({ url: '/pages/health/' + kind + '?pid=' + this.pid })
 		},
 		async onDelete() {
 			// 两步确认：手机上没有原生 confirm 的位置，就地改成两次点击
@@ -285,6 +355,65 @@ export default {
 	font-size: $mw-font-caption;
 	color: $mw-ink-2;
 	line-height: 1.7;
+}
+
+/* ---- 健康档案入口 ---- */
+.panel__head {
+	display: flex;
+	align-items: center;
+}
+.panel__head .panel__title {
+	flex: 1;
+	min-width: 0;
+}
+.panel__act {
+	padding: 0 $mw-space-1;
+	min-height: 56rpx;
+	line-height: 56rpx;
+	font-size: $mw-font-caption;
+	font-weight: 600;
+	color: $mw-brand-ink;
+}
+.links {
+	margin-top: $mw-space-3;
+}
+.link {
+	display: flex;
+	align-items: center;
+	min-height: $mw-touch-min;
+	padding: $mw-space-2 0;
+	border-bottom: 1px solid $mw-line;
+}
+.link--last {
+	border-bottom: none;
+}
+.link__main {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+.link__name {
+	font-size: $mw-font-body;
+	font-weight: 600;
+	color: $mw-ink;
+}
+.link__desc {
+	margin-top: 2rpx;
+	font-size: $mw-font-micro;
+	line-height: 1.6;
+	color: $mw-ink-2;
+}
+.chev--right {
+	margin-left: $mw-space-2;
+	margin-right: 0;
+}
+.panel__foot {
+	display: block;
+	margin-top: $mw-space-3;
+	font-size: 22rpx;
+	line-height: 1.6;
+	color: $mw-muted;
 }
 
 .row {

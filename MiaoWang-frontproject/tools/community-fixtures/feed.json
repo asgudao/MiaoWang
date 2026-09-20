@@ -1,0 +1,110 @@
+{
+  "pageNum": 1,
+  "pageSize": 10,
+  "pages": 1,
+  "total": 5,
+  "records": [
+    {
+      "postId": 182,
+      "sectionId": 6,
+      "uid": 7,
+      "username": "probe114904",
+      "title": "【实测种子】周末猫咪用品互换小市集",
+      "coverUrl": null,
+      "isTop": 0,
+      "viewCount": 0,
+      "likeCount": 0,
+      "favoriteCount": 0,
+      "commentCount": 0,
+      "liked": false,
+      "favorited": false,
+      "topics": [
+        {
+          "topicId": 68,
+          "name": "猫咪日常",
+          "postCount": 2
+        }
+      ],
+      "videos": [],
+      "createTime": "2026-09-19T11:52:17.000+00:00"
+    },
+    {
+      "postId": 181,
+      "sectionId": 4,
+      "uid": 7,
+      "username": "probe114904",
+      "title": "【实测种子】一张图证明猫真的会缩成一条",
+      "coverUrl": "http://192.168.137.128:9000/miaowang-community/community/post/2026/09/19/821590127bf640f48068d57b26958b97.png",
+      "isTop": 0,
+      "viewCount": 3,
+      "likeCount": 0,
+      "favoriteCount": 0,
+      "commentCount": 0,
+      "liked": false,
+      "favorited": false,
+      "topics": [],
+      "videos": [],
+      "createTime": "2026-09-19T11:51:53.000+00:00"
+    },
+    {
+      "postId": 180,
+      "sectionId": 5,
+      "uid": 7,
+      "username": "probe114904",
+      "title": "【实测种子】猫咪频繁舔前爪是过敏吗",
+      "coverUrl": null,
+      "isTop": 0,
+      "viewCount": 1,
+      "likeCount": 1,
+      "favoriteCount": 0,
+      "commentCount": 0,
+      "liked": true,
+      "favorited": false,
+      "topics": [],
+      "videos": [],
+      "createTime": "2026-09-19T11:50:05.000+00:00"
+    },
+    {
+      "postId": 179,
+      "sectionId": 3,
+      "uid": 7,
+      "username": "probe114904",
+      "title": "【实测种子】两个月大的小猫第一次剪指甲",
+      "coverUrl": null,
+      "isTop": 0,
+      "viewCount": 1,
+      "likeCount": 1,
+      "favoriteCount": 1,
+      "commentCount": 2,
+      "liked": true,
+      "favorited": true,
+      "topics": [],
+      "videos": [],
+      "createTime": "2026-09-19T11:50:05.000+00:00"
+    },
+    {
+      "postId": 178,
+      "sectionId": 1,
+      "uid": 7,
+      "username": "probe114904",
+      "title": "【实测种子】午后阳光里的橘猫",
+      "coverUrl": null,
+      "isTop": 0,
+      "viewCount": 2,
+      "likeCount": 0,
+      "favoriteCount": 0,
+      "commentCount": 4,
+      "liked": false,
+      "favorited": false,
+      "topics": [
+        {
+          "topicId": 68,
+          "name": "猫咪日常",
+          "postCount": 2
+        }
+      ],
+      "videos": [],
+      "createTime": "2026-09-19T11:50:04.000+00:00"
+    }
+  ]
+}

@@ -61,7 +61,7 @@
 					<text v-else-if="c.needName" class="tag tag--warn">档案里还没名字，点进去补一个</text>
 				</view>
 
-				<text class="tail">体重、疫苗与驱虫记录在健康模块里管，那个模块还没接上</text>
+				<text class="tail">体重、疫苗与驱虫都在健康模块里：点这张卡进宠物档案，档案页有六类记录的入口</text>
 			</view>
 		</template>
 

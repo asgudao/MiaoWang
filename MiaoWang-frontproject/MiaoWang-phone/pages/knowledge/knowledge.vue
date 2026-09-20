@@ -30,13 +30,13 @@
 			</view>
 		</view>
 
-		<view class="qa" @click="toast">
+		<view class="qa" @click="goAi">
 			<text class="qa__title">智能问答</text>
-			<text class="qa__desc">知识库已接入检索增强问答，可以直接问"我家猫吐毛球怎么办"</text>
+			<text class="qa__desc">已接入大模型检索问答，回答里会标出引用的知识来源，可以直接问"我家猫吐毛球怎么办"</text>
 			<view class="qa__btn"><text>去提问</text></view>
 		</view>
 
-		<text class="note">演示数据 · 知识库接口免登录可读，服务启动后切真数据</text>
+		<text class="note">文章列表仍是演示数据；智能问答已接真接口（要登录，按账号计次）</text>
 
 		<FloatingTabBar current="knowledge" />
 	</view>
@@ -68,6 +68,9 @@ export default {
 		hideNativeTabBar()
 	},
 	methods: {
+		goAi() {
+			uni.navigateTo({ url: '/pages/ai/ai' })
+		},
 		toast() {
 			uni.showToast({ title: '功能开发中', icon: 'none' })
 		}

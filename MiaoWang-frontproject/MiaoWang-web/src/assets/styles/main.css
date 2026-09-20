@@ -222,6 +222,23 @@ a:hover {
   background: rgba(53, 214, 168, 0.16);
   color: var(--mw-brand);
 }
+/* 严重度分级（过敏 / 症状共用；1 轻 2 中 3 重） */
+.mw-sev--low {
+  background: rgba(10, 125, 109, 0.12);
+  color: var(--mw-success);
+}
+.mw-sev--mid {
+  background: rgba(255, 176, 32, 0.16);
+  color: var(--mw-accent-ink);
+}
+.mw-sev--high {
+  background: rgba(229, 72, 77, 0.12);
+  color: var(--mw-danger);
+}
+.mw-sev--none {
+  background: var(--mw-canvas);
+  color: var(--mw-ink-2);
+}
 
 /* ---- 四态 ---- */
 .mw-state {
@@ -257,6 +274,82 @@ a:hover {
   100% {
     background-position: 0 50%;
   }
+}
+
+/* 空态/错误态要"有边框的一块"，而不是一片空白（健康记录各页共用） */
+.mw-state--box {
+  padding: var(--mw-space-6);
+  border: 1px dashed var(--mw-line);
+  border-radius: var(--mw-radius-card);
+}
+
+/* ---- 记录行列表（健康记录各页共用：一行一条记录）---- */
+.mw-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mw-space-2);
+}
+.mw-row {
+  display: flex;
+  align-items: center;
+  gap: var(--mw-space-3);
+  padding: var(--mw-space-3) var(--mw-space-4);
+  border: 1px solid var(--mw-line);
+  border-radius: var(--mw-radius-input);
+  background: var(--mw-surface);
+}
+.mw-row__main {
+  flex: 1;
+  min-width: 0;
+}
+/* 记录行左侧的类型图标位（健康记录的时间线/列表共用） */
+.mw-row__icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: var(--mw-radius-tag);
+  background: var(--mw-canvas);
+  color: var(--mw-ink-2);
+}
+.mw-row__title {
+  font-weight: 600;
+}
+.mw-row__sub {
+  font-size: var(--mw-font-caption);
+  color: var(--mw-ink-2);
+}
+.mw-row__actions {
+  display: flex;
+  flex: none;
+  gap: var(--mw-space-2);
+}
+/* 记录行右侧的"数值"（体重/费用/严重度这类要竖排对齐的） */
+.mw-row__value {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* ---- 行内链接 / 链接式按钮（健康记录各页共用：重试、去会员、关闭提示）---- */
+.mw-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mw-space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--mw-brand-ink);
+  font-family: inherit;
+  font-size: var(--mw-font-caption);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+.mw-link:hover {
+  text-decoration: underline;
 }
 
 /* ---- 标题排版：紧字距 + 大尺度对比 ---- */
@@ -362,4 +455,43 @@ a:hover {
   background: rgba(10, 125, 109, 0.08);
   border: 1px solid rgba(10, 125, 109, 0.2);
   color: var(--mw-brand-ink);
+}
+
+/* ---- 筛选 chips（健康记录各页共用：类型 / 状态 / 时间范围 / 条数）---- */
+.mw-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mw-space-2);
+}
+.mw-chip {
+  min-height: 34px;
+  padding: 0 var(--mw-space-4);
+  border: 1px solid var(--mw-line);
+  border-radius: var(--mw-radius-pill);
+  background: var(--mw-surface);
+  color: var(--mw-ink-2);
+  font-family: inherit;
+  font-size: var(--mw-font-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+.mw-chip:hover:not(:disabled) {
+  color: var(--mw-ink);
+}
+.mw-chip--on {
+  background: var(--mw-brand-ink);
+  border-color: var(--mw-brand-ink);
+  color: #fff;
+}
+.mw-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ---- 分隔小标题：两侧细线，用于"记录列表"这类区块 ---- */
+.mw-rule {
+  height: 1px;
+  margin: var(--mw-space-6) 0;
+  background: var(--mw-line);
+  border: 0;
 }

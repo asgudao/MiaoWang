@@ -12,6 +12,7 @@ const links = [
   { to: '/community', label: '社区' },
   { to: '/pets', label: '萌宠' },
   { to: '/knowledge', label: '知识库' },
+  { to: '/ai', label: 'AI 问诊' },
 ]
 
 /** 只有首页顶部是深色舞台，导航才可以透明 */
