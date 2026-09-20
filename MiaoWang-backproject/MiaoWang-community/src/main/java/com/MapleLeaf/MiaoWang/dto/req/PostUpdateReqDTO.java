@@ -36,6 +36,9 @@ public class PostUpdateReqDTO {
      * 视频列表（null=不动视频；数组=整份替换，空数组=清空视频；最多 9 个）
      * <p>
      * 刻意和 images 保持同一条规则：前端不用记两套"怎么算清空"的语义。
+     * ⚠️ 与 images 共享同一个 9 条预算（图片数 + 视频数 ≤ 9）：
+     * 校验用的是"**改完之后**的合计"（不传的那一类按库里现存条数算），
+     * 只在本次请求带了 images 或 videos 时才校验 —— 只改标题/正文的老帖不会被存量数据卡住。
      */
     private List<PostVideoReqDTO> videos;
 }

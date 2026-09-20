@@ -30,6 +30,11 @@ public class PostCreateReqDTO {
 
     /**
      * 图片列表：最多 9 张，顺序即展示顺序，第 1 张作为封面
+     * <p>
+     * ⚠️ 与 videos **共享同一个 9 条预算**：图片数 + 视频数 ≤ 9
+     * （{@code CommunityConstant.MAX_POST_MEDIA_COUNT}）。
+     * 单类型超 9 → {@code B000303}（图片）/ {@code B000332}（视频）；
+     * 单看都没超、加起来超 9（如 5 图 + 5 视频）→ {@code B000333}。
      */
     private List<PostImageReqDTO> images;
 
@@ -37,7 +42,8 @@ public class PostCreateReqDTO {
      * 视频列表：最多 9 个，顺序即展示顺序，可以和图片同时存在
      * <p>
      * 每个元素都要有 url + objectKey（objectKey 是将来清理 MinIO 对象的凭据），
-     * 缺了就是 {@code B000331}；超过 9 个是 {@code B000332}。
+     * 缺了就是 {@code B000331}；超过 9 个是 {@code B000332}；
+     * 与图片合计超过 9 条是 {@code B000333}（见 {@link #images}）。
      */
     private List<PostVideoReqDTO> videos;
 }

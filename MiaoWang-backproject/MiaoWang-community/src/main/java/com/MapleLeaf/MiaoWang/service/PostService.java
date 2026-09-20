@@ -34,9 +34,13 @@ public interface PostService {
     PageRespDTO<PostRespDTO> pagePosts(Long sectionId, Long pageNum, Long pageSize);
 
     /**
-     * 帖子详情（浏览数 +1）
+     * 帖子详情
+     *
+     * @param countView 是否给浏览量 +1；**默认 true = 保持原有行为**。
+     *                  传 false 时跳过 {@code view_count} 更新：前端为了取图片/话题"预取"详情，
+     *                  不该把浏览量刷起来；读路径里塞写操作本身也是迟早要修的。
      */
-    PostDetailRespDTO getPostDetail(Long postId);
+    PostDetailRespDTO getPostDetail(Long postId, boolean countView);
 
     /**
      * 搜索帖子（标题或正文包含关键词，游标分页，最新在前）

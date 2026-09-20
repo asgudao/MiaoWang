@@ -34,7 +34,10 @@ public class CommunityFileController {
     /**
      * 上传帖子视频（mp4 / mov，单个 ≤ community.video.max-size-mb，默认 100MB）
      * <p>
-     * 一帖最多一个视频，前端先传这里拿到 url + objectKey，再随发帖/编辑提交到 video 字段。
+     * 一次一个：前端先传这里拿到 url + objectKey，再随发帖/编辑提交到 videos 字段。
+     * 一帖的视频上限是 {@code CommunityConstant.MAX_POST_VIDEO_COUNT}（9 个），
+     * 且与图片共享 {@code MAX_POST_MEDIA_COUNT}（合计 9 条）的预算 —— 上传接口本身不校验条数，
+     * 条数在发帖/编辑时一并校验（上传是"先落对象、再提交元数据"两步，这里没有帖子上下文）。
      * 分了两个接口而不是一个带 type 的接口：图片与视频的校验口径（扩展名、大小、目录）
      * 完全不同，合成一个接口的后果是参数校验里长出一堆 if。
      */

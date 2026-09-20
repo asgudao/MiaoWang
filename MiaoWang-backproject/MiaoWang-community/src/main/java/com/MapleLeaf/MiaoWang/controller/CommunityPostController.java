@@ -32,7 +32,7 @@ public class CommunityPostController {
     private final PostService postService;
 
     /**
-     * 发布帖子（最多 9 张图）
+     * 发布帖子（图片 + 视频**合计**最多 9 条）
      */
     @PostMapping("/mapleleaf/miaowang/v1/community/post")
     public Result<PostDetailRespDTO> createPost(@RequestBody PostCreateReqDTO requestParam) {
@@ -43,6 +43,7 @@ public class CommunityPostController {
      * 编辑自己的帖子（仅作者；版块不可改，也不留历史版本）
      * <p>
      * title/content 不传 = 不改；images 不传 = 不动图片，传数组（含空数组）= 整份替换。
+     * images / videos 与发帖同一套上限：合计最多 9 条，按"改完之后"的条数校验。
      */
     @PutMapping("/mapleleaf/miaowang/v1/community/post/{postId}")
     public Result<PostDetailRespDTO> updatePost(@PathVariable("postId") Long postId,
@@ -65,11 +66,16 @@ public class CommunityPostController {
     }
 
     /**
-     * 帖子详情（浏览数 +1）
+     * 帖子详情（默认浏览数 +1，可用 countView=false 关掉）
+     *
+     * @param countView 是否给浏览量 +1，默认 true。
+     *                  false = 只读详情、不写 view_count（前端为拿图片/话题"预取"时用，
+     *                  预取不该污染浏览量）；不传/传 true 与改动前行为完全一致。
      */
     @GetMapping("/mapleleaf/miaowang/v1/community/post/{postId}")
-    public Result<PostDetailRespDTO> getPostDetail(@PathVariable("postId") Long postId) {
-        return Results.success(postService.getPostDetail(postId));
+    public Result<PostDetailRespDTO> getPostDetail(@PathVariable("postId") Long postId,
+                                                   @RequestParam(required = false, defaultValue = "true") Boolean countView) {
+        return Results.success(postService.getPostDetail(postId, countView));
     }
 
     /**

@@ -36,6 +36,7 @@ import com.MapleLeaf.MiaoWang.service.PostService;
 import com.MapleLeaf.MiaoWang.service.SensitiveWordService;
 import com.MapleLeaf.MiaoWang.service.TopicService;
 import com.MapleLeaf.MiaoWang.support.ContentTagParser;
+import com.MapleLeaf.MiaoWang.support.PostContentExcerpt;
 import com.MapleLeaf.MiaoWang.support.SqlLikeUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -115,6 +116,13 @@ public class PostServiceImpl extends ServiceImpl<CommunityPostMapper, CommunityP
                 throw new ClientException(CommunityErrorCodeEnum.VIDEO_PARAM_INVALID);
             }
         }
+        // 产品口径：**图片 + 视频合计**最多 9 条（九宫格放不下第 10 格）。
+        // 放在两条单类型上限**之后**：5 张图 + 5 个视频这种"单看都没超、加起来超了"的请求
+        // 用上面两个码都是假话（用户只发了 5 张图），必须由合计码承担；
+        // 而 10 张图 / 10 个视频仍然报各自那个更具体的码（B000303 / B000332），老文案一个字不改。
+        if (images.size() + videos.size() > CommunityConstant.MAX_POST_MEDIA_COUNT) {
+            throw new ClientException(CommunityErrorCodeEnum.POST_MEDIA_TOO_MANY);
+        }
         if (images.isEmpty() && videos.isEmpty()
                 && StrUtil.isBlank(requestParam.getTitle()) && StrUtil.isBlank(requestParam.getContent())) {
             throw new ClientException(CommunityErrorCodeEnum.POST_CONTENT_EMPTY);
@@ -187,7 +195,7 @@ public class PostServiceImpl extends ServiceImpl<CommunityPostMapper, CommunityP
     }
 
     @Override
-    public PostDetailRespDTO getPostDetail(Long postId) {
+    public PostDetailRespDTO getPostDetail(Long postId, boolean countView) {
         CommunityPostDO postDO = baseMapper.selectOne(Wrappers.lambdaQuery(CommunityPostDO.class)
                 .eq(CommunityPostDO::getPostId, postId)
                 .eq(CommunityPostDO::getStatus, CommunityConstant.POST_STATUS_PUBLISHED)
@@ -199,11 +207,15 @@ public class PostServiceImpl extends ServiceImpl<CommunityPostMapper, CommunityP
         if (blockService.blockedBetween(currentUidOrNull(), postDO.getUid())) {
             throw new ClientException(CommunityErrorCodeEnum.POST_NOT_EXIST);
         }
-        // 浏览量原子自增（交给数据库加，不用读改写）；后续亮点期换成 Redis 计数 + 异步落库
-        baseMapper.update(null, Wrappers.lambdaUpdate(CommunityPostDO.class)
-                .setSql("view_count = view_count + 1")
-                .eq(CommunityPostDO::getPostId, postId));
-        postDO.setViewCount(postDO.getViewCount() == null ? 1 : postDO.getViewCount() + 1);
+        if (countView) {
+            // 浏览量原子自增（交给数据库加，不用读改写）；后续亮点期换成 Redis 计数 + 异步落库
+            baseMapper.update(null, Wrappers.lambdaUpdate(CommunityPostDO.class)
+                    .setSql("view_count = view_count + 1")
+                    .eq(CommunityPostDO::getPostId, postId));
+            postDO.setViewCount(postDO.getViewCount() == null ? 1 : postDO.getViewCount() + 1);
+        }
+        // countView=false 时**连内存里的 viewCount 都不加**：返回的就是库里的真实值，
+        // 预取方两次调用之间不会看到"被自己刷出来的"假增量（不然它自己都分不清是不是别人看的）
         return buildDetail(postDO);
     }
 
@@ -273,28 +285,41 @@ public class PostServiceImpl extends ServiceImpl<CommunityPostMapper, CommunityP
                 }
             }
         }
-        // "内容不能同时为空"要按改完后的样子判断：只清正文又不带图/视频，帖子里就什么都不剩了
-        boolean imageEmpty;
+        // "内容不能同时为空"要按改完后的样子判断：只清正文又不带图/视频，帖子里就什么都不剩了。
+        // 顺便把"改完之后到底有几张图/几个视频"算出来，合计上限要用的是这个数（不是请求里的数）：
+        // 不传 = 不动这一类媒体，按库里现存条数算；传了（含空数组）= 整份替换，按新份数算。
+        long imageCount;
         if (newImages == null) {
-            Long imageCount = postImageMapper.selectCount(Wrappers.lambdaQuery(CommunityPostImageDO.class)
+            Long dbImageCount = postImageMapper.selectCount(Wrappers.lambdaQuery(CommunityPostImageDO.class)
                     .eq(CommunityPostImageDO::getPostId, postDO.getPostId())
                     .eq(CommunityPostImageDO::getDelFlag, CommunityConstant.DEL_FLAG_NORMAL));
-            imageEmpty = imageCount == null || imageCount == 0;
+            imageCount = dbImageCount == null ? 0L : dbImageCount;
         } else {
-            imageEmpty = newImages.isEmpty();
+            imageCount = newImages.size();
         }
-        // 视频同理：不传就看库里现在有几个，传了就看替换后的份数
-        boolean videoEmpty;
+        boolean imageEmpty = imageCount == 0;
+        // 视频同理
+        long videoCount;
         if (newVideos == null) {
-            Long videoCount = postVideoMapper.selectCount(Wrappers.lambdaQuery(CommunityPostVideoDO.class)
+            Long dbVideoCount = postVideoMapper.selectCount(Wrappers.lambdaQuery(CommunityPostVideoDO.class)
                     .eq(CommunityPostVideoDO::getPostId, postDO.getPostId())
                     .eq(CommunityPostVideoDO::getDelFlag, CommunityConstant.DEL_FLAG_NORMAL));
-            videoEmpty = videoCount == null || videoCount == 0;
+            videoCount = dbVideoCount == null ? 0L : dbVideoCount;
         } else {
-            videoEmpty = newVideos.isEmpty();
+            videoCount = newVideos.size();
         }
+        boolean videoEmpty = videoCount == 0;
         if (imageEmpty && videoEmpty && StrUtil.isBlank(title) && StrUtil.isBlank(content)) {
             throw new ClientException(CommunityErrorCodeEnum.POST_CONTENT_EMPTY);
+        }
+        // 合计上限：这是新规则（"以后不许再超 9 条"），不是"存量超限帖立刻不可编辑" ——
+        // 所以只在本次请求**真的动了媒体**（带了 images 或 videos 之一）时才校验：
+        //   · 不带媒体 = 条数根本没变，没有可校验的东西，也就绕不过去（只改标题的老帖照旧能编辑）；
+        //   · 带媒体   = 一定落在图上/视频上，用"改完之后"的合计兜住
+        //     （否则"图不动、只补 9 个视频"就能把一帖堆到 18 条，上限形同虚设）。
+        if ((newImages != null || newVideos != null)
+                && imageCount + videoCount > CommunityConstant.MAX_POST_MEDIA_COUNT) {
+            throw new ClientException(CommunityErrorCodeEnum.POST_MEDIA_TOO_MANY);
         }
         checkSensitiveWords(uid, title, content);
         if (newImages != null) {
@@ -570,6 +595,19 @@ public class PostServiceImpl extends ServiceImpl<CommunityPostMapper, CommunityP
 
     /**
      * 组装帖子卡片列表：批量查一次点赞/收藏关系，避免每条帖子都查一次库（N+1）
+     * <p>
+     * 这里是**所有列表类接口的共用组装器**（帖子流 / 搜索 / 话题 / 用户主页 / 我赞过我收藏），
+     * 所以任何"每条卡片都该有的字段"都必须加在这里 —— 只改某一个接口的话，
+     * 同一个 {@code PostRespDTO} 会在别的列表里缺字段（两种形状 = 前端要写两套兜底）。
+     * <p>
+     * 本方法新增字段的成本：
+     * <ul>
+     *     <li>{@code contentExcerpt} / {@code contentTruncated}：**0 条 SQL**。
+     *         帖子是整行 select（没有列投影），{@code content} 就在 {@code postDO} 上，
+     *         截断是一次纯内存计算（{@link PostContentExcerpt#of}）。</li>
+     *     <li>{@code images} / {@code imageCount}：+1 条 SQL（一条 IN 查完整页，见 {@link #loadImages}）。</li>
+     * </ul>
+     * ⚠️ 逐帖循环里**只允许**出现纯内存计算，任何 mapper 调用写进循环都是 N+1（门禁静态护栏钉住）。
      */
     private List<PostRespDTO> toRespList(List<CommunityPostDO> postDOList, Long uid) {
         if (CollUtil.isEmpty(postDOList)) {
@@ -591,10 +629,11 @@ public class PostServiceImpl extends ServiceImpl<CommunityPostMapper, CommunityP
                     .stream().map(CommunityFavoriteDO::getTargetId).collect(Collectors.toSet());
         }
         // 话题一次批量查完（两条 SQL：关联表 + 话题表），不按帖子逐条查；
-        // 视频同理：这一页的帖子一次查完，避免每条帖子查一次库（N+1）
+        // 视频、图片同理：这一页的帖子一次查完，避免每条帖子查一次库（N+1）
         List<Long> pagePostIds = postDOList.stream().map(CommunityPostDO::getPostId).collect(Collectors.toList());
         Map<Long, List<TopicRespDTO>> topicMap = loadTopics(pagePostIds);
         Map<Long, List<PostVideoRespDTO>> videoMap = loadVideos(pagePostIds);
+        Map<Long, List<PostImageRespDTO>> imageMap = loadImages(pagePostIds);
         List<PostRespDTO> respDTOList = new ArrayList<>(postDOList.size());
         for (CommunityPostDO postDO : postDOList) {
             PostRespDTO respDTO = BeanUtil.toBean(postDO, PostRespDTO.class);
@@ -602,9 +641,54 @@ public class PostServiceImpl extends ServiceImpl<CommunityPostMapper, CommunityP
             respDTO.setFavorited(favoritedIds.contains(postDO.getPostId()));
             respDTO.setTopics(topicMap.getOrDefault(postDO.getPostId(), Collections.emptyList()));
             respDTO.setVideos(videoMap.getOrDefault(postDO.getPostId(), Collections.emptyList()));
+            // 正文摘要：content 本来就在这一行上（帖子查询是整行 select，没有列投影），
+            // 所以这里是一次**纯内存**的截断 —— 零 SQL、零额外查询，天然不可能 N+1。
+            // 无正文（null / 只有空白）时得到 "" + false，字段照样下发（前端不用判 null）
+            PostContentExcerpt.Excerpt excerpt = PostContentExcerpt.of(
+                    postDO.getContent(), CommunityConstant.LIST_CONTENT_EXCERPT_LENGTH);
+            respDTO.setContentExcerpt(excerpt.text());
+            respDTO.setContentTruncated(excerpt.truncated());
+            // 图片：总数按整组算，下发只带前 LIST_IMAGE_PREVIEW_COUNT 张（九宫格装不下的不传）
+            // coverUrl 一个字节都不动：它仍是入库时就冗余好的"sort 升序第 0 张"
+            List<PostImageRespDTO> imageList = imageMap.getOrDefault(postDO.getPostId(), Collections.emptyList());
+            respDTO.setImageCount(imageList.size());
+            respDTO.setImages(imageList.size() > CommunityConstant.LIST_IMAGE_PREVIEW_COUNT
+                    ? new ArrayList<>(imageList.subList(0, CommunityConstant.LIST_IMAGE_PREVIEW_COUNT))
+                    : imageList);
             respDTOList.add(respDTO);
         }
         return respDTOList;
+    }
+
+    /**
+     * 批量取帖子的图片预览（**一条 IN 查完这一页**，绝不在循环里逐条查 —— 那就是 N+1）
+     * <p>
+     * 为什么不用"每条帖子带 LIMIT N"的写法：
+     * ① 逐条 LIMIT = 每帖一条 SQL，正是要避免的 N+1；
+     * ② 用窗口函数 {@code ROW_NUMBER() OVER (PARTITION BY post_id ...)} 能做，但仍然要扫过全部匹配行，
+     *    且把 MySQL 版本/方言写进业务查询里不值当。
+     * 所以：**一条 IN 拿回本页所有帖子的图片行，在内存里分组 + 截断**。
+     * 行数天然有界 —— 写侧一帖最多 9 张（{@link CommunityConstant#MAX_POST_IMAGE_COUNT}，发帖/编辑都校验），
+     * 一页最多 50 帖 → 这条查询最多回 450 行，不会随帖子总量增长。
+     * <p>
+     * 排序只在这里做一次（post_id, sort）：调用方拿到的就是"按 sort 升序"的成品，
+     * 与详情接口 {@code buildDetail} 的口径一致。Map 里没有 key 的帖子就是"没有图片"，
+     * 调用方用 getOrDefault 兜空列表 —— 返回给前端的一律是数组（没有图片就是空数组），前端不用判 null。
+     */
+    private Map<Long, List<PostImageRespDTO>> loadImages(List<Long> postIds) {
+        if (CollUtil.isEmpty(postIds)) {
+            return Collections.emptyMap();
+        }
+        List<CommunityPostImageDO> imageDOList = postImageMapper.selectList(
+                Wrappers.lambdaQuery(CommunityPostImageDO.class)
+                        .eq(CommunityPostImageDO::getDelFlag, CommunityConstant.DEL_FLAG_NORMAL)
+                        .in(CommunityPostImageDO::getPostId, postIds)
+                        .orderByAsc(CommunityPostImageDO::getPostId)
+                        .orderByAsc(CommunityPostImageDO::getSort));
+        return imageDOList.stream()
+                .collect(Collectors.groupingBy(CommunityPostImageDO::getPostId,
+                        Collectors.mapping(imageDO -> BeanUtil.toBean(imageDO, PostImageRespDTO.class),
+                                Collectors.toList())));
     }
 
     /**

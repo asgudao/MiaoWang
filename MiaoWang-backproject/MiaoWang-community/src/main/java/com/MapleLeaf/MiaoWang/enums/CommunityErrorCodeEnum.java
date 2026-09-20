@@ -40,6 +40,15 @@ public enum CommunityErrorCodeEnum implements IErrorCode {
     VIDEO_SIZE_EXCEED("B000330", "视频大小超出限制"),
     VIDEO_PARAM_INVALID("B000331", "视频参数不完整，请重新上传后再提交"),
     POST_VIDEO_TOO_MANY("B000332", "一个帖子最多上传 9 个视频"),
+    /**
+     * 图片 + 视频**合计**超限（如 5 张图 + 5 个视频；单看两类都没超）
+     * <p>
+     * 为什么不复用 {@link #POST_IMAGE_TOO_MANY} / {@link #POST_VIDEO_TOO_MANY}：
+     * 那两条的文案在"合计超限"的请求上都是**假话** —— 用户只发了 5 张图，
+     * 回他"一个帖子最多上传 9 张图片"会让前端与用户都找错方向（他会去删图，删到 4 张还是失败）。
+     * 所以按项目"错误码要如实"的规矩新领一个码，文案把"合计"写清楚。
+     */
+    POST_MEDIA_TOO_MANY("B000333", "一个帖子最多上传 9 个图片和视频（合计）"),
     ;
 
     private final String code;
