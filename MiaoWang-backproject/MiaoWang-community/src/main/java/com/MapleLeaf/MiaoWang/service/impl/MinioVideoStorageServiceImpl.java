@@ -1,6 +1,7 @@
 package com.MapleLeaf.MiaoWang.service.impl;
 
 import cn.hutool.core.util.StrUtil;
+import com.MapleLeaf.MiaoWang.common.biz.file.ObjectStorageUrlBuilder;
 import com.MapleLeaf.MiaoWang.common.config.MinioProperties;
 import com.MapleLeaf.MiaoWang.common.convention.exception.ClientException;
 import com.MapleLeaf.MiaoWang.common.enums.FileErrorCodeEnum;
@@ -58,6 +59,11 @@ public class MinioVideoStorageServiceImpl implements VideoStorageService {
     private final MinioClient minioClient;
     private final MinioProperties minioProperties;
     private final CommunityVideoProperties videoProperties;
+    /**
+     * 下发 URL 的唯一拼装点（common）：视频与图片、头像、健康档案共用同一份取址规则，
+     * 免得以后新增一处上传又忘了"客户端可达地址"这件事
+     */
+    private final ObjectStorageUrlBuilder objectStorageUrlBuilder;
 
     @Override
     public VideoUploadRespDTO uploadVideo(MultipartFile file) {
@@ -101,7 +107,8 @@ public class MinioVideoStorageServiceImpl implements VideoStorageService {
             throw new ClientException(FileErrorCodeEnum.FILE_UPLOAD_ERROR);
         }
         VideoUploadRespDTO respDTO = new VideoUploadRespDTO();
-        respDTO.setUrl(buildPublicUrl(bucket, objectKey));
+        // 下发给客户端的直链走 common 的统一拼装点（对外可达地址），与图片、头像同口径
+        respDTO.setUrl(objectStorageUrlBuilder.buildPublicUrl(bucket, objectKey));
         respDTO.setObjectKey(objectKey);
         respDTO.setSize(file.getSize());
         respDTO.setFormat(extension);
@@ -145,13 +152,5 @@ public class MinioVideoStorageServiceImpl implements VideoStorageService {
         return "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\","
                 + "\"Principal\":{\"AWS\":[\"*\"]},\"Action\":[\"s3:GetObject\"],"
                 + "\"Resource\":[\"arn:aws:s3:::" + bucket + "/*\"]}]}";
-    }
-
-    /**
-     * 拼直链：publicBaseUrl 不配就用 endpoint
-     */
-    private String buildPublicUrl(String bucket, String objectKey) {
-        String baseUrl = StrUtil.blankToDefault(minioProperties.getPublicBaseUrl(), minioProperties.getEndpoint());
-        return StrUtil.removeSuffix(baseUrl, "/") + "/" + bucket + "/" + objectKey;
     }
 }
