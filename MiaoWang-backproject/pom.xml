@@ -49,6 +49,8 @@
         <hutool-all.version>5.8.47</hutool-all.version>
         <!--MinIO 对象存储客户端（图片统一走 common 封装，按业务分桶）-->
         <minio.version>8.5.17</minio.version>
+        <!--支付宝支付 SDK：只有 vip 模块的支付渠道实现用（4.34.0.ALL 是官方聚合包）-->
+        <alipay-sdk-java.version>4.34.0.ALL</alipay-sdk-java.version>
         <!-- 打包跳过单元测试 -->
         <skipTests>true</skipTests>
         <spring-boot.version>3.5.0</spring-boot.version>
@@ -75,6 +77,12 @@
                 <groupId>io.minio</groupId>
                 <artifactId>minio</artifactId>
                 <version>${minio.version}</version>
+            </dependency>
+            <!--支付宝支付 SDK：只有 vip 的支付渠道实现用，版本统一在这里管-->
+            <dependency>
+                <groupId>com.alipay.sdk</groupId>
+                <artifactId>alipay-sdk-java</artifactId>
+                <version>${alipay-sdk-java.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.springframework.boot</groupId>
