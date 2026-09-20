@@ -9,6 +9,12 @@
 *.gltf
 *.fbx
 
+# 例外：首页 3D 电子宠物演示模型（各约 200KB）必须入库，
+# 否则别人 clone 下来首页 3D 展示是空的（简历项目要"clone 即可见"）
+!static/model/cat/toon_cat_free.glb
+!MiaoWang-frontproject/MiaoWang-web/public/models/toon_cat_free.glb
+!MiaoWang-frontproject/MiaoWang-phone/static/model/cat/toon_cat_free.glb
+
 # 系统文件
 .DS_Store
 Thumbs.db
@@ -26,3 +32,14 @@ desktop.ini
 *.iml
 *.iws
 *.ipr
+# 沙箱内 npm 缓存（工作区可用，仓库不收录）
+.npm-cache/
+
+# Agent 会话临时产物（批次回归脚本、请求体、DDL 草稿等）
+.dsh-tmp/
+
+# 支付宝沙箱密钥（应用私钥绝不入库，只留在本机）
+.alipay-sandbox/
+*.pem
+*.p12
+*.jks
