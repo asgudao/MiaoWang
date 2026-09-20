@@ -31,8 +31,19 @@ server:
   port: 8053
 # 注意：数据库、Redis、MyBatis-Plus 来自 Nacos 共享配置 MiaoWang-all-service.yaml
 # MinIO（common 的 MinioProperties 提供兜底默认值；Nacos 目前没配 minio.*，全走默认）：
-#   endpoint           http://192.168.137.128:9000
+#   endpoint           http://192.168.137.128:9000   ← 服务"自己"读写对象用（内网，SDK 用）
+#   public-base-url    （可选）                       ← "下发给客户端"的 URL 用（对外可达）
+#   public-port        （可选，默认取 endpoint 端口=9000）← 推导对外地址时用的端口
 #   accessKey          minioadmin
 #   secretKey          minioadmin
 #   buckets.post       miaowang-community（按业务分桶，首次上传自动创建并设为公共读）
 # 覆盖方式：在 Nacos 的 MiaoWang-service-community 里写 minio.*（例如 minio.max-size-mb）
+#
+# ⚠️ 下发 URL 的取址是三级优先级（唯一实现在 common 的 ObjectStorageUrlBuilder）：
+#   1) minio.public-base-url 配了 → 用它（生产填公网 endpoint / CDN 域名）
+#   2) 没配 → 按本次请求的 Host 推导：host 取 X-Forwarded-Host/Host（去端口），端口取 minio.public-port
+#      （默认 9000）→ 开发期一行配置都不用填，手机用哪个 IP 调接口图片就用哪个 IP
+#   3) 没配也没请求上下文（定时任务/Feign/单测）→ 回退内网 endpoint（= 老行为）
+#   注意第 2 级仍是"开发机代转发"的用法：MinIO 在 VM 网段，手机到不了，
+#   要在开发机上跑 MiaoWang-frontproject/tools/minio-forward.js
+#   （它监听 0.0.0.0:<端口>，把请求转发到 192.168.137.128:9000；端口与 minio.public-port 保持一致）
