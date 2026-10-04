@@ -22,17 +22,19 @@
  *    而遮罩是 `position: fixed` 的全屏层，视觉上已经盖住了。
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { PhCaretLeft, PhCaretRight, PhX } from '@phosphor-icons/vue'
+import { useRouter } from 'vue-router'
+import { PhCaretLeft, PhCaretRight, PhPlay, PhX } from '@phosphor-icons/vue'
 import {
   mediaGridLayout,
   mediaKey,
   sortMedia,
   type MediaItem,
+  type MediaKind,
 } from './postMediaLayout'
 
 const props = withDefaults(
   defineProps<{
-    /** 接口给的图片数组（列表可能是单张 `coverUrl` 折成的单项，见 `postMediaOf`） */
+    /** 接口给的**媒体**数组（图片 + 视频，`kind` 区分；列表的 `coverUrl` 折成单项，见 `postMediaOf`） */
     images?: MediaItem[] | null
     /** `detail` = 详情页（单图上限更高）；`card` = 列表卡片 */
     variant?: 'detail' | 'card'
@@ -40,20 +42,63 @@ const props = withDefaults(
     singleAsLink?: boolean
     /** 无障碍标签前缀，读屏用 */
     label?: string
+    /**
+     * ⚠️ **2026-09-22**：视频格点一下**进帖子详情页看/播**（用户口径："点击行为默认与照片一致"）。
+     * 列表里**不建播放器实例、不内联播放**（一屏挂 N 个 `<video>` 会拖垮滚动）。
+     * 不传 = 视频格渲染成不可点（详情页不往本组件喂视频，走页面自己的播放器）。
+     */
+    postId?: number | string | null
   }>(),
-  { images: null, variant: 'detail', singleAsLink: false, label: '帖子配图' },
+  { images: null, variant: 'detail', singleAsLink: false, label: '帖子配图', postId: null },
 )
 
 interface Cell {
   key: string
   url: string
   index: number
+  kind: MediaKind
+  /** ⚠️ **2026-09-22 新增**：视频格的封面图 URL（后端 `PostVideoRespDTO.coverUrl`，可空） */
+  cover: string
 }
 
 const sorted = computed(() => sortMedia(props.images))
 const cells = computed<Cell[]>(() =>
-  sorted.value.map((m, i) => ({ key: mediaKey(m, i), url: String(m.url ?? ''), index: i })),
+  sorted.value.map((m, i) => ({
+    key: mediaKey(m, i),
+    url: String(m.url ?? ''),
+    index: i,
+    kind: m.kind === 'video' ? 'video' : 'image',
+    /** 只有视频有封面（`postMediaLayout.postMediaOf` 已经把 `videos[i].coverUrl` 映射进 `m.cover`） */
+    cover: m.kind === 'video' && m.cover ? String(m.cover) : '',
+  })),
 )
+
+/**
+ * ⚠️ **2026-09-22 三轮口径（按顺序读，最后一轮是现状）**
+ *
+ * ① **第一轮**（用户："视频要有和照片一样的九宫格…效果和照片一样"）：视频格 = 中性占位 + 播放角标，
+ *    **列表里不放 `<video>`**（不给每个视频建播放器实例）。
+ * ② **第二轮**（用户："九宫格视频也要能显示其中的一个初始页面，**不能是空的**"）：
+ *    临时改成在格子里放 `<video preload="metadata">` **争首帧** + 中性遮层兜底。"真首帧"当时就标明
+ *    **不保证**（平台行为）。
+ * ③ **第三轮**（用户真机/模拟器实测：「视频**没有显示封面**，**也点不开**」）：
+ *    真机结果证明第 ② 轮那条路**不成立** —— 列表里的 `<video>` 在 App 端**既没渲出首帧**
+ *    （native 组件的首帧要真解码，`preload` 语义在 App 端不保证），**又把点击吞了**
+ *    （native 层压在 webview 之上，点格子不进详情）。⇒ **退回第 ① 轮的方案**：
+ *    格子里**只有"静态画面 + 自绘角标"**，点击一律走 `openPost()` 进详情页播。
+ * ④ **第四轮（现状，2026-09-22 后端交付抽帧封面后）**：后端 `PostVideoRespDTO` **新增
+ *    `coverUrl` / `coverObjectKey`**（`dto/resp/PostVideoRespDTO.java:34,39`；抽帧用 jcodec，纯 Java）
+ *    ⇒ **有封面就显示真封面**（复用图片格那条 `.media__cellimg` + `object-fit: cover`，几何一个字没改），
+ *    **空 / `@error` ⇒ 退回第 ①轮的"中性底 + 角标"**（**绝不空白格**，格子照留、不影响其它格）。
+ *    ⚠️ 两端同口径：手机端 `mediaSourceOf` 读 `videos[i].coverUrl`，Web 端 `postMediaOf` 同样只认它。
+ *
+ * **过期说法已作废（2026-09-22，避免下一个人被误导）**：
+ *   ~~`PostVideoRespDTO` 只有 `{url, objectKey}`，没有 `coverUrl` / `poster`~~ —— 那是抽帧交付**之前**的事实；
+ *   现在是 `{url, objectKey, coverUrl, coverObjectKey}`（仍**没有 `sort`**，视频顺序依旧是数组原序）。
+ *   ⚠️ **两条红线不变**：① 列表里**不放 `<video>`**（native 组件吞点击/不出首帧，真机已否）；
+ *   ② **不许编造封面**、**不许拿 `post.coverUrl`（帖子封面 = 第一张图）顶替视频封面**。
+ */
+const router = useRouter()
 
 /**
  * 被收掉的图（key）：**只剩"加载真失败"这一种**（`@error`）。
@@ -62,6 +107,16 @@ const cells = computed<Cell[]>(() =>
  */
 const dropped = ref<string[]>([])
 const lightbox = ref(-1)
+/**
+ * ⚠️ **2026-09-22 新增**：视频**封面图**真加载失败（`@error`）的 url 集合。
+ * 只用来把这一格退回"中性底 + 角标"（**绝不空白**）；**不摘格子、不改布局、不影响其它格子**。
+ */
+const coverFailed = ref<string[]>([])
+
+/** 封面加载失败 → 记下来（模板据此回落中性占位） */
+function onCoverError(url: string) {
+  if (url && !coverFailed.value.includes(url)) coverFailed.value = [...coverFailed.value, url]
+}
 
 /** 换数据就清空收图记录与灯箱，否则重新读一次帖子后原来那张图会一直不显示 */
 watch(
@@ -69,11 +124,19 @@ watch(
   () => {
     dropped.value = []
     lightbox.value = -1
+    coverFailed.value = []
   },
 )
 
 const visible = computed(() => cells.value.filter((c) => !dropped.value.includes(c.key)))
-/** `null` = **整块不渲染**（0 张图，或全被收掉） */
+/**
+ * ⚠️ **2026-09-22：灯箱只装"图片"格**（`kind === 'image'`）。
+ * 视频格的 url 是 `.mp4`，塞进 `<img>` 只会是一张破图；视频的播放位在**详情页**。
+ * 灯箱的下标因此是"**图片序列**里的下标"（不是 `visible` 的下标）—— 混用会在
+ * 「图 / 视频 / 图」这种帖子上把"下一张"跳到视频上。
+ */
+const imageCells = computed(() => visible.value.filter((c) => c.kind !== 'video'))
+/** `null` = **整块不渲染**（0 个媒体项，或全被收掉） */
 const layout = computed(() => mediaGridLayout(visible.value.length))
 const shownCells = computed(() => visible.value.slice(0, layout.value?.shown ?? 0))
 
@@ -86,11 +149,17 @@ function drop(key: string) {
   if (dropped.value.includes(key)) return
   dropped.value = [...dropped.value, key]
   // 正在看的那张被收掉了就把灯箱关掉，免得停在一张已经不存在的图上
-  if (lightbox.value >= visible.value.length) lightbox.value = -1
+  if (lightbox.value >= imageCells.value.length) lightbox.value = -1
 }
 
 function onImgError(key: string) {
   drop(key)
+}
+
+/** 视频格 / 单个视频：**进详情页看与播**（列表里不内联播放，见 `postId` 的说明） */
+function openPost() {
+  if (props.postId === null || props.postId === undefined || props.postId === '') return
+  void router.push({ name: 'community-post', params: { postId: props.postId } })
 }
 
 /* ⚠️ **2026-09-21 用户最终裁决（分档）**：
@@ -107,21 +176,31 @@ function onImgError(key: string) {
 /* ---------- 灯箱 ---------- */
 
 const current = computed<Cell | null>(() =>
-  lightbox.value >= 0 ? (visible.value[lightbox.value] ?? null) : null,
+  lightbox.value >= 0 ? (imageCells.value[lightbox.value] ?? null) : null,
 )
 const canPrev = computed(() => lightbox.value > 0)
-const canNext = computed(() => lightbox.value >= 0 && lightbox.value < visible.value.length - 1)
+const canNext = computed(
+  () => lightbox.value >= 0 && lightbox.value < imageCells.value.length - 1,
+)
 
 function openLightbox(i: number) {
-  if (i < 0 || i >= visible.value.length) return
+  if (i < 0 || i >= imageCells.value.length) return
   lightbox.value = i
+}
+/** 从**格子的 key** 打开：下标要映射到"图片序列"（视频格不在灯箱里） */
+function openLightboxFor(key: string) {
+  openLightbox(imageIndexOf(key))
+}
+/** 这个格子在**图片序列**里的下标（-1 = 它本身是视频格）；只给读屏文案用 */
+function imageIndexOf(key: string): number {
+  return imageCells.value.findIndex((c) => c.key === key)
 }
 function closeLightbox() {
   lightbox.value = -1
 }
 function step(delta: number) {
   const next = lightbox.value + delta
-  if (next < 0 || next >= visible.value.length) return
+  if (next < 0 || next >= imageCells.value.length) return
   lightbox.value = next
 }
 function onKey(e: KeyboardEvent) {
@@ -141,6 +220,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
     <!-- 1 张 → **原比例完整显示、不裁剪**（用户："如果是一张图，就原比例不裁剪"）；
          竖长图就让它长，不设高度上限。 -->
     <template v-if="single">
+      <template v-if="single.kind !== 'video'">
       <button
         v-if="!singleAsLink"
         class="media__tap"
@@ -164,6 +244,46 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         loading="lazy"
         @error="onImgError(single.key)"
       />
+      </template>
+      <!--
+        ⚠️ **2026-09-22：恰好 1 个媒体项且它是视频**。
+        视频**没有封面/首帧字段可用**（后端 `PostVideoRespDTO` 逐字只有 `{url, objectKey}` —— 不许编字段），
+        宽度与单图**共用同一条 1×2 上限**（`.media--card .media__tap`），比例取 16:9；
+        里面同样放 `<video preload="metadata">` 尽力出首帧 + 中性遮层保证不空 + 播放角标。
+      -->
+      <button
+        v-else-if="!singleAsLink"
+        class="media__tap media__video-single"
+        type="button"
+        :aria-label="`${label}，视频，点进帖子播放`"
+        :disabled="postId === null"
+        @click="openPost()"
+      >
+        <!-- ⚠️ **2026-09-22 第四轮**：有后端抽帧封面（`coverUrl`）就显示真封面（铺满这个 16:9 框）；
+             空 / `@error` ⇒ 下面那层中性底 + 角标（**绝不空白**）。 -->
+        <img
+          v-if="single && single.cover && !coverFailed.includes(single.cover)"
+          class="media__video-cover"
+          :src="single.cover"
+          alt=""
+          @error="onCoverError(single.cover)"
+        />
+        <span class="media__video" aria-hidden="true">
+          <PhPlay :size="18" weight="fill" />
+        </span>
+      </button>
+      <span v-else class="media__video-single">
+        <img
+          v-if="single && single.cover && !coverFailed.includes(single.cover)"
+          class="media__video-cover"
+          :src="single.cover"
+          alt=""
+          @error="onCoverError(single.cover)"
+        />
+        <span class="media__video" aria-hidden="true">
+          <PhPlay :size="18" weight="fill" />
+        </span>
+      </span>
     </template>
 
     <!-- 2 张以上 → **裁剪成方格**网格（用户："超过一张就进行裁剪，排成对应的九宫格等"）；
@@ -175,11 +295,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
       :class="`media__grid--c${layout.columns}`"
     >
       <li v-for="(c, i) in shownCells" :key="c.key">
+        <!--
+          ⚠️ **2026-09-22：视频格与图片格共用同一个 `.media__cell`** ——
+          同一套行布局、同样的 1/3 单元格、同样的方形裁剪、同样的 `gap` 间距。
+          区别只有"格子里面画什么"与"点击去哪"。
+        -->
         <button
+          v-if="c.kind !== 'video'"
           class="media__cell"
           type="button"
-          :aria-label="`${label}，查看第 ${i + 1} 张，共 ${visible.length} 张`"
-          @click="openLightbox(i)"
+          :aria-label="`${label}，查看第 ${imageIndexOf(c.key) + 1} 张，共 ${imageCells.length} 张`"
+          @click="openLightboxFor(c.key)"
         >
           <img
             class="media__cellimg"
@@ -193,6 +319,30 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             <span class="media__more-num mw-num">+{{ layout.overflow }}</span>
           </span>
         </button>
+        <!-- 视频格：**几何与图片格逐项相同**（同一个 `.media__cell`）。
+             里面分两层（2026-09-22 第四轮）：① **封面**——后端抽帧的 `coverUrl` 有值就显示真封面，复用图片格 `.media__cellimg` + `object-fit: cover`（几何不变）；
+             ⚠️ 封面为空 / `@error` ⇒ 只剩角标 + 格子自己的中性底（`--mw-canvas`）⇒ **绝不是空白格**；
+             ② 自绘播放三角角标（无白底、无"视频"二字、**不用 emoji**）。
+             点它进帖子详情播（列表里不内联播放；`postId` 没给就渲染成不可点，不做假按钮）。 -->
+        <button
+          v-else
+          class="media__cell media__cell--video"
+          type="button"
+          :aria-label="`${label}，第 ${i + 1} 格是视频，点进帖子播放`"
+          :disabled="postId === null"
+          @click="openPost()"
+        >
+          <img
+            v-if="c.cover && !coverFailed.includes(c.cover)"
+            class="media__cellimg"
+            :src="c.cover"
+            alt=""
+            @error="onCoverError(c.cover)"
+          />
+          <span class="media__video" aria-hidden="true">
+            <PhPlay :size="18" weight="fill" />
+          </span>
+        </button>
       </li>
     </ul>
 
@@ -202,7 +352,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
       class="lb"
       role="dialog"
       aria-modal="true"
-      :aria-label="`${label}，第 ${lightbox + 1} 张，共 ${visible.length} 张`"
+      :aria-label="`${label}，第 ${lightbox + 1} 张，共 ${imageCells.length} 张`"
       @click.self="closeLightbox"
     >
       <span class="lb__veil" aria-hidden="true" />
@@ -230,7 +380,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         <PhCaretRight :size="18" aria-hidden="true" />
       </button>
 
-      <p class="lb__count mw-num">{{ lightbox + 1 }} / {{ visible.length }}</p>
+      <p class="lb__count mw-num">{{ lightbox + 1 }} / {{ imageCells.length }}</p>
     </div>
   </div>
 </template>
@@ -418,6 +568,100 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
    ⚠️ 单图（`.media__img`）与灯箱/详情页的图**不用**这个类，所以它们是完整原图。 */
 .media__cellimg {
   display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/**
+ * ⚠️ **2026-09-22 第三轮（现状）**：视频格（用户："视频要有和照片一样的九宫格，效果和照片一样"）。
+ *
+ * **几何与图片格逐项相同**：它用的就是上面那条 `.media__cell`
+ * （`width: 100%` 由网格列决定 / `aspect-ratio: 1` 正方形 / `overflow: hidden` / `border-radius: var(--mw-radius-tag)`），
+ * 网格的 `gap: var(--mw-space-2)` 与列数判定（`postMediaLayout.ts`）也一个字没改 ——
+ * 这里**只补"格子里面画什么"**。配色只用既有令牌：底 `--mw-canvas`、线 `--mw-line`、图标 `--mw-ink-2`。
+ *
+ * **为什么格子里不放 `<video>`（三轮的结论）**：
+ *   ① 后端**没有封面字段**（`PostVideoRespDTO` 只有 `{url, objectKey}`）⇒ 列表里**拿不到真封面**，
+ *      也**不许编造**一个；
+ *   ② 试过 `<video preload="metadata">` 争首帧 —— 真机（App 端）实测**既没渲出首帧、又把点击吞了**
+ *      （native 层在 webview 之上），用户看到的正是"没有封面 + 点不开"；
+ *   ③ ⇒ 列表里只留**静态中性底 + 一枚播放三角**：**永远不会空白/纯黑**（底是既有令牌色），
+ *      点击一律落到外层按钮 → `openPost()` 进详情页播（列表里不内联播放、不自动播放）。
+ * ⚠️ 取舍如实说明：**格子里看不到画面**。要真封面只能服务端抽帧（ffmpeg/JavaCV + 给
+ *    `PostVideoRespDTO` 加封面字段）或用户手工准备封面图 —— 本轮不做。
+ */
+.media__cell--video {
+  display: grid;
+  place-items: center;
+  background: var(--mw-canvas);
+  border: 1px solid var(--mw-line);
+  cursor: pointer;
+}
+/**
+ * ⚠️ **2026-09-22 修复（用户：「web 端视频中间没有那个三角形播放键」）**
+ *
+ * **成因（已核实的准确机理）**：`.media__cell` 是 `aspect-ratio: 1` + `overflow: hidden`，
+ * `.media__cell--video` 又是 `display: grid; place-items: center`；而封面 `<img class="media__cellimg">`
+ * 是**正常流里的 grid item 且 `height: 100%`** ⇒ 它**独占那一格**，于是后面的角标
+ * `<span class="media__video">` 被排进**隐式的第二行**（格子高度已被占满）⇒ 被 `overflow: hidden` **裁掉**。
+ * ⇒ 角标**一直都在 DOM 里**（SSR 断言早有 `class="media__video"`），只是**被封面挤出了可视区**（成因②）。
+ *
+ * **修法**：只在视频格里把封面**移出文档流**（`position: absolute; inset: 0`；尺寸仍由父格决定，
+ * **不新增任何 width/height/aspect-ratio**）⇒ 角标重新成为唯一在流子元素、被 `place-items: center` 居中，
+ * 又因为排在封面之后而**压在封面之上**。图片格（非 `--video`）的 `.media__cellimg` 原样不动。
+ */
+.media__cell--video .media__cellimg {
+  position: absolute;
+  inset: 0;
+}
+/* 播放角标：**只有一枚三角**，压在**半透明深色圆盘**上（用户 2026-09-22：「视频中间的播放键
+   为什么有白色背景，可以去掉吗，还有"视频"两个字也去掉」）。
+   - **没有白底/白圆**：圆盘色 = 既有令牌 `--mw-night`（#1a1310）+ `opacity: 0.62`
+     （与 `.media__more` 的 `+N` 角标同一个"半透明深色"手法，**不写死 rgba、不引新令牌**）；
+   - **没有文案**：`"视频"` 两个字删了，"这是视频"由三角本身表达（图标仍是 `PhPlay`，**不是 emoji**）；
+   - `position: relative` + `z-index: 1` 让角标压在**封面**之上（封面是绝对定位的兄弟节点，DOM 里排在前面）；
+   - `pointer-events: none`：点击照旧落到外层按钮 = 进详情页播。
+   ⚠️ `opacity` 会同时作用在三角上（三角也是半透明白）—— 这是**刻意的**：白底圆圈不要，
+      深色半透明圆盘 + 半透明白三角，在格子的暖色底上读得清。 */
+.media__video {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: var(--mw-space-2);
+  border-radius: var(--mw-radius-pill);
+  background: var(--mw-night);
+  color: var(--mw-on-night);
+  opacity: 0.62;
+  pointer-events: none;
+  z-index: 1;
+}
+/**
+ * ⚠️ **恰好 1 个媒体项且它是视频**：宽度与单图**共用同一条 1×2 上限**
+ * （`.media--card .media__tap` 已经把 `width` 设成 `var(--pmg-w-2col)`），
+ * 这里只给高度方向的比例：**16:9**（视频常见比例）。
+ * ⚠️ 这不是"量出来的真比例"——**2026-09-22 之前**后端连封面都没有；现在后端已交付 `coverUrl`
+ * （真封面按 `object-fit: cover` 铺满这个框），**16:9 保留为 `coverUrl` 为空时的兜底比例**与点击进场尺寸。
+ * 外接矩形不裁切、不做成方形（方形会与"1 个媒体项保持原始比例"的口径打架）。
+ * 代价：竖屏视频会在这块 16:9 里显得小，但它只是一个"点进详情播放"的入口。
+ */
+.media__video-single {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--mw-radius-input);
+  background: var(--mw-canvas);
+  border: 1px solid var(--mw-line);
+  box-sizing: border-box;
+}
+/* 卡片里由外层 `RouterLink` 负责点击时的形态与上面那块**同一套几何**（只是没有按钮外壳） */
+/* ⚠️ **单项视频的真封面**（2026-09-22 后端交付 `coverUrl` 后新增）：
+   它只负责"铺满那个 16:9 的框"（`object-fit: cover` 与图片格同一裁剪口径），
+   **不参与任何尺寸决策** —— 框的比例仍来自 `.media__video-single`。 */
+.media__video-cover {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;

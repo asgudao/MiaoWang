@@ -58,7 +58,6 @@ import {
   PhPencilSimple,
   PhSignIn,
   PhSquaresFour,
-  PhVideoCamera,
 } from '@phosphor-icons/vue'
 import { ApiError } from '@/api/request'
 import PostMediaGrid from '@/components/community/PostMediaGrid.vue'
@@ -202,16 +201,19 @@ const emptyState = computed(() => {
 /* ---------- 卡片上的图片与长标题 ---------- */
 
 /**
- * 一条帖子的图片数组。
+ * 一条帖子的**媒体**数组（图片 + 视频，同一个九宫格）。
  *
  * 图片数组来自列表 `images`（**后端已定稿**：按 `sort` 升序、最多 9 张、`[0]` 即封面、无图 = `[]`，
- * 见 `PostRespDTO.java:49`）；`images` 为空或缺席时 `postMediaOf` 才退回单张 `coverUrl` 折成"1 张"，
- * 于是走"单张大图"档位。2/3/4/5~9/>9 档位由同一个 `mediaGridLayout` 逐档判定，**这里一个字都不参与**。
- * 两种形状都没有 → `[]` → 图片区**整块不渲染**（不是显示成空白框）。
+ * 见 `PostRespDTO.java:49`）；⚠️ **2026-09-22 起视频也进同一个数组**（用户："视频要有和照片一样的
+ * 九宫格，在社区初始页面显示，效果和照片一样"）—— 列表 DTO 的 `videos`（`{url, objectKey}`，
+ * 无 `sort`、无封面字段）跟在图片后面，格子判定与图片完全共用一套。
+ * 两者都没有可用项时才退回单张 `coverUrl` 折成"1 张"（防御支）；
+ * 两种形状都没有 → `[]` → 媒体区**整块不渲染**（不是显示成空白框）。
+ * 2/3/4/5~9/>9 档位由同一个 `mediaGridLayout` 逐档判定，**这里一个字都不参与**。
  */
 const mediaOf = (p: PostSummary) => postMediaOf(p)
 
-/** 单图档位：这一张直接进帖子（多图档位才走灯箱，见 `PostMediaGrid` 的说明） */
+/** 单图档位：这一张直接进帖子（多图档位才走灯箱，见 `PostMediaGrid` 的说明）；单个视频同理进帖子 */
 const singleMedia = (p: PostSummary) => postMediaOf(p).length === 1
 
 /** ⚠️ **信息流卡片不再折叠标题**（2026-09-21 用户第 3 条真机反馈："标题必须完整显示"）。
@@ -301,6 +303,19 @@ const expandedBodies = ref<number[]>([])
 const isBodyExpanded = (postId: number) => expandedBodies.value.includes(postId)
 const fullTextOf = (postId: number): FullText =>
   fullTexts[postId] ?? { text: '', loading: false, error: '' }
+
+/**
+ * 卡片正文的**唯一文本源**（⚠️ **2026-09-22 用户要求**：「内容展开是在原本的基础上展开，
+ * **不是直接新开一块区域**把所有的正文内容放进去」）。
+ * - 收着：后端给的摘要前缀（`.card__excerpt--clamp` 负责截 5 行）；
+ * - 展开：详情接口拉回来的**真实全文**（同一块文本节点原地换内容，位置不动、不复制两份）；
+ * - 全文还没回来（加载中）：继续显示摘要 —— 界面**不会**先空一块出来。
+ * ⚠️ 全文仍必须来自详情接口（`?countView=false`），**不许**把摘要拉长冒充全文。
+ */
+const bodyTextOf = (p: PostSummary): string =>
+  isBodyExpanded(p.postId) && fullTextOf(p.postId).text
+    ? fullTextOf(p.postId).text
+    : excerptOf(p).text
 
 /**
  * 点「内容展开」：**懒加载详情接口拿全文**。
@@ -943,13 +958,13 @@ function applyTopicQuery() {
                 </div>
 
                 <div class="card__body">
-                  <!-- 置顶与视频计数是**元信息标签**，不是分区，所以跟在用户信息下面、标题前面 -->
-                  <p v-if="isPinned(p) || mediaList(p.videos).length" class="card__flags">
-                    <span v-if="isPinned(p)" class="card__flag card__flag--top">置顶</span>
-                    <span v-if="mediaList(p.videos).length" class="card__flag">
-                      <PhVideoCamera :size="12" aria-hidden="true" />
-                      {{ mediaList(p.videos).length }}
-                    </span>
+                  <!-- ⚠️ **2026-09-22 口径变更（用户：「不要在帖子上方显示含几个视频，web 和手机都不要」）**：
+                     原来这里还有一枚"视频数量"标签（`PhVideoCamera` 图标 + `{{ mediaList(p.videos).length }}`），
+                     **已按用户要求删掉**（视频数量是元信息噪音；视频本身现在就在九宫格里看得见）。
+                     ⚠️ **置顶标签保留、`card__flags` 这个容器保留**（它在有置顶时才渲染）；
+                     ⚠️ 媒体格渲染与"图片 + 视频合计决定列数"的口径**一个字没动**。 -->
+                  <p v-if="isPinned(p)" class="card__flags">
+                    <span class="card__flag card__flag--top">置顶</span>
                   </p>
 
                   <!-- ② 标题：**完整显示，绝不截断/折叠**（用户第 3 条反馈）。
@@ -982,13 +997,15 @@ function applyTopicQuery() {
                     class="card__excerpt"
                     :class="{ 'card__excerpt--clamp': !isBodyExpanded(p.postId) }"
                   >
-                    {{ excerptOf(p).text }}
+                    {{ bodyTextOf(p) }}
                   </p>
 
                   <!-- ④ 内容展开：出现条件是 **「摘要真溢出了 5 行」或「后端说这 200 字是截断的」**
                        任一成立（后者覆盖"后端摘要本身就被截了 200 码点"的情形）。
-                       展开后**不再截断**（`card__excerpt--clamp` 被摘掉），可以收起回到 5 行。
-                       全文来自详情接口（**带 countView=false**，不污染浏览量）；
+                       ⚠️ **2026-09-22 用户要求：「内容展开是在原本的基础上展开，不是直接新开一块区域
+                       把所有的正文内容放进去」** ⇒ 展开 = **上面那个 `.card__excerpt` 节点原地换文本**
+                       （`bodyTextOf()`：收着给摘要、展开给全文），**不再有第二块正文容器**；
+                       全文仍来自详情接口（**带 countView=false**，不污染浏览量）；
                        失败时留住摘要 + 在这里如实说清原因，不假装展开成功。 -->
                   <template v-if="canExpandBody(p) || fullTextOf(p.postId).text">
                     <button
@@ -1006,28 +1023,35 @@ function applyTopicQuery() {
                             : '内容展开'
                       }}
                     </button>
-                    <p
-                      v-if="isBodyExpanded(p.postId) && fullTextOf(p.postId).text"
-                      class="card__full"
-                    >
-                      {{ fullTextOf(p.postId).text }}
-                    </p>
                     <p v-if="fullTextOf(p.postId).error" class="mw-alert mw-alert--danger card__fullerr">
                       {{ fullTextOf(p.postId).error }}
                     </p>
                   </template>
 
-                  <!-- ⑤ 图片：单图 → 整块是进帖子的链接（保留原有入口）；
-                       多图 → 正方形网格 + 灯箱，点开看大图并从点击那张开始；
-                       无图 → 这一块**根本不渲染**（`PostMediaGrid` 在 0 张图时根节点都不输出） -->
+                  <!-- ⑤ 媒体（图片 + 视频共用同一套九宫格）：单图/单视频 → 整块是进帖子的链接（保留原有入口）；
+                       多图/含视频 → 正方形网格 + 灯箱，点开看大图并从点击那张开始；
+                       ⚠️ **2026-09-22**：视频格点一下进详情页播（列表里不内联播放、不建播放器实例），
+                       所以这里把 `postId` 交给组件；图片格仍走灯箱。
+                       无媒体 → 这一块**根本不渲染**（`PostMediaGrid` 在 0 个媒体项时根节点都不输出） -->
                   <RouterLink
                     v-if="singleMedia(p)"
                     class="card__cover"
                     :to="{ name: 'community-post', params: { postId: p.postId } }"
                   >
-                    <PostMediaGrid :images="mediaOf(p)" variant="card" single-as-link />
+                    <PostMediaGrid
+                      :images="mediaOf(p)"
+                      :post-id="p.postId"
+                      variant="card"
+                      single-as-link
+                    />
                   </RouterLink>
-                  <PostMediaGrid v-else class="card__cover" :images="mediaOf(p)" variant="card" />
+                  <PostMediaGrid
+                    v-else
+                    class="card__cover"
+                    :images="mediaOf(p)"
+                    :post-id="p.postId"
+                    variant="card"
+                  />
 
                   <!-- ⑥ 卡片底部互动区：**点赞数 → 收藏数 → 评论数**（2026-09-21 用户要求
                        "评论数量写在社区标签的最下端的收藏数量的后面"）。
@@ -1719,13 +1743,10 @@ function applyTopicQuery() {
   opacity: 0.6;
   cursor: default;
 }
-.card__full {
-  max-width: 72ch;
-  padding-top: var(--mw-space-2);
-  border-top: 1px solid var(--mw-line);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
+/* ⚠️ **2026-09-22 删除的死规则**：这里原来是 `.card__full`（摘要下面另开一块正文面板：
+   上边框 + `padding-top` + `max-width: 72ch`）。用户要求"**内容展开是在原本的基础上展开，
+   不是直接新开一块区域**" ⇒ 正文改由 `.card__excerpt` 这一个节点原地切换文本，
+   那块面板连模板带样式一起删掉（留着就是"两处正文"的死代码）。 */
 .card__fullerr {
   font-size: var(--mw-font-micro);
 }

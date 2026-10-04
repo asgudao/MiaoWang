@@ -12,6 +12,13 @@ import {
   type PetBrief,
   type TaskKind,
 } from '@/api/home'
+/**
+ * 首页那句「它主动说的话」走 ai-pet 的 `POST /ai/pet/greet`（**不消耗聊天次数**）。
+ * 判断口径复用宠物对话切片已经收口的那两个纯函数（没档案还是别的错、错误说什么人话），
+ * 首页不另判一遍错误码 —— 两处口径漂移了最难查。
+ */
+import { greetPet } from '@/api/petChat'
+import { isNoProfile, petErrorMessage } from '@/utils/petChat'
 
 /**
  * 首页取数：**一个函数拿全部**（`/pet` + 每只宠物 4 个健康接口，最多 `1 + 4N`）。
@@ -22,6 +29,27 @@ const loading = ref(true)
 /** 取数失败（连 `/pet` 都没读到）→ 错误态 + 重试；**不回退演示数据** */
 const errorText = ref('')
 const stageError = ref('')
+
+/**
+ * 它主动说的那一句（`POST /ai/pet/greet`，**不消耗聊天次数**）。
+ *
+ * `text` / `name` **只来自接口字段**（`greeting` / `petName`），一个字都不自己编；
+ * `null` = 这次没有这句话（`greeting` 为空不是错误）→ 整块不渲染，不摆空气泡。
+ */
+const petGreeting = ref<{ text: string; name: string } | null>(null)
+/** 没有那句话时的**如实**说明（空串 = 页面上不出现这一行） */
+const petGreetNote = ref('')
+/** 「还没有宠物档案」→ 给「去添加宠物」这个真入口（本页已知没档案 与 后端回 B000906 共用它） */
+const petGreetNeedPet = ref(false)
+/**
+ * 本页是否**真的发出过**一次 `/greet`。
+ *
+ * `/greet` 有时段缓存（同一时段后端只会生成一句，`cached` 字段就是这件事），
+ * 所以口径是**一次进页一次**：不轮询、不在返回首页时反复调。
+ * 没发出去（未登录 / 没有档案 / 取数失败）就保持 false —— 等下一次有机会再说，
+ * 而不是"试过了"就永远不再开口。
+ */
+const greetTried = ref(false)
 
 const greet = computed(() => {
   const h = new Date().getHours()
@@ -43,6 +71,12 @@ const primaryPet = computed(() => homePets.value[0] ?? null)
 const ownerName = computed(() =>
   auth.isLoggedIn ? auth.ownerCallName : (data.value?.ownerName ?? '铲屎官'),
 )
+
+/**
+ * 那句问候是谁说的：接口的 `petName`（没起名时后端回字面量「未命名」，原样显示）；
+ * 真拿不到名字才退回中性的「它」—— **不替它编名字**。
+ */
+const petGreetName = computed(() => petGreeting.value?.name || '它')
 
 /** 待办 / 逾期：**只读概览的统计**，页面不另算一套（后端没有打卡表，Done 不存在） */
 const todoCount = computed(() => data.value?.todoCount ?? 0)
@@ -108,6 +142,56 @@ async function reload() {
     errorText.value = e instanceof Error && e.message ? e.message : '照护提醒没读出来，稍后再试'
   } finally {
     loading.value = false
+  }
+  // 进首页让宠物主动说一句（**不消耗聊天次数**）。
+  // 连 `/pet` 都没读到时不问它：有没有档案都不知道，问了也只会拿到一句与事实无关的报错。
+  if (!errorText.value) void loadPetGreeting()
+}
+
+/**
+ * 宠物主动开口。三条不许破的口径（`AiPetChatService.greet` + `/greet` 契约）：
+ *
+ * 1. **一次进页只调一次**：真的发出请求就置位 `greetTried`，不轮询、不重复调
+ *    （同一时段后端本来也只生成一句）。
+ * 2. **没有宠物档案时不发这个请求**：首页已经从 `/pet` 知道有没有档案，
+ *    直接给「去添加宠物」的真去处，而不是先打一次注定 `B000906` 的请求
+ *    （后端 `PetProfileLoader.load` 里"没档案"短路在归属校验**之前**，带谁的 pid 都一样）。
+ * 3. **`greeting` 为空不是错误**（模型抖动、或该时段没生成出来，后端就回 null）→
+ *    不显示气泡、不当错误页；请求失败照实说，绝不写成"它这会儿不想说话"这种假状态。
+ */
+async function loadPetGreeting() {
+  if (greetTried.value) return
+  // 演示模式里的宠物是演示数据（pid 是 p1/p2），没有真档案可问候
+  if (data.value?.source === 'mock') return
+  if (!auth.isLoggedIn) {
+    petGreetNote.value = '登录之后它才会跟你打招呼'
+    return
+  }
+  // `/pet` 的 pid 在本页是字符串（`petBriefFromApi` 统一 String()），转回数字再发，
+  // 免得后端 Long 字段吃到一个字符串形态的 pid
+  const pid = Number(primaryPet.value?.pid ?? '')
+  if (!pid) {
+    petGreetNeedPet.value = true
+    petGreetNote.value = '还没有宠物档案，添加一只之后它才会开口'
+    return
+  }
+  greetTried.value = true
+  try {
+    const resp = await greetPet(pid)
+    const text = resp && resp.greeting ? String(resp.greeting) : ''
+    const name = resp && resp.petName ? String(resp.petName) : ''
+    petGreeting.value = text ? { text, name } : null
+    petGreetNeedPet.value = false
+    petGreetNote.value = text ? '' : '它这次没主动开口（问候没生成出来，不影响你主动找它聊）'
+  } catch (e) {
+    petGreeting.value = null
+    if (isNoProfile(e)) {
+      // 竞态兜底：取数时还有档案、问候时刚被删（或改了归属）→ 仍然按"没档案"给真去处
+      petGreetNeedPet.value = true
+      petGreetNote.value = petErrorMessage(e)
+      return
+    }
+    petGreetNote.value = `问候没读到：${petErrorMessage(e)}`
   }
 }
 
@@ -263,13 +347,26 @@ onMounted(reload)
           <!--
             这里原来是「它今天说了什么」的对话卡：三条气泡是**模板里硬编码的**，
             `MOCK.chat` 在 Web 端根本不存在，按钮也没有 handler。
-            宠物对话页（ai-pet）已经做好并接上路由（`router/index.ts` 的 pet-chat / pet-chat-pet），
-            所以这里换成**一个真入口**：不摆任何假气泡、不替宠物编话，点进去才真的读它的历史。
+            现在换成一真一实两样东西：
+              ① 宠物主动说的那一句 —— 进页面调一次 `POST /ai/pet/greet`（不消耗聊天次数），
+                 文本与名字直接用接口字段 greeting / petName；
+              ② 进入完整对话页的真入口。
+            `greeting` 为空 / 没有宠物档案 / 请求失败三种情况**都不摆假气泡**：
+            没有那句话就整块不渲染，另两种照实说并给一个能用的去处。
           -->
           <header class="sec-head sec-head--gap">
             <h2 class="mw-h2">宠物对话</h2>
             <span class="mw-caption">它用宠物档案里的事回答你</span>
           </header>
+
+          <div v-if="petGreeting" class="greet">
+            <p class="greet__who">{{ petGreetName }}</p>
+            <p class="greet__text">{{ petGreeting.text }}</p>
+          </div>
+          <p v-else-if="petGreetNote" class="greet__note">
+            {{ petGreetNote }}
+            <RouterLink v-if="petGreetNeedPet" class="mw-link" to="/pets/new">去添加宠物</RouterLink>
+          </p>
 
           <div class="petchat">
             <span class="petchat__icon" aria-hidden="true">
@@ -618,6 +715,36 @@ onMounted(reload)
 .pet__next--danger {
   background: rgba(229, 72, 77, 0.12);
   color: var(--mw-danger);
+}
+
+/* ---------- 它主动说的那一句（真接口字段；没有就整块不渲染） ---------- */
+.greet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mw-space-1);
+  margin-bottom: var(--mw-space-3);
+  padding: var(--mw-space-4);
+  background: var(--mw-canvas);
+  border: 1px solid var(--mw-line);
+  /* 左下角收窄一点：读起来是"它说的"，而不是又一个信息盒 */
+  border-radius: var(--mw-radius-card) var(--mw-radius-card) var(--mw-radius-card)
+    var(--mw-radius-input);
+}
+.greet__who {
+  font-size: var(--mw-font-micro);
+  font-weight: 600;
+  color: var(--mw-brand-ink);
+}
+.greet__text {
+  font-size: 18px;
+  line-height: var(--mw-line-height);
+  color: var(--mw-ink);
+}
+/* 没档案 / 没读到时的那句话：中性（不冒充错误，也不假装它在说话） */
+.greet__note {
+  margin-bottom: var(--mw-space-3);
+  font-size: var(--mw-font-caption);
+  color: var(--mw-ink-2);
 }
 
 /* ---------- 宠物对话入口（真入口：点进去才读历史，这里不摆假气泡） ---------- */

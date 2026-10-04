@@ -60,6 +60,12 @@ export interface PostMedia {
   url: string
   objectKey?: string
   sort?: number
+  /**
+   * ⚠️ **2026-09-22 新增：视频封面**（后端抽帧的 `PostVideoRespDTO.coverUrl`，**可为 `null`**）。
+   * 只对 `videos[]` 元素有意义（图片的"封面"就是它自己）；空 ⇒ 列表格退回中性占位 + 角标。
+   * ⚠️ **不是** `PostRespDTO.coverUrl`（那是帖子封面 = 第一张图），**不许互相顶替**。
+   */
+  coverUrl?: string | null
 }
 
 /**
@@ -545,6 +551,11 @@ export function mediaList(items: PostMedia[] | null | undefined): PostMedia[] {
 /**
  * 媒体数组按 `sort` **升序**（实测 `sort` 从 `0` 起；详情 DTO 没有 `coverUrl`，
  * 封面就是升序后的第 0 条）。与手机端 `utils/community.js` 的 `imageUrls/videoUrls` 同口径。
+ *
+ * ⚠️ **2026-09-22 更新（别再被旧说法误导）**：`videos[]` 元素**已不再是 `{url, objectKey}` 两个字段**——
+ * 后端交付抽帧后 `PostVideoRespDTO` 多了 **`coverUrl` / `coverObjectKey`**（`PostVideoRespDTO.java:34,39`），
+ * 所以 `PostMedia` 也带上可选的 `coverUrl`。⚠️ 这里的"详情 DTO 没有 `coverUrl`"说的是**帖子级**
+ * `PostRespDTO.coverUrl`（= 第一张图），**不是**视频级封面，两者别混（视频封面只认 `videos[i].coverUrl`）。
  */
 export function mediaListSorted(items: PostMedia[] | null | undefined): PostMedia[] {
   return mediaList(items)

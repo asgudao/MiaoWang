@@ -39,9 +39,9 @@ defineProps<{
 
 const emit = defineEmits<{ retry: []; 'load-more': [] }>()
 
-/** 图片：有 images 数组按档位排，只有 coverUrl 就折成"1 张"；都没有就是空数组（整块不渲染） */
+/** 媒体（**图片 + 视频**，2026-09-22 起同一个九宫格）：有数组按档位排，只有 coverUrl 就折成"1 张"；都没有就是空数组（整块不渲染） */
 const mediaOf = (p: PostSummary) => postMediaOf(p)
-/** 单图档位：这一张直接进帖子；多图档位才走灯箱 */
+/** 单图/单视频档位：这一项直接进帖子；多图档位才走灯箱 */
 const singleMedia = (p: PostSummary) => postMediaOf(p).length === 1
 
 /** 折叠状态按 postId 记在本组件（继续翻页不会把已展开的又收回去） */
@@ -80,15 +80,23 @@ const titleFolded = (p: PostSummary) => foldable(p) && !isExpanded(p.postId)
         <!-- 卡片整体不再是一个 <a>：里面出现了「展开」按钮与图片按钮，
              `<a>` 里套按钮是非法 HTML，点「展开」还会连带跳页 -->
         <div class="pc">
-          <!-- 单图 → 整块是进帖子的链接；多图 → 正方形网格 + 灯箱；无图 → 整块不渲染 -->
+          <!-- 单图/单视频 → 整块是进帖子的链接；多图/含视频 → 正方形网格 + 灯箱；无媒体 → 整块不渲染
+               ⚠️ **2026-09-22**：`postMediaOf` 现在把 `videos` 也并进同一个九宫格，
+               视频格点一下进详情页播（`post-id` 就是为此传的），列表里不内联播放。 -->
           <RouterLink
             v-if="singleMedia(p)"
             class="pc__cover"
             :to="{ name: 'community-post', params: { postId: p.postId } }"
           >
-            <PostMediaGrid :images="mediaOf(p)" variant="card" single-as-link />
+            <PostMediaGrid :images="mediaOf(p)" :post-id="p.postId" variant="card" single-as-link />
           </RouterLink>
-          <PostMediaGrid v-else class="pc__cover" :images="mediaOf(p)" variant="card" />
+          <PostMediaGrid
+            v-else
+            class="pc__cover"
+            :images="mediaOf(p)"
+            :post-id="p.postId"
+            variant="card"
+          />
 
           <div class="pc__body">
             <!-- isTop 实测是数字 0/1 → 走 isPinned() 按真值判断；原来浮在封面上，

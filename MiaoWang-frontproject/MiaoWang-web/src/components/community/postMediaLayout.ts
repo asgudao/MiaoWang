@@ -26,11 +26,28 @@
  * （防御性声明，不代表后端缺字段）。
  */
 
+/**
+ * 媒体种类。**2026-09-22 起图片与视频共用同一套九宫格**（用户："视频要有和照片一样的九宫格，
+ * 在社区初始页面显示，效果和照片一样"）⇒ 每个格子必须知道自己是图还是视频：
+ * 图片格走"裁剪 + 灯箱"，视频格走"同一个格子的几何 + 播放角标 + 点进详情播"。
+ */
+export type MediaKind = 'image' | 'video'
+
 /** 媒体项（结构上兼容 `api/community.ts` 的 `PostMedia`，但这里不 import，保持本模块零依赖） */
 export interface MediaItem {
   url?: string | null
   objectKey?: string | null
   sort?: number | null
+  /** 缺省 = `'image'`（旧快照 / 只给 coverUrl 的兜底支都是图片） */
+  kind?: MediaKind
+  /**
+   * ⚠️ **2026-09-22 新增：视频格的封面图 URL**（后端抽帧交付的 `PostVideoRespDTO.coverUrl`，**可为 `null`**）。
+   * 只对 `kind === 'video'` 有意义；空 ⇒ 渲染层退回"中性占位 + 角标"（**绝不空白格**）。
+   * ⚠️ 与 `PostMediaSource.coverUrl`（**帖子封面 = 第一张图**）不是一回事，**不许互相顶替**。
+   */
+  cover?: string | null
+  /** ⚠️ 后端/`api/community.ts` 的**线上字段名**（同一个值，`postMediaOf` 会把它映射到 `cover`） */
+  coverUrl?: string | null
 }
 
 /** `single` = 单张大图（保留长宽比）；`grid` = 正方形裁切网格 */
@@ -47,7 +64,11 @@ export interface MediaGridLayout {
   overflow: number
 }
 
-/** 网格最多排 9 格（第 9 格盖「+N」），与 QQ空间 / 朋友圈 / 微博 同一口径 */
+/**
+ * 网格最多排 9 格（第 9 格盖「+N」），与 QQ空间 / 朋友圈 / 微博 同一口径。
+ * ⚠️ **2026-09-22 起这是"图片 + 视频"的合计上限**，与后端 `MAX_POST_MEDIA_COUNT = 9`
+ *   （`images.size() + videos.size()`，`PostServiceImpl.java:123/321`）**逐字同口径**。
+ */
 export const MEDIA_MAX_CELLS = 9
 
 /**
@@ -133,26 +154,49 @@ export function isDegenerate(width: number, height: number): boolean {
 }
 
 /**
- * 一条帖子（列表或详情）的图片数组。**这是列表"多图 / 单图 / 无图"的唯一入口。**
+ * 一条帖子（列表或详情）的**媒体**数组 = **图片 + 视频**。**这是列表"多图 / 单图 / 无图"的唯一入口。**
  *
- * 优先级：
- * 1) 有 `images` 数组且里面有带 url 的项 → 用它（多图档位全都排得出来）
- * 2) 否则退回单张 `coverUrl`（**兜底支**：定稿前抓的老响应、或 `images` 里没有可用项时）
- * 3) 都没有 → `[]`（调用方据此**整块不渲染**）
+ * 2026-09-22 口径（用户："视频要有和照片一样的九宫格，在社区初始页面显示，效果和照片一样"）：
+ * | 输入 | 返回 | 说明 |
+ * |---|---|---|
+ * | 有 `images` 和/或 `videos` | 图片（按 `sort` 升序）在前、**紧跟**视频（数组原序） | 每项带 `kind` |
+ * | 两者都没有可用项 + 有 `coverUrl` | 单张 `{url: coverUrl, kind: 'image'}` | 防御支（旧快照） |
+ * | 都没有 | `[]` | 调用方据此**整块不渲染** |
  *
- * ⚠️ 这里**不额外请求**、**不伪造**：响应里没有可用的图片数组就老老实实当单图。
- * 后端字段（`images` / `imageCount`）**已定稿**，列表响应走第 1 级；第 2 级是给旧快照与脏数据兜底的。
+ * ⚠️ **顺序口径**：后端 `PostRespDTO` 的 `images` 有 `sort`（`[0]` 即冗余的 `coverUrl`），
+ *   `videos` **原本没有 `sort` 字段**（`PostVideoRespDTO` 只有 `{url, objectKey}`）→ 视频仍按数组原序；
+ *   ⚠️ **2026-09-22 后端新增 `coverUrl` / `coverObjectKey`**（抽帧封面，`PostVideoRespDTO.java:34,39`）
+ *   ⇒ 视频项带上 `cover`（**取 `videos[i].coverUrl`**，可能是 `null`）。
+ *   ⚠️ **绝不用 `post.coverUrl` 当视频封面**：那是帖子封面（第一张图，`PostServiceImpl.java:139/341`），
+ *   混用会张冠李戴 —— 与手机端同一条红线（两端门禁都钉住）。
+ *   "图片在前、视频在后"是唯一有依据的稳定顺序（封面永远是图片第 0 条，不会因为插了视频而变）。
+ * ⚠️ **合计上限 9**：后端写侧 `CommunityConstant.MAX_POST_MEDIA_COUNT = 9` 就是
+ *   `images.size() + videos.size() > 9` 的**合计**校验（`PostServiceImpl.java:123`，编辑同理 `:321`）
+ *   → 与前端 `MEDIA_MAX_CELLS = 9` 同口径，所以「+N」这一档在当前后端下依旧不可达。
+ * ⚠️ 这里**不额外请求**、**不伪造**：没有可用的图片/视频数组就老老实实当单张封面。
  */
 export function postMediaOf(post: PostMediaSource | null | undefined): MediaItem[] {
   if (!post) return []
-  const list = sortMedia(post.images)
-  if (list.length) return list
+  const images: MediaItem[] = sortMedia(post.images).map((m) => ({ ...m, kind: 'image' as const }))
+  const videos: MediaItem[] = sortMedia(post.videos).map((m) => ({
+    ...m,
+    kind: 'video' as const,
+    /** ⚠️ 只认视频元素自己的 `coverUrl`（线上字段名）/ `cover`（本模块归一化后的名），**不回退**到 `post.coverUrl` */
+    cover: String(m.coverUrl ?? m.cover ?? ''),
+  }))
+  if (images.length || videos.length) return images.concat(videos)
   const cover = String(post.coverUrl ?? '').trim()
-  return cover ? [{ url: cover }] : []
+  return cover ? [{ url: cover, kind: 'image' }] : []
 }
 
-/** `postMediaOf` 的入参形状：列表 DTO 与详情 DTO 都满足（`images` 可选） */
+/** `postMediaOf` 的入参形状：列表 DTO 与详情 DTO 都满足（`images` / `videos` 可选） */
 export interface PostMediaSource {
   images?: MediaItem[] | null
+  /**
+   * 视频项：`{url, objectKey}` + ⚠️ **2026-09-22 新增 `coverUrl`**（抽帧封面）。
+   * `api/community.ts` 的 `PostVideo` 类型需同步带上 `coverUrl`，`postMediaOf` 会把它映射成 `MediaItem.cover`。
+   */
+  videos?: MediaItem[] | null
+  /** ⚠️ **帖子封面 = 第一张图**（`images[0]`），**不是**视频封面，别拿它顶替视频的 `cover` */
   coverUrl?: string | null
 }

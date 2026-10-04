@@ -5,9 +5,17 @@
  * 未登录不再假装有资料 —— 直接给登录/注册入口，这是"四态"里的空态。
  */
 import { computed, onMounted, ref, type Component } from 'vue'
-import { PhBell, PhCaretRight, PhChatCircleDots, PhInfo, PhUserCircle } from '@phosphor-icons/vue'
+import {
+  PhBell,
+  PhCaretRight,
+  PhChatCircleDots,
+  PhIdentificationBadge,
+  PhInfo,
+  PhUserCircle,
+} from '@phosphor-icons/vue'
 import { useAuthStore } from '@/stores/auth'
 import { getMyBenefit, limitText, quotaText, type VipBenefit } from '@/api/vip'
+import { getMySelfProfile } from '@/api/community'
 
 const auth = useAuthStore()
 const busy = ref(false)
@@ -41,23 +49,60 @@ async function loadVip() {
   }
 }
 
+/**
+ * 我自己的社区 uid（2026-09-22 追加）。
+ *
+ * 「社区角色」那一行要跳到 `/user/<我的 uid>`，而 **uid 只有一个来源**：
+ * 社区侧的 `GET /community/user/profile`（**不传 uid 就是登录者自己**）。
+ * `GET /user/{username}` 的 `data.id` 恒为 null（DO 叫 uid、DTO 叫 id，拷贝对不上），
+ * user 模块也没有"按 uid 查"的接口 —— 详见 `api/community.ts` 的 `getMySelfProfile()` 注释。
+ *
+ * ⚠️ 读不到就是 `null`：那一行**不渲染链接**（**绝不**拼 `/user/null`，更**绝不**写死一个 id），
+ *    只把徽标换成"登录后可用"/"没读到 uid"，页面其余部分照常（与个人资料页 uid 第二路的降级口径一致）。
+ * ⚠️ 未登录时**一个请求都不发**（发了经网关必然 `state:-1`）。
+ */
+const selfUid = ref<number | null>(null)
+
+async function loadSelfUid() {
+  if (!auth.isLoggedIn) {
+    selfUid.value = null
+    return
+  }
+  try {
+    const p = await getMySelfProfile()
+    selfUid.value = p && p.uid !== undefined && p.uid !== null ? p.uid : null
+  } catch {
+    // uid 不是这一页的主内容：**静默降级**（不摆红字、不改整页错误态），那一行显示"没读到 uid"
+    selfUid.value = null
+  }
+}
+
+/** 「社区角色」拿不到 uid 时的徽标：**不写「开发中」**（那一行是真做完的，只是这次没读到自己的 uid） */
+const communityBadge = computed(() => (auth.isLoggedIn ? '没读到 uid' : '登录后可用'))
+
 interface MineRow {
   key: string
   label: string
   desc: string
   icon: Component
-  /** 有真接口的那一行才给跳转地址（没有就是「开发中」） */
+  /**
+   * 有真去处的那一行才给跳转地址（没有就是徽标）。
+   * ⚠️ 可以是**动态算出来的**（「社区角色」那一行用 getter 按 `selfUid` 拼 `/user/<uid>`）；
+   * 判据只有一个 —— 真假值，模板按 `r.to` 决定渲染 RouterLink 还是徽标。
+   */
   to?: string
 }
 
 /**
- * 账号与偏好的四行。
+ * 账号与偏好的五行（2026-09-22 加「社区角色」一行）。
  *
- * ⚠️ **哪一行能点，唯一判据是有没有 `to`**（模板里按 `v-if="!r.to"` 挂「开发中」徽标），
- * 别在模板里按 key 写死。
+ * ⚠️ **哪一行能点，唯一判据是有没有 `to`**（模板里按 `v-if="r.to"` 给箭头 + 覆盖式 RouterLink，
+ * `v-else` 才挂徽标），别在模板里按 key 写死。
  *
- * 现状：**四行都有真页面** ——
+ * 现状：**五行都有真页面** ——
  * - `profile` 个人资料 → `/profile`（`GET /user/{username}` + `PUT /user` + `POST /user/avatar`，接口都在）
+ * - `community` 社区角色 → `/user/<我自己的 uid>`（社区里点作者名去的那一页，看自己的帖子/点赞/关注）
+ *   ⚠️ 这一行的 `to` 是**动态的**（uid 要等社区接口读回来才拼得出来），写法见下面那条 getter 注释。
  * - `remind` 提醒设置 → `/remind/setting`（本机设置真的生效：首页待办裁剪 + 软件内弹窗 +
  *   本机系统通知；口径与手机端同一套，见 `utils/remindSetting.ts` / `utils/remindSchedule.ts`）
  *   ⚠️ 这一行的 `desc` **不许写"推送时间"**：喵汪没有接服务端推送，那些开关只写本机
@@ -66,11 +111,30 @@ interface MineRow {
  * - `notify` 消息通知 → `/notifications`（后端 4 个通知接口）
  * - `about` 关于喵汪 → `/about`（纯静态页：版本、依赖许可、3D 模型授权、后端现状）
  *
- * ⚠️ 四行全接上**不等于**"每行都点得通"：判据仍是 `to` 指向的路由真的注册在
+ * ⚠️ 五行全接上**不等于**"每行都点得通"：判据仍是 `to` 指向的路由真的注册在
  * `router/index.ts` 里（离线门禁 `tools/check-web-mine-rest.js` 的 D 段逐行钉住）。
  */
 const rows: MineRow[] = [
   { key: 'profile', label: '个人资料', desc: '昵称、手机号、头像', icon: PhUserCircle, to: '/profile' },
+  /**
+   * 社区角色：跳到**我自己**的 Web 用户主页（社区里点作者名去的那一页）。
+   *
+   * ⚠️ 去处用 **getter**（不是一次性求值）：uid 是异步读回来的，在数组字面量里直接把
+   *    「前缀 + `selfUid.value`」算出来，只会在 setup 那一刻求值一次（那时恒为 null）。
+   *    getter 在**渲染时**求值 → uid 到位后这一行自动变成真链接；`selfUid` 是 ref，
+   *    渲染读它就是依赖收集，不需要额外 watch。
+   * ⚠️ 没有 uid 时返回 `undefined` → 模板的 `v-if="r.to"` 不渲染 RouterLink
+   *    （**不会**拼出 `/user/null` 或 `/user/undefined`，也不会拿一个写死的 id 顶上去）。
+   */
+  {
+    key: 'community',
+    label: '社区角色',
+    desc: '帖子、点赞与关注',
+    icon: PhIdentificationBadge,
+    get to() {
+      return selfUid.value === null ? undefined : `/user/${selfUid.value}`
+    },
+  },
   { key: 'remind', label: '提醒设置', desc: '提前几天与免打扰', icon: PhBell, to: '/remind/setting' },
   { key: 'notify', label: '消息通知', desc: '评论、点赞、关注', icon: PhChatCircleDots, to: '/notifications' },
   { key: 'about', label: '关于喵汪', desc: '版本与开源许可', icon: PhInfo, to: '/about' },
@@ -91,6 +155,8 @@ async function onLogout() {
   try {
     await auth.logout()
   } finally {
+    // 退出后"我自己的 uid"不再适用（否则「社区角色」那一行还指着上一个账号的主页）
+    selfUid.value = null
     busy.value = false
     confirming.value = false
   }
@@ -100,6 +166,8 @@ onMounted(() => {
   // 直接进本页（没走过首页）时也要把资料补齐
   void auth.restore()
   void loadVip()
+  // 「社区角色」那一行的去处要用我自己的 uid（未登录时里面直接 return，不发请求）
+  void loadSelfUid()
 })
 </script>
 
@@ -150,6 +218,8 @@ onMounted(() => {
             </div>
             <!-- 有接口的那一行：整行可点（覆盖式入口），不再挂「开发中」 -->
             <PhCaretRight v-if="r.to" class="row__go" :size="16" aria-hidden="true" />
+            <!-- 「社区角色」拿不到 uid 时**不写「开发中」**（那行是真做完的，只是这次没读到自己的 uid） -->
+            <span v-else-if="r.key === 'community'" class="mw-badge row__badge">{{ communityBadge }}</span>
             <span v-else class="mw-badge row__badge">开发中</span>
             <RouterLink
               v-if="r.to"
