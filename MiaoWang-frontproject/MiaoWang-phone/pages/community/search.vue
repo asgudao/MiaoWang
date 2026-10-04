@@ -102,8 +102,10 @@
 								<text class="post__author" @click.stop="goUser(p.uid)">{{ p.author }}</text>
 								<text class="post__time">{{ p.timeText }}</text>
 							</view>
+							<!-- ⚠️ **2026-09-22 口径变更（用户：「不要在帖子上方显示含几个视频，web 和手机都不要」）**：
+							     原来这里还有一枚 `{{ p.videoText }}`（"含 N 个视频"）**已删**；置顶标签保留；
+							     `utils/community.js` 的 `videoText` 字段保留（数据层不动），这里只是不再渲染。 -->
 							<text v-if="p.isTop" class="badge badge--top">置顶</text>
-							<text v-if="p.videoText" class="badge">{{ p.videoText }}</text>
 						</view>
 
 						<!--
@@ -133,19 +135,21 @@
 						<text v-if="p.excerptError" class="post__err">{{ p.excerptError }}</text>
 
 						<!--
-							⑤ 图片：与信息流 / 详情**共用 `components/PostImages.vue`**（同一份列数口径）。
-							**一张能渲染的图都没有 → 整块不渲染**（不是 display:none、也不是 height:0）。
-							1 张 = 大图（保留原始长宽比）；2 张一行两列；3 张一行三列；4 张 2×2；5-9 张 3×3；
-							列数由张数决定、格子宽度相对容器（`calc((100% − gap)/N)`），**不写死 rpx**。
+							⑤ 媒体区（图片 + **视频**）：与信息流 / 详情**共用 `components/PostImages.vue`**（同一份列数口径）。
+							**一个媒体都没有 → 整块不渲染**（不是 display:none、也不是 height:0）。
+							1 个 = 大图（保留原始长宽比）/ 16:9 视频框；2 个一行两列；3 个一行三列；4 个 2×2；5-9 个 3×3；
+							列数由**图片 + 视频的合计个数**决定、格子宽度相对容器（`calc((100% − gap)/N)`），**不写死 rpx**。
+							⚠️ **2026-09-22**：判据是 `p.hasMedia`（不是 `p.hasImages`）—— 否则"0 图 + N 视频"的帖子看不见。
 						-->
 						<PostImages
-							v-if="p.hasImages"
-							:images="p.images"
+							v-if="p.hasMedia"
+							:media="p.media"
 							:grid="p.grid"
 							:rows="p.rows"
 							:single-failed="p.imageSingleFailed"
 							@preview="previewPic(p.images, $event)"
 							@fail="onImageFail"
+							@open="goDetail(p.postId)"
 						/>
 
 						<view v-if="p.hasTopics" class="topics">
@@ -155,41 +159,38 @@
 						<!--
 							⑥ 操作区：点赞 / 收藏 / 评论条数 + 进详情入口 —— 与信息流同一套（都是真操作）。
 							🔴 卡片上**不渲染任何评论内容**：评论的看与发都在详情页，这里只显示条数。
-							🔴 图标是**自绘 SVG**（与 `components/FloatingTabBar.vue` 同一套方案：
-							不引 npm 图标包、不用 emoji、不依赖已废弃的 static PNG）；**图标 + 数字**一起给，
-							不许只留图标让人猜。选中态由 `likedOn` / `favoritedOn` 驱动（色 + 填充双差异）。
+							🔴 图标是**base64 data-URI 背景图**（与 `components/FloatingTabBar.vue`、
+							`styles/icons.scss` 同一批形状）：不引 npm 图标包、不用 emoji、不依赖已废弃的 static PNG。
+							⚠️ 改前这里是内联 `<svg>` —— 2026-09-22 实测：App 端视图层用 `document.createElement(tag)`
+							造节点，内联 svg 落在 **HTML 命名空间**（HTMLUnknownElement）→ 编译得进去也永远画不出来。
+							**图标 + 数字**一起给，不许只留图标让人猜；选中态 = 两套 data-URI（色 + 填充双差异）。
 						-->
 						<view class="acts">
 							<view class="act" :class="{ 'act--on': p.likedOn }" @click.stop="toggleLike(p.postId)">
-								<view class="act__icon">
-									<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-										stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-										<path d="M12 20s-7-4.4-7-9.3A4.2 4.2 0 0 1 12 8a4.2 4.2 0 0 1 7 2.7C19 15.6 12 20 12 20z"
-											:fill="p.likedOn ? 'currentColor' : 'none'" />
-									</svg>
-								</view>
+								<!-- 未赞 = 空心 $mw-ink-2 → 已赞 = 实心 $mw-brand-ink -->
+								<view class="act__icon mw-ic"
+									:class="p.likedOn ? 'mw-ic--heart-brand-fill' : 'mw-ic--heart-ink2'"></view>
 								<text class="act__text">{{ p.likeText }}</text>
 							</view>
 							<view class="act" :class="{ 'act--on': p.favoritedOn }" @click.stop="toggleFavorite(p.postId)">
-								<view class="act__icon">
-									<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-										stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-										<path d="M6 4h12v16l-6-4.4L6 20z"
-											:fill="p.favoritedOn ? 'currentColor' : 'none'" />
-									</svg>
-								</view>
+								<!-- 收藏同理：未藏空心 → 已藏实心 -->
+								<view class="act__icon mw-ic"
+									:class="p.favoritedOn ? 'mw-ic--mark-brand-fill' : 'mw-ic--mark-ink2'"></view>
 								<text class="act__text">{{ p.favoriteText }}</text>
 							</view>
 							<view class="act" @click.stop="openComments(p.postId)">
-								<view class="act__icon">
-									<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-										stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-										<path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H9l-5 4z" />
-									</svg>
-								</view>
+								<view class="act__icon mw-ic mw-ic--chat-ink2"></view>
 								<text class="act__text">{{ p.commentActionText }}</text>
 							</view>
-							<text class="post__meta post__meta--dim">{{ p.viewText }}</text>
+							<!--
+							浏览量：**只读元信息**（不是按钮，没有 @click），但一样要有配套图标 ——
+							与信息流、详情页三处口径一致。图标与数字**并存**，
+							与三个操作同一族（24×24 viewBox / stroke 1.7 / 圆头圆角），画法统一走 data-URI 背景图。
+						-->
+						<view class="post__meta post__meta--dim">
+							<view class="post__meta-icon mw-ic mw-ic--eye-muted"></view>
+							<text class="post__meta-text">{{ p.viewText }}</text>
+						</view>
 						</view>
 						<text v-if="p.actionError" class="post__err">{{ p.actionError }}</text>
 					</view>
@@ -1087,7 +1088,9 @@ export default {
 	min-height: $mw-touch-min;
 	padding: 0 $mw-space-1;
 }
-/* 图标盒子：颜色由 `currentColor` 继承（svg 的 stroke/fill 都不写死色值） */
+/* 图标盒：图标是 **base64 data-URI 背景图**（形状与颜色都烘在 URI 里，见 styles/icons.scss）。
+ * ⚠️ 下面的 `color` 已不参与图标渲染，保留只为"选中态改色"这条口径仍可读；
+ * 真正的两态差异在模板上：未赞 `mw-ic--heart-ink2`（空心）↔ 已赞 `mw-ic--heart-brand-fill`（实心）。 */
 .act__icon {
 	display: flex;
 	align-items: center;
@@ -1102,7 +1105,7 @@ export default {
 }
 /*
 	已点赞 / 已收藏的**选中态**：颜色 + 图标填充**双重差异**（明显但克制）。
-	未选中 = 描边空心 + 次要文字色；选中 = 主色 + 实心（模板里 `:fill` 绑到 `likedOn`/`favoritedOn`）。
+	未选中 = 空心描边 + 次要文字色；选中 = 主色 + 实心（实心由模板上的 `mw-ic--*-brand-fill` 给）。
 */
 .act--on .act__text {
 	color: $mw-brand-ink;
@@ -1114,12 +1117,25 @@ export default {
 	background: rgba(194, 65, 12, 0.08);
 	border-radius: $mw-radius-pill;
 }
-/* 浏览数是**只读元信息**（不是按钮），排在操作区右端 */
+/* 浏览数是**只读元信息**（不是按钮），排在操作区右端。
+ * 图标 + 文字并排；行高由三个 `.act` 的 `$mw-touch-min`（88rpx = 44px）主导 → 不会撑高卡片。
+ * 宽度一律相对：`margin-left: auto` + flex，不写死 rpx（复算见门禁）。 */
 .post__meta {
+	display: flex;
+	align-items: center;
 	margin-right: $mw-space-3;
-	font-size: $mw-font-caption;
 	color: $mw-ink-2;
+}
+.post__meta text {
+	font-size: $mw-font-caption;
 	font-variant-numeric: tabular-nums;
+}
+/* 眼睛图标：**base64 data-URI 背景图**（单态，$mw-muted 烘在 URI 里），与 `.act__icon` 同一批形状 */
+.post__meta-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-right: 6rpx;
 }
 .post__meta--dim {
 	margin-left: auto;

@@ -11,14 +11,10 @@
 			这里不置灰、不弹"请先登录"，免得两个页面各说一套登录话术。
 		-->
 		<view class="search-entry" @click="goSearch">
-			<!-- 放大镜：素材已全部废弃，也不引图标库 → 组件内自绘 SVG（与 FloatingTabBar 同一族：24×24 / stroke 1.7 / 圆头圆角） -->
-			<view class="search-entry__icon">
-				<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#8A7767"
-					stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M10.5 4.5a6 6 0 1 0 0 12 6 6 0 0 0 0-12z" />
-					<path d="M15.1 15.1 20 20" />
-				</svg>
-			</view>
+			<!-- 放大镜：素材已全部废弃，也不引图标库 → **base64 data-URI 背景图**
+			     （24×24 viewBox / stroke 1.7 / 圆头圆角，18px 盒 = `mw-ic--sm`）。
+			     🔴 2026-09-22 实测：App 端内联 `<svg>` 落在 HTML 命名空间 → 永远画不出来（见 styles/icons.scss 抬头） -->
+			<view class="search-entry__icon mw-ic mw-ic--sm mw-ic--search-muted"></view>
 			<text class="search-entry__text">搜索帖子</text>
 		</view>
 
@@ -89,9 +85,12 @@
 							<text class="post__author" @click.stop="goUser(p.uid)">{{ p.author }}</text>
 							<text class="post__time">{{ p.timeText }}</text>
 						</view>
-						<!-- 置顶与视频计数是**元信息标签**、不是分区，跟 Web 端一样摆在标题之前 -->
+						<!-- ⚠️ **2026-09-22 口径变更（用户：「不要在帖子上方显示含几个视频，web 和手机都不要」）**：
+						     原来这里还有一枚 `{{ p.videoText }}`（"含 N 个视频"）**已按用户要求删掉**
+						     —— 视频现在就在下面的九宫格里看得见，再写一行数量是噪音。
+						     ⚠️ **置顶标签保留**；⚠️ `utils/community.js` 的 `videoText` 字段**保留**（数据层不动、
+						        其它消费方/门禁仍可读），这里只是**不再渲染**它。 -->
 						<text v-if="p.isTop" class="badge badge--top">置顶</text>
-						<text v-if="p.videoText" class="badge">{{ p.videoText }}</text>
 					</view>
 
 					<!--
@@ -128,17 +127,21 @@
 					<text v-if="p.excerptError" class="post__err">{{ p.excerptError }}</text>
 
 					<!--
-						⑤ 图片：三处（信息流 / 搜索 / 详情）**共用 `components/PostImages.vue`**。
-						无图 → `v-if="p.hasImages"` 整块不渲染；列数由张数决定、格子宽度相对容器。
+						⑤ 媒体区（图片 + **视频**）：三处（信息流 / 搜索 / 详情）**共用 `components/PostImages.vue`**。
+						⚠️ **2026-09-22**：判据从 `hasImages` 换成 **`hasMedia`**（图片 + 视频的合计个数）——
+						   改前 0 图 + N 视频的帖子（真实数据 198）这里**整块不渲染**，列表里什么都看不到；
+						   现在视频进同一套九宫格（列数由**合计个数**决定、格子宽度相对容器，没有第二套几何）。
+						   点视频格 = 进详情页播（`@open`），列表里不内联播放。
 					-->
 					<PostImages
-						v-if="p.hasImages"
-						:images="p.images"
+						v-if="p.hasMedia"
+						:media="p.media"
 						:grid="p.grid"
 						:rows="p.rows"
 						:single-failed="p.imageSingleFailed"
 						@preview="previewPic(p.images, $event)"
 						@fail="onImageFail"
+						@open="goDetail(p.postId)"
 					/>
 
 					<!--
@@ -151,35 +154,33 @@
 					-->
 					<view class="acts">
 						<view class="act" :class="{ 'act--on': p.likedOn }" @click.stop="toggleLike(p.postId)">
-							<view class="act__icon">
-								<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-									stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-									<path d="M12 20s-7-4.4-7-9.3A4.2 4.2 0 0 1 12 8a4.2 4.2 0 0 1 7 2.7C19 15.6 12 20 12 20z"
-										:fill="p.likedOn ? 'currentColor' : 'none'" />
-								</svg>
-							</view>
+							<!-- 图标两态 = **两套 data-URI**：未赞 = 空心 $mw-ink-2 → 已赞 = 实心 $mw-brand-ink -->
+							<view class="act__icon mw-ic"
+								:class="p.likedOn ? 'mw-ic--heart-brand-fill' : 'mw-ic--heart-ink2'"></view>
 							<text class="act__text">{{ p.likeText }}</text>
 						</view>
 						<view class="act" :class="{ 'act--on': p.favoritedOn }" @click.stop="toggleFavorite(p.postId)">
-							<view class="act__icon">
-								<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-									stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-									<path d="M6 4h12v16l-6-4.4L6 20z"
-										:fill="p.favoritedOn ? 'currentColor' : 'none'" />
-								</svg>
-							</view>
+							<!-- 收藏同理：未藏空心 → 已藏实心（色 + 填充双差异） -->
+							<view class="act__icon mw-ic"
+								:class="p.favoritedOn ? 'mw-ic--mark-brand-fill' : 'mw-ic--mark-ink2'"></view>
 							<text class="act__text">{{ p.favoriteText }}</text>
 						</view>
 						<view class="act" @click.stop="openComments(p.postId)">
-							<view class="act__icon">
-								<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-									stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-									<path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H9l-5 4z" />
-								</svg>
-							</view>
+							<!-- 评论：单一态（$mw-ink-2，与选中态的橙色拉开） -->
+							<view class="act__icon mw-ic mw-ic--chat-ink2"></view>
 							<text class="act__text">{{ p.commentActionText }}</text>
 						</view>
-						<text class="post__meta post__meta--dim">{{ p.viewText }}</text>
+						<!--
+							浏览量：**只读元信息**（不是按钮，没有 @click），但一样要有配套图标 ——
+							用户真机反馈的就是「浏览量没有配套图标」。图标与数字**并存**（不折成只剩图标），
+							与三个操作**同一族**（24×24 viewBox / stroke 1.7 / 圆头圆角），
+							但画法已统一改成 **base64 data-URI 背景图**（App 端内联 svg 落在 HTML 命名空间 → 不渲染，
+							根因见 `styles/icons.scss` 抬头）。
+						-->
+						<view class="post__meta post__meta--dim">
+							<view class="post__meta-icon mw-ic mw-ic--eye-muted"></view>
+							<text class="post__meta-text">{{ p.viewText }}</text>
+						</view>
 					</view>
 					<text v-if="p.actionError" class="post__err">{{ p.actionError }}</text>
 				</view>
@@ -817,7 +818,8 @@ export default {
 	border: 1px solid $mw-line;
 	border-radius: $mw-radius-pill;
 }
-/* 放大镜（自绘 SVG 的容器；图标本身在模板里，不用背景图） */
+/* 放大镜（图标 = **base64 data-URI 背景图**：模板里那个 view 就是图标本体，不再有内联 svg；
+ * 盒子尺寸由 `.mw-ic--sm`（36rpx = 18px）给，形状/颜色烘在 URI 里，见 styles/icons.scss） */
 .search-entry__icon {
 	display: flex;
 	align-items: center;
@@ -987,7 +989,9 @@ export default {
 	min-height: $mw-touch-min;
 	padding: 0 $mw-space-1;
 }
-/* 图标盒子：颜色由 `currentColor` 继承（svg 的 stroke/fill 都不写死色值） */
+/* 图标盒：图标是 **base64 data-URI 背景图**（形状与颜色都烘在 URI 里，见 styles/icons.scss）。
+ * ⚠️ 下面的 `color` 已**不参与图标渲染**（URI 自带色），保留是为了让"选中态改色"这条口径仍可读；
+ * 真正的两态差异在模板上：未赞 `mw-ic--heart-ink2`（空心）↔ 已赞 `mw-ic--heart-brand-fill`（实心）。 */
 .act__icon {
 	display: flex;
 	align-items: center;
@@ -1000,7 +1004,7 @@ export default {
 	font-weight: 600;
 	color: $mw-ink-2;
 }
-/* 选中态：主色 + 实心（模板 `:fill` 绑到 `likedOn`/`favoritedOn`）—— 明显但克制 */
+/* 选中态：主色 + 实心（实心由模板上的 `mw-ic--*-brand-fill` 给）—— 明显但克制 */
 .act--on .act__text {
 	color: $mw-brand-ink;
 }
@@ -1026,12 +1030,26 @@ export default {
 	font-weight: 600;
 	color: $mw-success;
 }
-/* 浏览数是**只读元信息**（不是按钮），排在操作区右端，不参与等宽 */
+/* 浏览数是**只读元信息**（不是按钮），排在操作区右端，不参与等宽。
+ * 图标 + 文字并排：图标盒子与 `.act__icon` 同尺寸（20px），而行高由三个 `.act` 的
+ * `$mw-touch-min`（88rpx = 44px）主导 → **加图标不会把卡片撑高**，也不会折行（复算见门禁 E 段）。
+ * 宽度一律相对：`margin-left: auto` + flex，不写死 rpx。 */
 .post__meta {
+	display: flex;
+	align-items: center;
 	margin-right: $mw-space-3;
-	font-size: $mw-font-caption;
 	color: $mw-ink-2;
+}
+.post__meta text {
+	font-size: $mw-font-caption;
 	font-variant-numeric: tabular-nums;
+}
+/* 眼睛图标：**base64 data-URI 背景图**（单态，$mw-muted 烘在 URI 里），与 `.act__icon` 同一批形状 */
+.post__meta-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-right: 6rpx;
 }
 .post__meta--dim {
 	margin-left: auto;

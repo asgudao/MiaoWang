@@ -200,6 +200,11 @@
 }
 .btn--block {
 	width: 100%;
+	/* 同一个 content-box 陷阱：`width: 100%` 量内容盒，而 `.btn` 的 `padding: 0 $mw-space-4`
+	   落在 100% 之外 → 块级按钮比卡片内容盒（618rpx）宽 64rpx（`--ghost` 再加 1px 边框 = 68rpx），
+	   右沿越过卡片边框 30~34rpx。真机症状与输入框同页同卡：
+	   `pages/health/record-edit.vue:405/408` 的「保存 / 取消」就是这两个。 */
+	box-sizing: border-box;
 }
 
 /* ---- 分段切换（months / types / 状态） ---- */

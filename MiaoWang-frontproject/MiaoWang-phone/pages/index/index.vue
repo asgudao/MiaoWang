@@ -28,19 +28,18 @@
 				</view>
 			</view>
 
-			<!-- ② 快捷操作：两个胶囊，都接真实去处（图标自绘：手机端无 npm，装不了官方图标库）。
+			<!-- ② 快捷操作：两个胶囊，都接真实去处（图标 = base64 data-URI 背景图：手机端无 npm，
+			     装不了官方图标库；🔴 改前是内联 `<svg>`，App 端落在 HTML 命名空间 → 画不出来，见 styles/icons.scss）。
 			     「拍张照」没有识图接口、也没有去处 → 已下线，不留点了没反应的按钮 -->
 			<view class="quick">
 				<view v-for="a in actions" :key="a.key" class="quick__item" @click="runAction(a)">
-					<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#C2410C"
-						stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-						<path v-if="a.key === 'log'" d="M4 20l4.5-1.2L19 8.3a2 2 0 0 0 0-2.8l-.5-.5a2 2 0 0 0-2.8 0L5.2 15.5z" />
-						<path v-if="a.key === 'log'" d="M14.5 6.5l3 3" />
-						<template v-if="a.key === 'remind'">
-							<path d="M12 4a5 5 0 0 0-5 5v3.2L5.5 15h13L17 12.2V9a5 5 0 0 0-5-5z" />
-							<path d="M10 18a2 2 0 0 0 4 0" />
-						</template>
-					</svg>
+					<!-- 图标：**base64 data-URI 背景图**（改前是内联 `<svg>`）。
+					     🔴 2026-09-22 实测根因：App 端视图层用 `document.createElement(tag)` 造节点，
+					     内联 `<svg>` 落在 HTML 命名空间（HTMLUnknownElement）→ 永远画不出来；
+					     CSS 背景图由 webview 的图片解码器按 SVG 命名空间解析，App / H5 都可靠。
+					     形状按 `a.key` 二选一，颜色都是既有令牌 $mw-brand-ink（见 styles/icons.scss）。 -->
+					<view class="mw-ic"
+						:class="a.key === 'log' ? 'mw-ic--edit-brand' : 'mw-ic--bell-brand'"></view>
 					<text class="quick__label">{{ a.label }}</text>
 				</view>
 			</view>
@@ -120,16 +119,28 @@
 				<text v-else class="pet__call">{{ p.callText }}</text>
 			</view>
 
-			<!-- ⑥ 电子宠物对话：气泡只在**演示模式**（mock 有 chat）才渲染；真数据模式下没有对话数据源，
-			     不摆假气泡，只留真入口（宠物对话页已上线 → pages/ai/pet） -->
+			<!-- ⑥ 电子宠物对话：宠物主动说的那一句来自 ai-pet 的 `POST /greet`
+			     （**进页面调一次、不消耗聊天次数**），文本与名字直接用接口字段（greeting / petName），
+			     不替它编、也不摆演示气泡。`greeting` 为空 = 这次没开口（不是错误）→ 不出气泡；
+			     没有宠物档案 / 请求失败两种情况都照实说，并给「去添加宠物」这个真去处。
+			     mock 的演示气泡只在演示模式下才渲染（真数据模式下 home.chat 恒为空）。 -->
 			<view class="chat">
 				<text class="chat__title">它今天说了什么</text>
-				<view v-if="home.chat.length" class="chat__thread">
+				<view v-if="petGreeting.text" class="chat__thread">
+					<view class="bubble bubble--pet">
+						<text v-if="petGreeting.name" class="bubble__who">{{ petGreeting.name }}</text>
+						<text>{{ petGreeting.text }}</text>
+					</view>
+				</view>
+				<view v-else-if="home.chat.length" class="chat__thread">
 					<text v-for="(m, i) in home.chat" :key="i" class="bubble" :class="'bubble--' + m.from">{{ m.text }}</text>
 				</view>
-				<text v-else class="note">它还没开口；点下面「去和它说话」就能聊，它记得你们最近说过什么</text>
+				<text v-else-if="petGreetNote" class="note">{{ petGreetNote }}</text>
+				<text v-else class="note">它这次没开口；点下面「去和它说话」就能聊，它记得你们最近说过什么</text>
 				<!-- 主按钮 = 这张卡的主题（跟它闲聊）；次按钮 = 健康问诊（另一个模块）→ 降级成描边样式，但**仍是真入口** -->
 				<view class="chat__cta" @click="openPetChat"><text>去和它说话</text></view>
+				<!-- 没有宠物档案时的真去处（本页已知没档案，或后端回 B000906）：直接开新建宠物页 -->
+				<view v-if="petGreetNeedPet" class="chat__cta chat__cta--ghost" @click="goAddPet"><text>去添加宠物</text></view>
 				<view class="chat__cta chat__cta--ghost" @click="openAi"><text>去 AI 问诊</text></view>
 			</view>
 
@@ -194,6 +205,8 @@ import {
 } from '@/api/home.js'
 import { hideNativeTabBar } from '@/utils/tabbar.js'
 import { auth } from '@/store/auth.js'
+import { greetPet } from '@/api/aiPet.js'
+import { isNoProfile } from '@/utils/aiPet.js'
 
 /** 弹窗的初始状态（形状与 `api/remind.js` 的快照一致；模板只消费摊平后的字段） */
 function emptyRemind () {
@@ -232,7 +245,24 @@ export default {
 				articles: []
 			},
 			/** 本机提醒弹窗（进入 App / 回前台时算一次；同一条目同一天只弹一次） */
-			remind: emptyRemind()
+			remind: emptyRemind(),
+			/**
+			 * 宠物主动说的那一句（真数据模式下来自 `POST /ai/pet/greet`，**不消耗聊天次数**）。
+			 * `text` / `name` **只来自接口字段**（`greeting` / `petName`），一个字都不自己编；
+			 * `text` 为空 = 这次没有这句话（`greeting` 为空不是错误）→ 模板不渲染气泡。
+			 */
+			petGreeting: { text: '', name: '' },
+			/** 没有那句话时的**如实**说明（空串 = 页面上不出现这一行） */
+			petGreetNote: '',
+			/** 「还没有宠物档案」→ 给「去添加宠物」这个真入口（本页已知没档案 与 B000906 共用它） */
+			petGreetNeedPet: false,
+			/**
+			 * 本页是否**真的发出过**一次 `/greet`。
+			 * `/greet` 有时段缓存（同一时段后端只会生成一句，响应里的 `cached` 就是这件事），
+			 * 所以口径是**一次进页一次**：不轮询、不在返回首页时反复调。
+			 * 没发出去（未登录 / 没有档案 / 取数失败）就保持 false —— 等下一次有机会再说。
+			 */
+			greetTried: false
 		}
 	},
 	computed: {
@@ -361,6 +391,63 @@ export default {
 			} finally {
 				this.loading = false
 			}
+			// 进首页让宠物主动说一句（**不消耗聊天次数**）。
+			// 连 `/pet` 都没读到时不问它：有没有档案都不知道，问了也只会拿到一句与事实无关的报错。
+			if (!this.errorText) this.loadPetGreeting()
+		},
+		/**
+		 * 宠物主动开口（`POST /ai/pet/greet`，**不扣聊天次数**）。三条不许破的口径：
+		 *
+		 * 1. **一次进页只调一次**（`greetTried` 真的发出请求才置位）：不轮询、不在返回首页时反复调
+		 *    —— 同一时段后端本来也只生成一句（响应的 `cached` 字段就是这件事）。
+		 * 2. **没有宠物档案时不发这个请求**：首页已经从 `/pet` 知道有没有档案，
+		 *    直接给「去添加宠物」的真去处，而不是先打一次注定 `B000906` 的请求。
+		 *    （后端 `PetProfileLoader.load` 里"没档案"短路在归属校验**之前**：
+		 *    2026-09-22 用 MapleLeaf1 实测，带别人的 pid 也是 B000906，不是 B000904。）
+		 * 3. **`greeting` 为空不是错误**（模型抖动、或关闭问候时后端就回 null）→
+		 *    不出气泡、不当错误页；请求失败照实说，绝不写成"它这会儿不想说话"这种假状态。
+		 */
+		async loadPetGreeting() {
+			if (this.greetTried) return
+			// 演示模式里的宠物是演示数据，没有真档案可问候（它们的 pid 是 p1/p2，不是真 pid）
+			if (this.home.source === 'mock') return
+			if (!auth.isLoggedIn()) {
+				this.petGreetNote = '登录之后它才会跟你打招呼'
+				return
+			}
+			// pid 来自本页概览里的 `/pet`（`api/home.js` 内部就是 `listMyPets()`，与 store/pets.js 同一份数据源），
+			// 所以这里不额外再拉一遍 /pet；概览把它 String() 过，这里转回数字再发（后端字段是 Long）
+			const pid = this.primaryPet ? Number(this.primaryPet.pid) : 0
+			if (!pid) {
+				this.petGreetNeedPet = true
+				this.petGreetNote = '还没有宠物档案，添加一只之后它才会开口'
+				return
+			}
+			this.greetTried = true
+			try {
+				const resp = await greetPet(pid)
+				const text = resp && resp.greeting ? String(resp.greeting) : ''
+				this.petGreeting = { text: text, name: resp && resp.petName ? String(resp.petName) : '' }
+				this.petGreetNeedPet = false
+				this.petGreetNote = text ? '' : '它这次没主动开口（问候没生成出来，不影响你主动找它聊）'
+			} catch (e) {
+				this.petGreeting = { text: '', name: '' }
+				// 竞态兜底：概览时还有档案、问候时刚被删（或改了归属）→ 仍按"没档案"处理，给真去处
+				if (isNoProfile(e)) {
+					this.petGreetNeedPet = true
+					this.petGreetNote = (e && e.message) || '还没有宠物档案，添加一只之后它才会开口'
+					return
+				}
+				this.petGreetNote = '问候没读到：' + ((e && e.message) || '稍后再试')
+			}
+		},
+		/** 没有宠物档案时的真去处：新建宠物页（与宠物对话页的「去添加宠物」同一条路径） */
+		goAddPet() {
+			if (!auth.isLoggedIn()) {
+				uni.navigateTo({ url: '/pages/login/login' })
+				return
+			}
+			uni.navigateTo({ url: '/pages/pet-edit/pet-edit' })
 		},
 		/**
 		 * 算一次"现在该不该弹"，并把结果摊平成模板字段。
@@ -867,6 +954,14 @@ export default {
 	border: 1px solid $mw-line;
 	border-bottom-left-radius: 8rpx;
 	color: $mw-ink;
+}
+/* 这句是谁说的：名字**来自接口的 petName**（没起名时后端回「未命名」，原样显示），不替它编 */
+.bubble__who {
+	display: block;
+	margin-bottom: $mw-space-1;
+	font-size: 22rpx;
+	font-weight: 600;
+	color: $mw-brand-ink;
 }
 .bubble--me {
 	align-self: flex-end;

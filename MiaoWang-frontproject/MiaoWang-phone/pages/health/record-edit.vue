@@ -1007,10 +1007,19 @@ export default {
 	font-weight: 600;
 	color: $mw-brand-ink;
 }
+/* ⚠️ `box-sizing: border-box` 是「输入框超出卡片」这个真机 bug 的修复，不是随手加的：
+   框架基础样式里**没有全局 border-box**（真机构建产物 `app.css` 只有 `*{margin:0;…}`），
+   所以默认 content-box 下 `width: 100%` 量的是**内容盒**，`padding: 0 $mw-space-3`
+   （左右共 48rpx）与 `border: 1px`（左右共 4rpx）全部落在 100% 之外 ——
+   卡片内容盒 618rpx（750 − 2×32 外边距 − 2×32 内边距 − 2×2rpx 边框）→ 输入框外沿
+   618 + 48 + 4 = **670rpx**，连卡片可见边框（右沿 718rpx）都被顶出去 18rpx。
+   补上 border-box 后外沿 = 618rpx，正好落在卡片内（宽度仍是**相对容器**的 100%）。
+   姊妹页 `pages/pet-edit/pet-edit.vue:323-328` 的同名类就是这么写的，这里是漏了一行。 */
 .field__input {
 	width: 100%;
 	min-height: $mw-touch-min;
 	padding: 0 $mw-space-3;
+	box-sizing: border-box;
 	background: $mw-canvas;
 	border: 1px solid $mw-line;
 	border-radius: $mw-radius-input;
@@ -1021,6 +1030,7 @@ export default {
 	width: 100%;
 	min-height: 160rpx;
 	padding: $mw-space-2 $mw-space-3;
+	box-sizing: border-box;
 	background: $mw-canvas;
 	border: 1px solid $mw-line;
 	border-radius: $mw-radius-input;

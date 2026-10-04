@@ -1,0 +1,168 @@
+/**
+ * 手机端图标（base64 data-URI SVG 背景图）—— **本文件由 tools/gen-phone-icons.mjs 生成，不要手改**
+ *
+ * 🔴 为什么不用内联 `<svg>`（2026-09-22 实测根因，别再改回去）
+ * App 端视图层（`unpackage/dist/dev/app-plus/uni-app-view.umd.js`，由 `__uniappview.html` 加载）
+ * 用元素工厂 `rb(id, tag, ...)` 造节点：先查 45 个 uni 内置组件的注册表 `nb`；
+ * **不在表里的标签**走 `new Yp(id, document.createElement(tag), ...)` —— 也就是 **HTML 命名空间**。
+ * `document.createElement('svg')` 得到的是 HTMLUnknownElement（不是 SVG 元素）⇒ 没有几何、
+ * 不渲染；子节点 `path` / `circle` 同理。**所以内联 `<svg>` 在 App 端永远画不出来**（编译得进去也没用）。
+ * H5 端走 Vue runtime-dom 的 `createElementNS('http://www.w3.org/2000/svg', tag)`，所以一直是好的。
+ * 内联 `<div>` / `<span>` 不受影响：`document.createElement('div')` 本来就是对的元素。
+ *
+ * 现在改成 **浏览器 CSS 引擎自己解码的 SVG 背景图**（`background-image: url("data:image/svg+xml;base64,…")`）：
+ * 由 webview 的图片解码器按 SVG 命名空间解析 → App / H5 都可靠；不用 `<image>` 文件、不引任何依赖、
+ * 不加令牌。**代价**：① 色值烘进 data-URI（CSS 无法把变量注入 data-URI）→ 每个"形状 × 颜色"一份 base64，
+ * 本文件比原来的内联 SVG 大约多 10KB 源码；② 改形状/改色必须重跑生成器，不能手改这个文件。
+ *
+ * 色值全部逐字抄 `uni.scss` 既有令牌（不新增令牌、不引入新颜色）：
+ *   -muted        = $mw-muted  #8a7767
+ *   -ink2         = $mw-ink-2  #6b5b51
+ *   -ink          = $mw-ink  #1d1512
+ *   -brand        = $mw-brand-ink  #c2410c
+ *   -brand-fill   = $mw-brand-ink  #c2410c
+ *   -onnight-fill = $mw-on-night  #f7f0e8
+ *
+ * 两态怎么做的（选中 / 未选）：**两套 data-URI 各一份**，由模板上的 `:class` 二选一，
+ * 色 + 填充**双差异**（如点赞：未赞 `-heart-ink2` 空心灰 → 已赞 `-heart-brand-fill` 实心橙）。
+ * 不用 `mask-image` + `currentColor` 的"叠加变色"：Android 老 webview 上 `-webkit-mask-image`
+ * 不保证可用，一旦不支持就会露出一个实心方块 —— 宁可多几行 base64，也要保证画得出来。
+ */
+
+/* 图标盒：尺寸由这里给（改前是 `<svg width/height>` 给的）；`contain` 让 24×24 的图形适配任意盒尺寸 */
+.mw-ic {
+	flex: none;
+	width: 40rpx;   /* 20px @750 —— 与改前操作区图标一致 */
+	height: 40rpx;
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: contain;
+}
+.mw-ic--tab {
+	width: 48rpx;   /* 24px —— 与改前 tabbar 图标一致 */
+	height: 48rpx;
+}
+.mw-ic--sm {
+	width: 36rpx;   /* 18px —— 与改前搜索入口放大镜一致 */
+	height: 36rpx;
+}
+
+/* 首页（房子）｜$mw-muted（muted） */
+.mw-ic--home-muted {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyM4YTc3NjcnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J000IDEwLjUgMTIgNGw4IDYuNVYxOWExIDEgMCAwIDEtMSAxaC00di02SDl2Nkg1YTEgMSAwIDAgMS0xLTF6Jy8+PC9zdmc+");
+}
+
+/* 首页（房子）｜$mw-brand-ink（brand） */
+.mw-ic--home-brand {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyNjMjQxMGMnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J000IDEwLjUgMTIgNGw4IDYuNVYxOWExIDEgMCAwIDEtMSAxaC00di02SDl2Nkg1YTEgMSAwIDAgMS0xLTF6Jy8+PC9zdmc+");
+}
+
+/* 社区（对话气泡）｜$mw-muted（muted） */
+.mw-ic--community-muted {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyM4YTc3NjcnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J000IDdhMiAyIDAgMCAxIDItMmgxMmEyIDIgMCAwIDEgMiAydjdhMiAyIDAgMCAxLTIgMkg5bC01IDR6Jy8+PHBhdGggZD0nTTggMTBoOCcvPjwvc3ZnPg==");
+}
+
+/* 社区（对话气泡）｜$mw-brand-ink（brand） */
+.mw-ic--community-brand {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyNjMjQxMGMnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J000IDdhMiAyIDAgMCAxIDItMmgxMmEyIDIgMCAwIDEgMiAydjdhMiAyIDAgMCAxLTIgMkg5bC01IDR6Jy8+PHBhdGggZD0nTTggMTBoOCcvPjwvc3ZnPg==");
+}
+
+/* 萌宠（爪印）｜$mw-muted（muted） */
+.mw-ic--pets-muted {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyM4YTc3NjcnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxjaXJjbGUgY3g9JzcnIGN5PSc5JyByPScxLjknLz48Y2lyY2xlIGN4PScxMicgY3k9JzcnIHI9JzEuOScvPjxjaXJjbGUgY3g9JzE3JyBjeT0nOScgcj0nMS45Jy8+PHBhdGggZD0nTTEyIDEyLjVjMyAwIDUuMiAxLjkgNS4yIDQuMSAwIDEuNi0xLjIgMi45LTIuOCAyLjloLTQuOGMtMS42IDAtMi44LTEuMy0yLjgtMi45IDAtMi4yIDIuMi00LjEgNS4yLTQuMXonLz48L3N2Zz4=");
+}
+
+/* 萌宠（爪印）｜$mw-brand-ink（brand） */
+.mw-ic--pets-brand {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyNjMjQxMGMnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxjaXJjbGUgY3g9JzcnIGN5PSc5JyByPScxLjknLz48Y2lyY2xlIGN4PScxMicgY3k9JzcnIHI9JzEuOScvPjxjaXJjbGUgY3g9JzE3JyBjeT0nOScgcj0nMS45Jy8+PHBhdGggZD0nTTEyIDEyLjVjMyAwIDUuMiAxLjkgNS4yIDQuMSAwIDEuNi0xLjIgMi45LTIuOCAyLjloLTQuOGMtMS42IDAtMi44LTEuMy0yLjgtMi45IDAtMi4yIDIuMi00LjEgNS4yLTQuMXonLz48L3N2Zz4=");
+}
+
+/* 知识库（书）｜$mw-muted（muted） */
+.mw-ic--knowledge-muted {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyM4YTc3NjcnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J001IDVhMiAyIDAgMCAxIDItMmgxMXYxNkg3YTIgMiAwIDAgMC0yIDJ6Jy8+PHBhdGggZD0nTTkgNy41aDYnLz48L3N2Zz4=");
+}
+
+/* 知识库（书）｜$mw-brand-ink（brand） */
+.mw-ic--knowledge-brand {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyNjMjQxMGMnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J001IDVhMiAyIDAgMCAxIDItMmgxMXYxNkg3YTIgMiAwIDAgMC0yIDJ6Jy8+PHBhdGggZD0nTTkgNy41aDYnLz48L3N2Zz4=");
+}
+
+/* 我的（小人）｜$mw-muted（muted） */
+.mw-ic--mine-muted {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyM4YTc3NjcnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxjaXJjbGUgY3g9JzEyJyBjeT0nOC41JyByPSczLjQnLz48cGF0aCBkPSdNNS41IDIwYzAtMy4yIDIuOS01LjYgNi41LTUuNnM2LjUgMi40IDYuNSA1LjYnLz48L3N2Zz4=");
+}
+
+/* 我的（小人）｜$mw-brand-ink（brand） */
+.mw-ic--mine-brand {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyNjMjQxMGMnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxjaXJjbGUgY3g9JzEyJyBjeT0nOC41JyByPSczLjQnLz48cGF0aCBkPSdNNS41IDIwYzAtMy4yIDIuOS01LjYgNi41LTUuNnM2LjUgMi40IDYuNSA1LjYnLz48L3N2Zz4=");
+}
+
+/* 首页快捷操作「记一条」（笔）｜$mw-brand-ink（brand） */
+.mw-ic--edit-brand {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyNjMjQxMGMnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J000IDIwbDQuNS0xLjJMMTkgOC4zYTIgMiAwIDAgMCAwLTIuOGwtLjUtLjVhMiAyIDAgMCAwLTIuOCAwTDUuMiAxNS41eicvPjxwYXRoIGQ9J00xNC41IDYuNWwzIDMnLz48L3N2Zz4=");
+}
+
+/* 首页快捷操作「提醒」（铃）｜$mw-brand-ink（brand） */
+.mw-ic--bell-brand {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyNjMjQxMGMnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J00xMiA0YTUgNSAwIDAgMC01IDV2My4yTDUuNSAxNWgxM0wxNyAxMi4yVjlhNSA1IDAgMCAwLTUtNXonLz48cGF0aCBkPSdNMTAgMThhMiAyIDAgMCAwIDQgMCcvPjwvc3ZnPg==");
+}
+
+/* 社区搜索入口（放大镜）｜$mw-muted（muted） */
+.mw-ic--search-muted {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyM4YTc3NjcnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J00xMC41IDQuNWE2IDYgMCAxIDAgMCAxMiA2IDYgMCAwIDAgMC0xMnonLz48cGF0aCBkPSdNMTUuMSAxNS4xIDIwIDIwJy8+PC9zdmc+");
+}
+
+/* 点赞（心）｜$mw-ink-2（ink2） */
+.mw-ic--heart-ink2 {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyM2YjViNTEnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J00xMiAyMHMtNy00LjQtNy05LjNBNC4yIDQuMiAwIDAgMSAxMiA4YTQuMiA0LjIgMCAwIDEgNyAyLjdDMTkgMTUuNiAxMiAyMCAxMiAyMHonLz48L3N2Zz4=");
+}
+
+/* 点赞（心）｜$mw-brand-ink（brand-fill） */
+.mw-ic--heart-brand-fill {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPScjYzI0MTBjJyBzdHJva2U9JyNjMjQxMGMnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J00xMiAyMHMtNy00LjQtNy05LjNBNC4yIDQuMiAwIDAgMSAxMiA4YTQuMiA0LjIgMCAwIDEgNyAyLjdDMTkgMTUuNiAxMiAyMCAxMiAyMHonLz48L3N2Zz4=");
+}
+
+/* 收藏（书签）｜$mw-ink-2（ink2） */
+.mw-ic--mark-ink2 {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyM2YjViNTEnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J002IDRoMTJ2MTZsLTYtNC40TDYgMjB6Jy8+PC9zdmc+");
+}
+
+/* 收藏（书签）｜$mw-brand-ink（brand-fill） */
+.mw-ic--mark-brand-fill {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPScjYzI0MTBjJyBzdHJva2U9JyNjMjQxMGMnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J002IDRoMTJ2MTZsLTYtNC40TDYgMjB6Jy8+PC9zdmc+");
+}
+
+/* 评论（气泡）｜$mw-ink-2（ink2） */
+.mw-ic--chat-ink2 {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyM2YjViNTEnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J000IDdhMiAyIDAgMCAxIDItMmgxMmEyIDIgMCAwIDEgMiAydjdhMiAyIDAgMCAxLTIgMkg5bC01IDR6Jy8+PC9zdmc+");
+}
+
+/* 浏览量（眼睛）｜$mw-muted（muted） */
+.mw-ic--eye-muted {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyM4YTc3NjcnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J00yLjYgMTJTNi40IDYuNCAxMiA2LjQgMjEuNCAxMiAyMS40IDEyIDE3LjYgMTcuNiAxMiAxNy42IDIuNiAxMiAyLjYgMTJ6Jy8+PGNpcmNsZSBjeD0nMTInIGN5PScxMicgcj0nMi43Jy8+PC9zdmc+");
+}
+
+/* 点赞（心）｜$mw-ink（ink） */
+.mw-ic--heart-ink {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyMxZDE1MTInIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J00xMiAyMHMtNy00LjQtNy05LjNBNC4yIDQuMiAwIDAgMSAxMiA4YTQuMiA0LjIgMCAwIDEgNyAyLjdDMTkgMTUuNiAxMiAyMCAxMiAyMHonLz48L3N2Zz4=");
+}
+
+/* 点赞（心）｜$mw-on-night（onnight-fill） */
+.mw-ic--heart-onnight-fill {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPScjZjdmMGU4JyBzdHJva2U9JyNmN2YwZTgnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J00xMiAyMHMtNy00LjQtNy05LjNBNC4yIDQuMiAwIDAgMSAxMiA4YTQuMiA0LjIgMCAwIDEgNyAyLjdDMTkgMTUuNiAxMiAyMCAxMiAyMHonLz48L3N2Zz4=");
+}
+
+/* 收藏（书签）｜$mw-ink（ink） */
+.mw-ic--mark-ink {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyMxZDE1MTInIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J002IDRoMTJ2MTZsLTYtNC40TDYgMjB6Jy8+PC9zdmc+");
+}
+
+/* 收藏（书签）｜$mw-on-night（onnight-fill） */
+.mw-ic--mark-onnight-fill {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPScjZjdmMGU4JyBzdHJva2U9JyNmN2YwZTgnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J002IDRoMTJ2MTZsLTYtNC40TDYgMjB6Jy8+PC9zdmc+");
+}
+
+/* 评论（气泡）｜$mw-muted（muted） */
+.mw-ic--chat-muted {
+	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScyNCcgaGVpZ2h0PScyNCcgdmlld0JveD0nMCAwIDI0IDI0JyBmaWxsPSdub25lJyBzdHJva2U9JyM4YTc3NjcnIHN0cm9rZS13aWR0aD0nMS43JyBzdHJva2UtbGluZWNhcD0ncm91bmQnIHN0cm9rZS1saW5lam9pbj0ncm91bmQnPjxwYXRoIGQ9J000IDdhMiAyIDAgMCAxIDItMmgxMmEyIDIgMCAwIDEgMiAydjdhMiAyIDAgMCAxLTIgMkg5bC01IDR6Jy8+PC9zdmc+");
+}

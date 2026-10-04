@@ -27,6 +27,13 @@ export const NO_PROFILE_TEXT = '还没有宠物档案，先添加一只再来找
 /** 额度用尽的**错误码**（唯一判据；文案是 vip 侧动态拼的，绝不能匹配文案） */
 export const QUOTA_EXHAUSTED_CODE = 'B000902'
 
+/**
+ * 「还没有宠物档案」的错误码（`B000906`）。
+ * 它不是"出错了"，是"还没到能开口的那一步" → 页面给建宠物的真去处。
+ * 与 Web `utils/petChat.ts` 的 `NO_PROFILE_CODE` / `isNoProfile` 镜像（两端口径必须一致）。
+ */
+export const NO_PROFILE_CODE = 'B000906'
+
 /** 未登录的归一码（`utils/request.js` 的 unwrap 会把它抛出来） */
 const UNAUTHORIZED_CODE = 'UNAUTHORIZED'
 
@@ -92,6 +99,15 @@ export function isQuotaExhausted (e) {
 
 export function isUnauthorized (e) {
   return !!e && (e.isUnauthorized === true || String(e.code) === UNAUTHORIZED_CODE)
+}
+
+/**
+ * 是不是「还没有宠物档案」（B000906）：**只认码，不匹配文案**
+ * （文案是后端写给用户看的，改动不该让前端判断失准）。
+ * 首页用它决定"给不给去添加宠物的入口"，而不是把 B000906 当成一个故障。
+ */
+export function isNoProfile (e) {
+  return !!e && String(e.code) === NO_PROFILE_CODE
 }
 
 /** 历史回放：**整份替换**（服务端才是真的），并如实记下有没有被 200 条上限截断 */

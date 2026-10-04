@@ -5,6 +5,18 @@
 			<text class="sub">{{ headSub }}</text>
 		</view>
 
+		<!-- AI 问诊入口（2026-09-22 从整页最底部挪到这里）：
+		     原先它挂在列表与触底 footer 之下，而 onReachBottom 每追加一页就把列表下方的内容整体下推，
+		     入口正好落在"只会变高的区域"里 → 越靠近越往下跑。挪到顶部即彻底离开这个区域。
+		     整卡可点（@click 在外层），内层按钮只是视觉锚点：不能给它再挂一个 handler，否则事件冒泡会跳两次。 -->
+		<view class="qa" @click="goAi">
+			<view class="qa__text">
+				<text class="qa__title">AI 问诊</text>
+				<text class="qa__desc">大模型检索问答，回答标出引用来源</text>
+			</view>
+			<view class="qa__btn"><text>去提问</text></view>
+		</view>
+
 		<!-- 搜索：输入即搜（防抖）；回车立刻搜；有词时给一键清空 -->
 		<view class="search">
 			<input
@@ -96,23 +108,20 @@
 				</view>
 			</view>
 
-			<!-- 触底自动加载；同时给一个可点入口，失败不静默 -->
-			<view class="foot">
+			<!-- 触底自动加载；同时给一个可点入口，失败不静默
+			     ⚠️ handler 挂在**整行**上（不再是行内那几个字）：四种文案状态下这一行的位置、行高、
+			     命中区与 handler 全都不变，所以"恰好在加载中按下手指"也不会把这次点击吃掉；
+			     能不能加载由 onFootTap 按当前状态判（有更多 / 上一次失败 = 可点，到底了 = 不可点）。 -->
+			<view class="foot" @click="onFootTap">
 				<text v-if="loadingMore" class="foot__text">正在加载更多</text>
 				<view v-else-if="moreError" class="foot__err">
 					<text class="foot__err-text">{{ moreError }}</text>
-					<text class="foot__act" @click="loadMore">重试</text>
+					<text class="foot__act">重试</text>
 				</view>
-				<text v-else-if="hasMore" class="foot__act" @click="loadMore">加载更多</text>
+				<text v-else-if="hasMore" class="foot__act">加载更多</text>
 				<text v-else class="foot__text">{{ footText }}</text>
 			</view>
 		</template>
-
-		<view class="qa" @click="goAi">
-			<text class="qa__title">智能问答</text>
-			<text class="qa__desc">已接入大模型检索问答，回答里会标出引用的知识来源，可以直接问"我家猫吐毛球怎么办"</text>
-			<view class="qa__btn"><text>去提问</text></view>
-		</view>
 
 		<text class="note">{{ note }}</text>
 
@@ -146,6 +155,18 @@
  *
  * 5) ⚠️ 分页推进量用**自己发出去的那个页码**，不用响应回显的 `pageNum`
  *    （越界时后端原样回显，照它推会永远卡在越界页）—— 见 `api/knowledge.js` 的 `pageStateOf`。
+ *
+ * 6) **AI 问诊入口在列表之上，永远不许再挪回列表下方**（2026-09-22 修订）。
+ *    ⚠️ 触底"入口点不动"的根因**不是遮罩**：本工程全端没有任何 `uni.showLoading`
+ *    （整个 `MiaoWang-phone/` 实测零命中），页面级 `loading` 只驱动骨架屏与 footer 文案。
+ *    真因是**布局生长**：`onReachBottom()` → `loadMore()` → `loadPage()` →
+ *    `this.fragments = this.fragments.concat(st.records)`（每页 10 条，`total` 434 时共 44 页）
+ *    → 列表变长，而入口当时挂在列表**之下**，于是每靠近一次就被下推一屏；
+ *    `pages.json` 的 `onReachBottomDistance: 100` 又保证"先触发加载、再被推走"，手指永远追不上。
+ *    修法：① 入口移到顶部（只增不减的区域之外）；② 触底 footer 固定行高（文本互换不再改高度，
+ *    顺带让「加载更多 / 重试」拿到 `$mw-touch-min` 的触达高度）。
+ *    ⚠️ 因此也**禁止**给它加铺满全屏的 loading 遮罩：那会把整页的可点元素一起吞掉，
+ *    用"遮住"换"点不动"不算修好（`check-knowledge-phone.mjs` 的 [N] 段钉住这两条）。
  *
  * 模板只访问实例属性：卡片字段一律在 `computed` 里摊平（`fragmentCard`），
  * 模板里不出现 store/utils 对象、也不调函数（`check-phone.js` 第 4、5 类检查盯着这两条）。
@@ -389,6 +410,23 @@ export default {
 			if (this.searchMode) return
 			if (!this.hasMore || this.loadingMore || this.loading) return
 			this.loadPage()
+		},
+
+		/**
+		 * 触底 footer 的整行点击（2026-09-22 新增）
+		 *
+		 * ⚠️ 为什么 handler 挂在整行而不是行内文字上：触底加载会用新一页把这一行下面的内容顶下去，
+		 * 上一版给行内文字各挂一个 `@click`，于是 ①「重试 / 加载更多」的命中区只有 22rpx 的文字高
+		 * （远低于 `$mw-touch-min`），②文案一换（`正在加载更多` 会把可点的字换成不可点的字）
+		 * 命中区就跟着变，手指落下的那一刻正好切换时这次点击就被吃掉。
+		 * 现在命中区恒等于这一行（`min-height: $mw-touch-min`），状态判断挪进函数：
+		 * 正在加载 = 不做；有更多或上一次失败 = 再加载一次；到底了 = 不做。
+		 * 行为与上一版等价（上一版两个可点字样也都只是调 `loadMore()`），`loadMore()` 里那三道守卫照旧。
+		 */
+		onFootTap() {
+			if (this.loadingMore) return
+			if (!this.hasMore && !this.moreError) return
+			this.loadMore()
 		},
 
 		/** 触底加载下一页（推进量用自己发出去的页码，见 pageStateOf 的注释） */
@@ -773,11 +811,17 @@ export default {
 	font-weight: 500;
 }
 
+/* 触底 footer：**固定行高**，一行四个状态（加载中 / 失败可重试 / 可手动加载 / 到底）
+   ① 文本互换不再改变这一行的高度 → 列表下方不再"加载时抖一下"，滚动位置不会被带偏；
+   ② 这一行本身就是触底区里唯一的可点目标（`@click="onFootTap"` 挂在行上），
+      命中区恒为 $mw-touch-min 高、四态不移动也不换 handler，加载中按下手指也不会丢点击。
+   ⚠️ 这里**只做行内文字**，不加任何铺满全屏的 loading 遮罩：遮罩会把整页可点元素一起吞掉，
+      那正是本页触底"点不动"要避免的事（见文件头第 6 条与 REPORT.md）。 */
 .foot {
-	padding: $mw-space-3 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	min-height: $mw-touch-min;
 }
 .foot__text {
 	font-size: 22rpx;
@@ -792,18 +836,33 @@ export default {
 	color: $mw-danger;
 }
 .foot__act {
+	display: flex;
+	align-items: center;
 	margin-left: $mw-space-2;
+	padding: 0 $mw-space-3;
+	min-height: $mw-touch-min;
 	font-size: $mw-font-caption;
 	font-weight: 600;
 	color: $mw-brand-ink;
 }
 
+/* AI 问诊入口（页面最顶端，2026-09-22 位置修订）
+   单行卡 = 左文 + 右按钮。**整卡可点**（@click 在外层 view 上），按钮只是视觉锚点，
+   所以手指不必精确命中那个胶囊；卡片本身高于 $mw-touch-min（按钮 88rpx + 上下 padding）。
+   与搜索框的关系：入口在搜索框**之上**，搜索 / 物种 / 分类仍紧贴列表（它们是列表的筛选器，
+   离列表近才顺手）；代价是搜索框整体下移约 150rpx，取舍见 REPORT.md。 */
 .qa {
-	margin-top: $mw-space-6;
-	padding: $mw-space-4;
-	background: linear-gradient(0deg, rgba(194, 65, 12, 0.05), rgba(194, 65, 12, 0.05)), $mw-surface;
+	display: flex;
+	align-items: center;
+	margin-bottom: $mw-space-4;
+	padding: $mw-space-3 $mw-space-4;
+	background: rgba(194, 65, 12, 0.05);
 	border: 1px solid $mw-line;
 	border-radius: $mw-radius-card;
+}
+.qa__text {
+	flex: 1;
+	min-width: 0;
 }
 .qa__title {
 	display: block;
@@ -814,11 +873,12 @@ export default {
 .qa__desc {
 	display: block;
 	margin-top: $mw-space-1;
-	font-size: $mw-font-caption;
+	font-size: 22rpx;
 	color: $mw-ink-2;
 }
 .qa__btn {
-	margin-top: $mw-space-3;
+	margin-left: $mw-space-3;
+	padding: 0 $mw-space-4;
 	min-height: $mw-touch-min;
 	border-radius: $mw-radius-pill;
 	background: $mw-brand-ink;

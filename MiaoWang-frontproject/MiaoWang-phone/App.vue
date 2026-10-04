@@ -21,8 +21,13 @@
 	}
 </script>
 
-<style>
-	/* 每个页面公共css */
+<style lang="scss">
+	/* 全局图标（base64 data-URI SVG 背景图）+ 每个页面公共 css
+	 * 🔴 2026-09-22：图标从内联 `<svg>` 换成 CSS 背景图 —— App 端视图层用 `document.createElement(tag)`
+	 * 造节点，内联 svg 落在 HTML 命名空间（HTMLUnknownElement）→ 编译得进去也**永远画不出来**；
+	 * 详见 `styles/icons.scss` 抬头的实测根因。全局引入，页面只写 class（零运行时依赖）。 */
+	@import '@/styles/icons.scss';
+
 	page {
 		background-color: #f7f2ee;
 		color: #1d1512;

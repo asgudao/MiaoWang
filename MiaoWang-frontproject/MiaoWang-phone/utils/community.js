@@ -261,7 +261,14 @@ export function postCard (post) {
     ...imageGridOf(p),
     topics: topics,
     hasTopics: topics.length > 0,
-    /** 列表**也带 `images`**（≤9 张，无图 = `[]`，后端 2026-09-21 定稿）；视频只给个数量提示，列表里不渲染播放器 */
+    /**
+     * 列表**也带 `images`**（≤9 张，无图 = `[]`，后端 2026-09-21 定稿）；视频现在**也进九宫格**（各占一格）。
+     *
+     * ⚠️ **2026-09-22 口径变更（用户：「不要在帖子上方显示含几个视频，web 和手机都不要」）**：
+     * 这个"含 N 个视频"的**文案字段保留在这里（数据层不动、其它消费方/门禁仍可读）**，
+     * 但**页面已不再渲染它**（`community.vue` / `search.vue` 里那两行 `<text v-if="p.videoText">` 已删）。
+     * ⚠️ 别把这个字段删了：它不影响渲染，删了反而会打断别处对"视频条数"的读取口径。
+     */
     videoText: videos.length ? '含 ' + videos.length + ' 个视频' : '',
     liked: !!p.liked,
     favorited: !!p.favorited,
@@ -308,6 +315,13 @@ export function postDetailView (detail, inter) {
     hasContent: !!content,
     images: images,
     hasImages: images.length > 0,
+    /**
+     * ⚠️ **2026-09-22**：详情页的图片区**仍然只吃图片**（视频走页面里那个独立播放器，
+     * 不并进九宫格 —— 并进去会变成"同一段视频在页面上出现两次"）。
+     * 为了让 `PostImages` 两端共用同一个 prop 形状，这里给出**图片版的媒体序列**（每项 `kind: 'image'`）。
+     */
+    media: images.map(function (url) { return { url: url, kind: 'image' } }),
+    mediaCount: images.length,
     videos: videos,
     hasVideos: videos.length > 0,
     topics: topics,
@@ -665,7 +679,7 @@ export function imageGridOf (src, state) {
  * @param {object} [broken] `{url:true}` 加载失败的 url（标记 `failed`，**不剔除**）
  */
 export function imageCells (urls, total, broken) {
-  const list = Array.isArray(urls) ? urls.filter(function (u) { return u ? String(u) : false }).map(String) : []
+  const list = normalizeMediaList(urls)
   const bad = broken || {}
   const declared = Number(total)
   const all = declared > list.length ? Math.floor(declared) : list.length
@@ -675,20 +689,157 @@ export function imageCells (urls, total, broken) {
   /** 真正有 url 的格子数（列表可能只带前几张预览 → 按实际有的排） */
   const shown = Math.min(layout.visible, list.length)
   const cells = []
+  /** 图片格在**图片序列**里的下标：点开大图 `uni.previewImage` 的 `current` 只认图片序列，视频格不占号 */
+  let imageIndex = 0
   for (let i = 0; i < shown; i++) {
+    const it = list[i]
+    const isVideo = it.kind === 'video'
     const isLast = i === shown - 1
     const over = isLast ? Math.max(0, all - shown) : 0
     cells.push({
-      index: i,
-      url: list[i],
+      /** ⚠️ 视频格是 `-1`（它不在图片序列里，不该被当成第 N 张图） */
+      index: isVideo ? -1 : imageIndex,
+      url: it.url,
+      /** ⚠️ **2026-09-22 新增**：这一格是图还是视频（模板据它分支；几何完全相同） */
+      kind: isVideo ? 'video' : 'image',
+      /**
+       * ⚠️ **2026-09-22 新增：视频格的封面图 URL**（后端抽帧的 `coverUrl`，**可能是空串**）。
+       * 图片格没有这个概念（图本身就是画面）。空 ⇒ 模板退回"中性占位 + 角标"，**绝不空白**。
+       */
+      cover: isVideo ? (it.cover || '') : '',
       overflow: over,
       overflowText: over > 0 ? '+' + over : '',
-      /** 这一张**真的**加载失败（`@error`）→ 格子照留，界面如实写"图片加载失败" */
-      failed: !!bad[list[i]],
-      failedText: bad[list[i]] ? '图片加载失败' : ''
+      /** 这一张**真的**加载失败（`@error`）→ 格子照留，界面如实写"图片加载失败"；
+          视频格由 `<video>` 自己的 `@error` 管，不走"图片加载失败"这套 */
+      failed: !isVideo && !!bad[it.url],
+      failedText: !isVideo && bad[it.url] ? '图片加载失败' : ''
     })
+    if (!isVideo) imageIndex++
   }
   return cells
+}
+
+/**
+ * 媒体列表归一化：`['url', ...]` 或 `[{url, kind}]` 都收 → 统一成 `[{url, kind}]`
+ *
+ * 为什么不直接要求调用方传对象：`imageCells` 是**既有公开函数**，门禁与页面都按 `string[]` 调它，
+ * 这里做兼容而不是改签名（改签名会把老调用点全变成隐藏 bug）。
+ */
+function normalizeMediaList (list) {
+  if (!Array.isArray(list)) return []
+  const out = []
+  for (let i = 0; i < list.length; i++) {
+    const it = list[i]
+    if (typeof it === 'string') {
+      if (it) out.push({ url: it, kind: 'image' })
+      continue
+    }
+    const url = it && it.url ? String(it.url) : ''
+    if (!url) continue
+    /**
+     * ⚠️ **2026-09-22 新增：`cover`（视频首帧封面 URL）**
+     * 后端已交付抽帧（`PostVideoRespDTO.coverUrl`，可为 `null`）⇒ 归一化时把它**原样带过来**，
+     * 模板据此决定"显示真封面"还是"退回中性占位"。⚠️ **不许在这里编造/回退到别的图**
+     * （列表的 `post.coverUrl` 是**帖子封面**，不是视频封面，混用会张冠李戴）。
+     */
+    out.push({
+      url: url,
+      kind: it.kind === 'video' ? 'video' : 'image',
+      cover: it.cover ? String(it.cover) : ''
+    })
+  }
+  return out
+}
+
+/**
+ * 🔴 **2026-09-22 新增（用户："视频要有和照片一样的九宫格，在社区初始页面显示，效果和照片一样"）**
+ *
+ * `images` + `videos` → **一份合并的媒体序列**：**图片按 `sort` 升序在前、视频按数组原序在后**。
+ *
+ * 为什么是"图在前、视频在后"：
+ *   - 后端 `PostRespDTO.images` 的 `[0]` 就是**封面**（`sort` 升序，`PostServiceImpl` 里排好的）——
+ *     封面不能被视频挤掉，否则列表卡第一眼看到的就不是作者选的那张图了；
+ *   - 后端 `PostVideoRespDTO` **原本逐字只有 `{url, objectKey}`**（既没有 `sort`、也没有封面字段，
+ *     `.dsh-tmp/community-assets-20260921/EVIDENCE.md` 真实回读：198 的两条就是 `{url, objectKey}`）；
+ *     ⚠️ **2026-09-22 后端已交付抽帧封面**：`PostVideoRespDTO` 新增 **`coverUrl` / `coverObjectKey`**
+ *     （`dto/resp/PostVideoRespDTO.java:34,39`；实体 `dao/entity/CommunityPostVideoDO.java:48,56`；
+ *     读路径 `PostServiceImpl.loadVideos` 列表/详情同一份 DTO）⇒ 视频仍**按数组原序**，
+ *     但**封面可以取了**：`coverUrl` **可能是 `null`**（存量数据要跑回填），为空就退回中性占位。
+ *   综合上限是后端写侧口径 `CommunityConstant.MAX_POST_MEDIA_COUNT = 9`
+ *   （`images.size() + videos.size()`，见 `PostServiceImpl`）——本地列表最多也只带这么多预览。
+ *
+ * @param {object} post `PostRespDTO`（`images` / `videos` / `coverUrl`）
+ * @returns {{url:string,kind:'image'|'video',cover?:string}[]}
+ */
+export function mediaSourceOf (post) {
+  const p = post || {}
+  const items = []
+  const imgs = Array.isArray(p.images) ? toUrlList(p.images) : imageSourceOf(p)
+  for (let i = 0; i < imgs.length; i++) items.push({ url: imgs[i], kind: 'image' })
+  /**
+   * 视频：URL 用 `toUrlList`，**封面单独从原始对象上取 `coverUrl`**（`toUrlList` 只认 `url`，拿不到封面）。
+   * ⚠️ **绝不回退到 `post.coverUrl`**：那是**帖子封面（第一张图）**，拿来当视频封面会张冠李戴。
+   */
+  const rawVids = Array.isArray(p.videos) ? p.videos : []
+  const vids = toUrlList(rawVids)
+  for (let i = 0; i < vids.length; i++) {
+    const src = rawVids[i]
+    const cover = src && typeof src === 'object' && src.coverUrl ? String(src.coverUrl) : ''
+    items.push({ url: vids[i], kind: 'video', cover: cover })
+  }
+  return items.slice(0, MAX_MEDIA_COUNT)
+}
+
+/** 合并媒体上限：与后端 `CommunityConstant.MAX_POST_MEDIA_COUNT` **同口径**（合计 9，不是各算 9） */
+export const MAX_MEDIA_COUNT = 9
+
+/**
+ * 🔴 **2026-09-22 新增**：媒体区（**图片 + 视频合并**）→ 模板要用的网格字段
+ *
+ * 复用 `imageLayout` / `imageCells` / `imageRows` —— **没有第二套几何**：
+ *   0 个媒体 → `hasMedia: false`（整块不渲染）；
+ *   **恰好 1 个**（不论图还是视频）→ `tier: 'single'`（不裁切，单图按原比例、单视频按 16:9 框）；
+ *   **≥2 个** → 每格正方形裁切、每格宽度 `calc((100% − (N−1)×gap) / N)`（在 `PostImages.vue` 里）。
+ *
+ * @param {object} src `PostRespDTO`（列表）/ `{images: [...]}`（详情页只喂图片）
+ * @param {object} state `{ broken: {url:true} }`
+ */
+export function mediaGridOf (src, state) {
+  const s = state || {}
+  const broken = s.broken || {}
+  const items = mediaSourceOf(src)
+  const total = items.length
+  const grid = imageLayout(total)
+  const cells = imageCells(items, total, broken)
+  const imageList = items.filter(function (it) { return it.kind !== 'video' })
+  const imageUrls = imageList.map(function (it) { return it.url })
+  /** 图片**总张数**：DTO 的 `imageCount` 优先（旧快照没有该字段就按数组长度），取较大值防脏数据 */
+  const declared = Number(src && src.imageCount)
+  const imageCount = declared > imageUrls.length ? Math.floor(declared) : imageUrls.length
+  return {
+    /** 模板要把合并序列交给 `PostImages`（每项带 `kind`） */
+    media: items,
+    /** 一个媒体都没有 → 媒体区**整块不渲染**（不是 display:none、不是 height:0） */
+    hasMedia: items.length > 0,
+    mediaCount: total,
+    /** 恰好 1 个时的那个是图还是视频（模板据此选"原比例大图"还是"16:9 视频框"） */
+    singleKind: total === 1 ? items[0].kind : '',
+    /** 图片那份（点开大图 `uni.previewImage` 只传图片；`hasImages` 仍是"有没有图片"的老语义） */
+    images: imageUrls,
+    hasImages: imageUrls.length > 0,
+    imageCount: imageCount,
+    grid: grid,
+    cells: cells,
+    /** 格子按行切好：**每行几个格子 = 每行几列**（组件只渲染结构，不自己算布局） */
+    rows: imageRows(cells, grid.perRow),
+    failedCount: cells.length
+      ? cells.filter(function (c) { return c.failed }).length
+      : (imageUrls.length === 1 && total === 1 && broken[imageUrls[0]] ? 1 : 0),
+    /** **恰好 1 个**且它是图、且真加载失败 → 单图那一支要单独判（否则图挂了什么都不显示） */
+    singleFailed: imageUrls.length === 1 && total === 1 && !!broken[imageUrls[0]],
+    /** 🔴 **多格才裁切**（`aspectFill` + 方形格），**恰好 1 个不裁** */
+    crop: cells.length > 0
+  }
 }
 
 /**
@@ -734,10 +885,24 @@ export const EXCERPT_FIELDS = ['contentExcerpt', 'excerpt', 'contentSummary', 's
 /** 「摘要是不是被截断」的候选字段名（读不到时保守当"是"，见 `cardExcerptView`） */
 export const EXCERPT_TRUNCATED_FIELDS = ['contentTruncated', 'excerptTruncated', 'truncated', 'contentCut']
 
-/** 摘要显示文本：**非字符串一律空串**（不 toString、不编），连续空白折成一个空格并去首尾 */
+/**
+ * 摘要显示文本：**非字符串一律空串**（不 toString、不编）
+ *
+ * ⚠️ **2026-09-22 口径修正**（用户：「手机端内容展开有点问题，它内容展开之前是没有换行的，
+ * 展开之后内容莫名其妙多出来换行」）：
+ *   改前这里是 `raw.replace(/\s+/g, ' ').trim()` —— 它把**换行也折成了空格**；
+ *   而「展开」显示的全文来自详情接口的**原文**（`\n` 还在）。同一个 `<text>` 节点、
+ *   同一套 CSS，两个状态的换行表现却不一样 ⇒ 用户看到"折叠时没有换行、一展开就冒出来"。
+ *   ⚠️ 还有一层：`uni-app` 框架给 `<text>` 写了 `white-space: pre-line`
+ *   （`pages/.../app.css` 里的 `uni-text { white-space: pre-line }`）→ 原文里的 `\n` 就是**真换行**，
+ *   所以"折叠吃掉、展开冒出"是肉眼可见的差异，不是错觉。
+ *   现在与 **Web 端 `components/community/postExcerpt.ts` 的定稿口径逐字对齐**：
+ *   **正文原样返回：不折空白、不 trim、不转义**（判空另用 `trim()`，判空**不改**显示内容）。
+ *   两端一致 ⇒ 折叠与展开都照原文呈现段落换行，且**没有任何地方凭空插换行**。
+ */
 function excerptTextOf (raw) {
   if (typeof raw !== 'string') return ''
-  return raw.replace(/\s+/g, ' ').trim()
+  return raw.trim() === '' ? '' : raw
 }
 
 /**
@@ -977,7 +1142,19 @@ export function imageRows (cells, perRow) {
 export function cardView (post, state) {
   const s = state || {}
   const card = postCard(post)
-  const img = imageGridOf(post, { broken: s.broken })
+  /**
+   * 🔴 **2026-09-22**：媒体区改成**图片 + 视频合并**（用户："视频要有和照片一样的九宫格，
+   * 在社区初始页面显示，效果和照片一样"）⇒ 用 `mediaGridOf`（复用同一套 `imageLayout/imageCells/imageRows`，
+   * **没有第二套几何**）。改前用 `imageGridOf`（只吃 `images`）：198（0 图 + 2 视频）拿到 0 项
+   * ⇒ 列表里**媒体区整块不渲染**（什么都看不到）；197（1 图 + 1 视频）只显示那张图，视频被丢掉。
+   */
+  const img = mediaGridOf(post, { broken: s.broken })
+  /** 合并后的媒体序列（模板 `:media="p.media"`；每项 `{url, kind}`） */
+  card.media = img.media
+  card.hasMedia = img.hasMedia
+  card.mediaCount = img.mediaCount
+  card.singleKind = img.singleKind
+  /** 图片那份（点开大图 `uni.previewImage` 只传图片 url） */
   card.images = img.images
   card.hasImages = img.hasImages
   card.imageCount = img.imageCount

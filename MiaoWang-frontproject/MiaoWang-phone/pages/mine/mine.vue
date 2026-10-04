@@ -47,7 +47,7 @@
 				</view>
 				<!-- 「消息通知」是真入口：有未读就显示未读数，没有就不显示（不写"开发中"占位） -->
 				<text v-if="s.key === 'notify' && unreadBadge" class="row__badge row__badge--unread">{{ unreadBadge }}</text>
-				<!-- 4 行**全部**已接真页面，右侧不再有任何「开发中」徽标（原来那枚随「提醒设置」接线一起删掉） -->
+				<!-- 5 行**全部**已接真去处，右侧不再有任何「开发中」徽标（原来那枚随「提醒设置」接线一起删掉） -->
 			</view>
 		</view>
 
@@ -68,8 +68,51 @@ import FloatingTabBar from '@/components/FloatingTabBar.vue'
 import { hideNativeTabBar } from '@/utils/tabbar.js'
 import { auth } from '@/store/auth.js'
 import { vip } from '@/store/vip.js'
-import { describeTarget } from '@/utils/request.js'
-import { fetchUnreadCount, notificationHasUnread, notificationUnreadText } from '@/api/community.js'
+import { describeTarget, currentHost } from '@/utils/request.js'
+import { fetchUnreadCount, getUserProfile, notificationHasUnread, notificationUnreadText } from '@/api/community.js'
+
+/**
+ * 「社区角色」入口指向的 **Web 端 dev server 端口**（`MiaoWang-web` 的 Vite 端口）。
+ *
+ * ⚠️ 这里**只有端口**：主机名一律用运行时解析出来的开发机地址（见 `communityRoleUrl()`）——
+ * 手机端写死 IP 会随 DHCP 换租约 / 换 Wi-Fi 失效，写 `localhost` 更是一定打不开（见下）。
+ * ⚠️ 前提是 Web dev server **真的监听在局域网**（`MiaoWang-web/vite.config.ts` 的 `server.host`）；
+ * 只绑 `localhost` 时设备侧必然连不上，这一点已在报告里单独说明。
+ */
+const WEB_DEV_PORT = 5173
+
+/**
+ * 用**系统浏览器**打开一个网址（App 端）。
+ * `plus` 只在 App 运行时存在 → **先判存在再调**，H5 / 小程序构建里这段永远不会被调用。
+ */
+function plusOpen (url) {
+	if (typeof plus === 'undefined' || !plus.runtime || typeof plus.runtime.openURL !== 'function') return false
+	plus.runtime.openURL(url)
+	return true
+}
+
+/**
+ * 在 App 之外打开网址，返回"到底有没有打开"。
+ *
+ * - **App（Android）**：`plus.runtime.openURL` → 交给系统浏览器
+ * - **H5**：`window.open` 新标签页
+ * - **其它平台**：返回 false（调用方给一句"打不开"的提示，不静默失败）
+ *
+ * 为什么**不**在 App 内嵌 `web-view`：那要新建页面并改 `pages.json`（手机端改完必须重跑 HBuilderX
+ * 才生效），而且 App 端 `web-view` 是**原生子窗体**、层级压过页面 DOM —— 本工程全局
+ * `navigationStyle: custom`、返回栏是自绘的，被盖住与否我无法验证。系统浏览器有系统返回键/手势，
+ * 是"能过去、能返回"里风险最低的一条。代价：会离开 App（已写进报告的未验证清单）。
+ */
+function openExternal (url) {
+	// #ifdef APP-PLUS
+	return plusOpen(url)
+	// #endif
+	// #ifdef H5
+	window.open(url, '_blank')
+	return true
+	// #endif
+	return false
+}
 
 export default {
 	components: { FloatingTabBar },
@@ -83,8 +126,15 @@ export default {
 			 * 只在 `onShow` 拉一次 —— 全仓库没有推送设施，也**不做全站轮询**（契约 §2.5 做法一）。
 			 */
 			unread: null,
+			/**
+			 * 防止连点两次「社区角色」并发读两次 uid。
+			 * ⚠️ uid **刻意不缓存**：它是"跟着账号走"的数据，缓存下来就要处理换号/退出后的失效；
+			 * 这一行是低频动作，点一次读一次（`GET /community/user/profile`）最省心也最不容易出错。
+			 */
+			communityBusy: false,
 			settings: [
 				{ key: 'profile', label: '个人资料', desc: '昵称、手机号、头像' },
+				{ key: 'community', label: '社区角色', desc: '帖子、点赞与关注' },
 				{ key: 'remind', label: '提醒设置', desc: '提前几天与免打扰' },
 				{ key: 'notify', label: '消息通知', desc: '评论、点赞、关注' },
 				{ key: 'about', label: '关于喵汪', desc: '版本与开源许可' }
@@ -188,12 +238,13 @@ export default {
 			uni.showToast({ title: '功能开发中', icon: 'none' })
 		},
 		/**
-		 * 设置行：现在 4 行**全部**有真实去处（个人资料 / 提醒设置 / 消息通知 / 关于喵汪）。
+		 * 设置行：现在 5 行**全部**有真实去处
+		 * （个人资料 / 社区角色 / 提醒设置 / 消息通知 / 关于喵汪）。
 		 *
 		 * 所以这个页面里**已经不存在"占位行"**了：原来那套 `isPlaceholder()` + 右侧「开发中」徽标
-		 * 随「提醒设置」接线一起删掉 —— 4 行都有真页面，再挂「开发中」就是假 UI。
+		 * 随「提醒设置」接线一起删掉 —— 5 行都有真去处，再挂「开发中」就是假 UI。
 		 *
-		 * 兜底的 `toast()` 保留，但**4 行都走不到它**：它的作用只是"以后谁加了第 5 行却忘了接页面，
+		 * 兜底的 `toast()` 保留，但**5 行都走不到它**：它的作用只是"以后谁加了第 6 行却忘了接页面，
 		 * 点上去要有一个明确交代"，而不是给已接好的行当占位。
 		 */
 		openRow(s) {
@@ -206,6 +257,11 @@ export default {
 				uni.navigateTo({ url: '/pages/profile/profile' })
 				return
 			}
+			if (s.key === 'community') {
+				// 这一行不走页面内跳转：它要去**Web 端**的用户主页（自己 uid 那一页）
+				this.openCommunity()
+				return
+			}
 			if (s.key === 'remind') {
 				uni.navigateTo({ url: '/pages/remind/setting' })
 				return
@@ -215,6 +271,60 @@ export default {
 				return
 			}
 			this.toast()
+		},
+		/**
+		 * 「社区角色」的目标地址：**开发机局域网地址** + Web dev server 端口 + `/user/<自己的 uid>`。
+		 *
+		 * ⚠️ 手机端**绝不用** `localhost` / `127.0.0.1`：在设备里那就是**设备自己**（不是开发机），
+		 * 必然打不开 ⇒ 主机名一律取运行时解析出来的开发机地址（`currentHost()`，与后端请求用的是
+		 * 同一个 IP，已经过"手填 > 上次探测成功 > 内置候选 > 扫网段"的解析），**不写死 IP**；
+		 * 顺手把 localhost / 127.* 挡掉（万一谁把手填地址设成了 localhost，这里也不放行）。
+		 *
+		 * ⚠️ uid 是**入参**（来自社区接口的响应），**绝不硬编码**；拿不到就返回空串，调用方不跳转。
+		 * @returns {string} 可打开的 URL；uid 或主机名缺失时是空串
+		 */
+		communityRoleUrl(uid) {
+			if (uid === null || uid === undefined || uid === '') return ''
+			const host = String(currentHost() || '').split(':')[0]
+			if (!host || host === 'localhost' || host.indexOf('127.') === 0) return ''
+			return 'http://' + host + ':' + WEB_DEV_PORT + '/user/' + uid
+		},
+		/**
+		 * 「社区角色」：跳到**自己 uid** 对应的 Web 用户页（`MiaoWang-web` 的 `/user/:uid`，
+		 * 就是社区里点作者名去的那一页，只不过这次是"我自己"）。
+		 *
+		 * ⚠️ **未登录不跳转**（绝不拼一个 `uid=undefined` 的地址），给一句诚实提示；
+		 *    uid 读不到 / 主机名不可用同样不跳，也不假装成功。
+		 * uid 来源：`GET /community/user/profile`（**不传 uid = 登录者自己**）——
+		 * 这是 uid 的唯一来源：user 模块没有"按 uid 查"的接口，`GET /user/{username}` 的 id 恒为 null。
+		 */
+		async openCommunity() {
+			if (this.communityBusy) return
+			if (!this.loggedIn) {
+				uni.showToast({ title: '登录后才能看自己的社区角色', icon: 'none' })
+				return
+			}
+			this.communityBusy = true
+			try {
+				let uid = null
+				try {
+					const p = await getUserProfile()
+					uid = p && p.uid !== undefined && p.uid !== null ? p.uid : null
+				} catch (e) {
+					uid = null
+				}
+				const url = this.communityRoleUrl(uid)
+				if (!url) {
+					uni.showToast({ title: '没读到你的社区 uid，稍后再试', icon: 'none' })
+					return
+				}
+				// 打开失败（比如小程序这类打不开外部网址的平台）也要有交代，不静默什么都不发生
+				if (!openExternal(url)) {
+					uni.showToast({ title: '这个平台打不开 Web 页面', icon: 'none' })
+				}
+			} finally {
+				this.communityBusy = false
+			}
 		},
 		goNotify() {
 			uni.navigateTo({ url: '/pages/notification/list' })

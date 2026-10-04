@@ -526,9 +526,28 @@ export default {
 	color: $mw-muted;
 }
 
+/*
+	消息行 = **一条消息一个 flex 列**（宠物侧与用户侧同构，只有对齐方向相反）。
+
+	🔴 2026-09-21 用户真机反馈「宠物的时间显示会顶到用户这边来」的**根因**（逐层复算见门禁 J 段）：
+	   改前只有 `.msg--me` 是 flex 列，宠物侧的 `.msg` 是**普通块盒**；而 `.bubble` 是
+	   `display: inline-block`、`.msg__time` 是 `<text>`（框架 `uni-text` **没有任何 display 声明**
+	   → 自定义元素默认 `display: inline`，读真机构建产物 `app.css` 实测）。
+	   于是宠物侧的「气泡 + 时间」落在**同一个行内格式化上下文**里：时间的左边界 = 气泡右边界，
+	   气泡越长它越往右 → 顶到用户那一侧；而气泡 + 时间一旦超过列宽，它又折到下一行的**左端**
+	   → 位置随文案长度与字体宽度来回飘（同一页两种表现）。
+	   另外 `margin-top` 对行内非替换元素**不生效** → 改前宠物侧的时间连 6rpx 的间距都没有。
+
+	   改后：时间是**自己的 flex 项**（块化 → 独占一行），`margin-top` 生效，
+	   再由下面的 `align-items` 把它钉在**自己那条消息**的一侧。
+*/
 .msg {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
 	margin-top: $mw-space-3;
 }
+/* 用户侧：气泡与时间都贴右边（与宠物侧对称） */
 .msg--me {
 	display: flex;
 	flex-direction: column;
@@ -601,7 +620,16 @@ export default {
 	line-height: 1.75;
 	color: $mw-muted;
 }
+/*
+	时间：**跟在自己那条消息下面、只在自己那一侧**。
+	- `display: block`：让它在任何容器里都独占一行（防御：以后有人把 `.msg` 的 flex 去掉，
+	  它也不会退回行内、跟气泡挤在同一行 —— 那正是本次真机 bug 的形态）。
+	- `max-width: 100%`：宽度**相对容器**（列宽），不写死 rpx；再长的日期文案也只会折行不会越界。
+	- `margin-top` 现在真的生效（行内元素上它本来是被忽略的）。
+*/
 .msg__time {
+	display: block;
+	max-width: 100%;
 	margin-top: 6rpx;
 	font-size: $mw-font-micro;
 	color: $mw-muted;

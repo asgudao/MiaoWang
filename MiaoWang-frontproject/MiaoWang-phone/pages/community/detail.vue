@@ -72,7 +72,7 @@
 					     依据（2026-09-21 用户定稿）：列表里单图最宽 = 一行两格；「大图预览与详情页里的图不受此限」。 -->
 					<PostImages
 						v-if="view.hasImages"
-						:images="view.images"
+						:media="view.media"
 						:grid="view.grid"
 						:rows="view.rows"
 						:single-failed="view.singleFailed"
@@ -81,19 +81,44 @@
 						@fail="onImageFail"
 					/>
 
-					<!-- 视频：整页只有一个播放器，且不自动播放（一屏挂一堆 video 会拖垮列表） -->
+					<!--
+						视频：整页只有一个播放器，且不自动播放（一屏挂一堆 video 会拖垮列表）。
+
+						⚠️ **2026-09-22 用户要求**：「社区中的视频中间的播放键为什么有白色背景，可以去掉吗，
+						还有"视频"两个字也去掉」 ⇒ 这里改了三处（**先核实来源再改**）：
+						  ① 中间那个**白底圆圈播放键**是 **uni-app `<video>` 组件自带的居中播放按钮**
+						     （上一版这里写的是 `:show-center-play-btn="true"`，平台级绘制、CSS 改不掉它的样式）
+						     ⇒ 关掉它（`false`），改成**下面自绘的三角角标**：**没有白底/白圆**，
+						     只有一枚**半透明深色**圆盘 + 白色三角（令牌派生色，不引入新令牌）；
+						  ② `"视频"` 两个字来自**多视频切换条**的文案（`.vchip`，原来是 `'视频 ' + (idx+1)`）
+						     ⇒ 只留序号（`1` / `2` …）—— 去掉的是"视频"这两个字，**"这是视频"的标识没丢**
+						     （自绘三角角标 + 播放器本身）；
+						  ③ 下面的说明文案同步改成"点**下面**的播放键"（中间那个按钮已经没有了，
+						     留着旧文案就是**假说明**）。
+						⚠️ 播放能力没少：控件栏还在（`controls`），它自带的播放按钮仍可点；
+						   底部播放键一按，自绘角标就收起来（`@play`），不在画面上挡着。
+					-->
 					<view v-if="view.hasVideos" class="videos">
-						<video
-							class="videos__player"
-							:src="activeVideoUrl"
-							:autoplay="false"
-							:controls="true"
-							:show-center-play-btn="true"
-							:show-fullscreen-btn="true"
-							:enable-progress-gesture="false"
-							:enable-play-gesture="false"
-							object-fit="contain"
-						></video>
+						<view class="videos__stage">
+							<video
+								class="videos__player"
+								:src="activeVideoUrl"
+								:autoplay="false"
+								:controls="true"
+								:show-center-play-btn="false"
+								:show-fullscreen-btn="true"
+								:enable-progress-gesture="false"
+								:enable-play-gesture="false"
+								object-fit="contain"
+								@play="videoPlaying = true"
+								@paused="videoPlaying = false"
+								@ended="videoPlaying = false"
+							></video>
+							<!-- 自绘播放角标：**无白底、无文案**，只有半透明深色圆盘 + 三角（不吃点击） -->
+							<view v-if="!videoPlaying" class="videos__badge">
+								<view class="videos__tri"></view>
+							</view>
+						</view>
 						<view v-if="videoChips.length > 1" class="videos__pick">
 							<text
 								v-for="v in videoChips"
@@ -103,37 +128,41 @@
 								@click="playVideo(v.url)"
 							>{{ v.label }}</text>
 						</view>
-						<text class="videos__note">点画面上的播放键才开始，不会自动播放。多条视频时一次只加载一个，切上面的按钮换片。</text>
+						<text class="videos__note">点下面的播放键才开始，不会自动播放。多条视频时一次只加载一个，切上面的数字换片。</text>
 					</view>
 
 					<view v-if="view.hasTopics" class="topics">
 						<text v-for="(t, ti) in view.topics" :key="ti" class="topic">#{{ t }}</text>
 					</view>
 
+					<!--
+						统计行：浏览量 / 评论数 —— 配套图标（与点赞/收藏、列表卡同一批形状：
+						24×24 viewBox / stroke 1.7 / 圆头圆角），画法是 **base64 data-URI 背景图**
+						（🔴 改前是内联 `<svg>`：App 端视图层用 `document.createElement(tag)` 造节点，
+						内联 svg 落在 HTML 命名空间 → 永远画不出来，根因见 styles/icons.scss 抬头）。
+						图标 + 文字并存；这两项是**只读元信息**（不是按钮）→ 不加 @click、不占 44px 触控区。
+					-->
 					<view class="stats">
-						<text class="stat">{{ view.viewText }}</text>
-						<text class="stat">{{ view.commentText }}</text>
+						<view class="stat">
+							<view class="stat__icon mw-ic mw-ic--eye-muted"></view>
+							<text>{{ view.viewText }}</text>
+						</view>
+						<view class="stat">
+							<view class="stat__icon mw-ic mw-ic--chat-muted"></view>
+							<text>{{ view.commentText }}</text>
+						</view>
 					</view>
 
 					<view class="acts">
 						<view class="act" :class="{ 'act--on': view.liked }" @click="toggleLike">
-							<view class="act__icon">
-								<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-									stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-									<path d="M12 20s-7-4.4-7-9.3A4.2 4.2 0 0 1 12 8a4.2 4.2 0 0 1 7 2.7C19 15.6 12 20 12 20z"
-										:fill="view.liked ? 'currentColor' : 'none'" />
-								</svg>
-							</view>
+							<!-- 两态 = 两套 data-URI：未赞 = 空心 $mw-ink → 已赞 = 实心 $mw-on-night（按钮底是主色实心） -->
+							<view class="act__icon mw-ic"
+								:class="view.liked ? 'mw-ic--heart-onnight-fill' : 'mw-ic--heart-ink'"></view>
 							<text>{{ view.likeText }}</text>
 						</view>
 						<view class="act" :class="{ 'act--on': view.favorited }" @click="toggleFavorite">
-							<view class="act__icon">
-								<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-									stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-									<path d="M6 4h12v16l-6-4.4L6 20z"
-										:fill="view.favorited ? 'currentColor' : 'none'" />
-								</svg>
-							</view>
+							<view class="act__icon mw-ic"
+								:class="view.favorited ? 'mw-ic--mark-onnight-fill' : 'mw-ic--mark-ink'"></view>
 							<text>{{ view.favoriteText }}</text>
 						</view>
 					</view>
@@ -340,6 +369,13 @@ export default {
 			},
 			/** 当前挂在播放器上的视频地址（整页只有一个播放器） */
 			activeVideoUrl: '',
+			/**
+			 * 播放器是不是正在播（`@play` / `@paused` / `@ended` 维护）。
+			 * ⚠️ **2026-09-22**：用来在播放时把**自绘播放角标**收起来 —— 播放中还在画面上盖一枚三角
+			 * 就是挡画面（平台自带的居中按钮是**白底圆圈**，用户明确要去掉它，说明"要的是角标本身、
+			 * 不要白底"）。收起条件只跟"有没有在播"有关，不猜别的状态。
+			 */
+			videoPlaying: false,
 			/** 图片运行时状态：`{url:true}` = 这张**真的**加载失败（格子照留、如实提示，**不再剔掉**） */
 			brokenImages: {},
 			/** 正在提交的写操作：'' | 'like' | 'favorite' */
@@ -411,7 +447,9 @@ export default {
 			if (!v || !v.videos.length) return []
 			const self = this
 			return v.videos.map(function (url, idx) {
-				return { url: url, label: '视频 ' + (idx + 1), on: url === self.activeVideoUrl }
+				/** ⚠️ **2026-09-22**：标签**只留序号**（用户："'视频'两个字也去掉"）。
+				    "这是视频"的标识由播放器本身 + 自绘三角角标承担，不靠这两个字。 */
+				return { url: url, label: String(idx + 1), on: url === self.activeVideoUrl }
 			})
 		},
 		/**
@@ -907,6 +945,8 @@ export default {
 
 		playVideo(url) {
 			this.activeVideoUrl = url
+			/** ⚠️ **2026-09-22**：换片（或第一次挂片）⇒ 角标回来（新片子还没播，角标就是"这里能播"的提示） */
+			this.videoPlaying = false
 		},
 
 		refresh() {
@@ -1087,11 +1127,46 @@ export default {
 .videos {
 	margin-top: $mw-space-3;
 }
+/* 播放器 + 自绘角标的定位容器（角标要压在画面正中） */
+.videos__stage {
+	position: relative;
+}
 .videos__player {
 	width: 100%;
 	height: 400rpx;
 	border-radius: $mw-radius-input;
 	background: $mw-night;
+}
+/*
+	⚠️ **2026-09-22 自绘播放角标**（用户："视频中间的播放键为什么有白色背景，可以去掉吗，
+	还有"视频"两个字也去掉"）：
+	  · **没有白底/白圆**：圆盘是 `$mw-night` 的**半透明**派生色（跟着母色走，不写死 rgb、不引新令牌）；
+	  · **没有文案**：只有三角，所以"视频"两个字不再出现在播放器上；
+	  · 三角用 border 画（**不引图标库、不用 emoji**）；
+	  · `pointer-events: none`：点击照旧落到播放器上（控件栏仍能点，播放能力一点没少）。
+	⚠️ 平台自带的居中播放按钮已经关掉（`:show-center-play-btn="false"`）—— 那个是**平台级绘制**，
+	   用 CSS 改不掉它的白底，所以只能关掉换自绘（见模板里的注释）。
+*/
+.videos__badge {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: $mw-space-3;
+	border-radius: $mw-radius-input;
+	background: rgba($mw-night, 0.62);
+	pointer-events: none;
+}
+.videos__tri {
+	/* 三角 = **内边距定尺寸 + `clip-path` 切形状**（⚠️ 不用 `width:0;height:0`+border：
+	   门禁把 `height: 0` 当"假装不渲染"的信号，见 `check-community-search-phone.mjs` 的 I24） */
+	padding: 26rpx 20rpx;
+	background: $mw-on-night;
+	clip-path: polygon(0 0, 100% 50%, 0 100%);
+	margin-left: 8rpx;
 }
 .videos__pick {
 	display: flex;
@@ -1145,11 +1220,22 @@ export default {
 	padding-top: $mw-space-2;
 	border-top: 1px solid $mw-line;
 }
+/* 统计行两项 = 图标 + 文字（图标盒子与 `.act__icon` 同尺寸 20px；图标是 **base64 data-URI
+ * 背景图**，$mw-muted 烘在 URI 里，见 styles/icons.scss）；
+ * 它们是**只读元信息**，不是按钮 → 不写 min-height、不加 @click。 */
 .stat {
+	display: flex;
+	align-items: center;
 	margin-right: $mw-space-3;
 	font-size: $mw-font-micro;
 	color: $mw-muted;
 	font-variant-numeric: tabular-nums;
+}
+.stat__icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-right: 6rpx;
 }
 .acts {
 	display: flex;
@@ -1174,7 +1260,9 @@ export default {
 	color: $mw-ink;
 	font-variant-numeric: tabular-nums;
 }
-/* 自绘 SVG 图标（与 tabbar / 列表卡同一套方案）；颜色走 `currentColor`，不写死色值 */
+/* 图标 = **base64 data-URI 背景图**（与 tabbar / 列表卡同一批形状，见 styles/icons.scss）；
+ * ⚠️ 下面的 `color` 已不参与图标渲染（URI 自带色），保留只为选中态那条声明仍可读；
+ * 真正的两态差异在模板上：未赞 `mw-ic--heart-ink`（空心）↔ 已赞 `mw-ic--heart-onnight-fill`（实心）。 */
 .act__icon {
 	display: flex;
 	align-items: center;

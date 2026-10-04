@@ -13,37 +13,17 @@
 					     ⚠️ 原生 tabBar 被 utils/tabbar.js 隐藏了，uni.setTabBarBadge / showTabBarRedDot
 					     画了也看不见 —— 徽标只能画在这里（契约 §2.4）。只做入口红点，不做全站轮询。 -->
 					<view v-if="item.key === 'mine' && mineDot" class="tab__dot"></view>
-					<!-- 图标自绘：不依赖已废弃的 static/tabbar PNG -->
-					<svg viewBox="0 0 24 24" width="24" height="24" fill="none"
-						:stroke="item.path === current ? '#C2410C' : '#8A7767'"
-						stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-						<!-- 首页：房子 -->
-						<template v-if="item.key === 'home'">
-							<path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z" />
-						</template>
-						<!-- 社区：对话气泡 -->
-						<template v-else-if="item.key === 'community'">
-							<path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H9l-5 4z" />
-							<path d="M8 10h8" />
-						</template>
-						<!-- 萌宠：爪印 -->
-						<template v-else-if="item.key === 'pets'">
-							<circle cx="7" cy="9" r="1.9" />
-							<circle cx="12" cy="7" r="1.9" />
-							<circle cx="17" cy="9" r="1.9" />
-							<path d="M12 12.5c3 0 5.2 1.9 5.2 4.1 0 1.6-1.2 2.9-2.8 2.9h-4.8c-1.6 0-2.8-1.3-2.8-2.9 0-2.2 2.2-4.1 5.2-4.1z" />
-						</template>
-						<!-- 知识库：书 -->
-						<template v-else-if="item.key === 'knowledge'">
-							<path d="M5 5a2 2 0 0 1 2-2h11v16H7a2 2 0 0 0-2 2z" />
-							<path d="M9 7.5h6" />
-						</template>
-						<!-- 我的：人 -->
-						<template v-else>
-							<circle cx="12" cy="8.5" r="3.4" />
-							<path d="M5.5 20c0-3.2 2.9-5.6 6.5-5.6s6.5 2.4 6.5 5.6" />
-						</template>
-					</svg>
+					<!--
+						图标：**base64 data-URI 背景图**，不依赖已废弃的 static/tabbar PNG，也不引图标库。
+						🔴 2026-09-22 实测根因（别再改回内联 `<svg>`）：App 端视图层
+						（`unpackage/dist/dev/app-plus/uni-app-view.umd.js`）的元素工厂只认 uni 内置组件表，
+						表外的标签一律 `document.createElement(tag)` → `<svg>` 落在 **HTML 命名空间**
+						（HTMLUnknownElement，没有几何、不渲染）。CSS 背景图由 webview 的图片解码器
+						按 SVG 命名空间解析，App / H5 都可靠。形状 = `item.key`；
+						两态 = `-brand`（选中，$mw-brand-ink）/ `-muted`（未选，$mw-muted）。
+					-->
+					<view class="mw-ic mw-ic--tab"
+						:class="'mw-ic--' + item.key + (item.path === current ? '-brand' : '-muted')"></view>
 				</view>
 				<text class="tab__label">{{ item.label }}</text>
 			</view>
