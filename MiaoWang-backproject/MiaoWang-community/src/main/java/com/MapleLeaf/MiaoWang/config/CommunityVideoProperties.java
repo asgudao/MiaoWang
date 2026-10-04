@@ -42,4 +42,23 @@ public class CommunityVideoProperties {
      * 用哪个桶：对应 {@code minio.buckets.<bucketKey>}，默认复用社区桶
      */
     private String bucketKey = "post";
+
+    /**
+     * 上传视频时是否抽首帧当封面（Nacos key：{@code community.video.cover-enabled}）
+     * <p>
+     * 抽帧是**尽力而为**的附加步骤：关掉它、或它失败，上传都照常成功，只是本次响应里
+     * {@code coverUrl} / {@code coverObjectKey} 为空。留这个开关是为了"线上抽帧拖慢上传 / 吃 CPU 时
+     * 能一行配置先关掉，而不是回滚代码"。
+     */
+    private Boolean coverEnabled = true;
+
+    /**
+     * 抽帧定位到第几秒（Nacos key：{@code community.video.cover-seek-second}），默认 0.1
+     * <p>
+     * 不直接取第 0 帧的原因：不少素材的第 0 帧是黑场 / 片头黑帧，抽出来等于一张黑图。
+     * 往后挪 0.1s 基本不影响"看到第一眼画面"的语义，又能避开黑帧。
+     * 实测本仓库 4 个素材的 0.0s 与 0.1s 都是正常画面（无黑帧），所以这个值只是保险。
+     * 配 0 表示直接取第 0 帧。
+     */
+    private Double coverSeekSecond = 0.1;
 }

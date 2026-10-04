@@ -39,6 +39,23 @@ public class CommunityPostVideoDO extends BaseDO {
     private String objectKey;
 
     /**
+     * 视频封面 URL（服务端抽首帧生成，可空 = 没有封面）
+     * <p>
+     * 列定义是 <b>NULL 允许</b>（见 {@code sql/community-post-video-cover.sql}）：
+     * "没有封面"是合法状态（抽帧失败 / 老数据没回填 / 客户端没带回来），
+     * 前端按中性占位渲染 —— 所以这一列不能 NOT NULL。
+     */
+    private String coverUrl;
+
+    /**
+     * 封面对象 key（清理封面对象时用；与 {@link #coverUrl} 成对出现）
+     * <p>
+     * 推导规则见 {@code support/VideoCoverKeys#coverObjectKeyOf}：
+     * 视频 key 去掉扩展名 + {@code _cover.jpg}，所以它也能从 {@link #objectKey} 反推出来。
+     */
+    private String coverObjectKey;
+
+    /**
      * 排序，0 为第 1 个视频
      */
     private Integer sort;

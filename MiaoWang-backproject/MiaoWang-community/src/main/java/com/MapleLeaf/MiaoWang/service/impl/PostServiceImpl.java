@@ -162,6 +162,7 @@ public class PostServiceImpl extends ServiceImpl<CommunityPostMapper, CommunityP
             videoDO.setPostId(postDO.getPostId());
             videoDO.setUrl(videoItem.getUrl());
             videoDO.setObjectKey(videoItem.getObjectKey());
+            copyVideoCover(videoItem, videoDO);
             videoDO.setSort(i);
             postVideoMapper.insert(videoDO);
         }
@@ -350,6 +351,7 @@ public class PostServiceImpl extends ServiceImpl<CommunityPostMapper, CommunityP
                 videoDO.setPostId(postDO.getPostId());
                 videoDO.setUrl(videoItem.getUrl());
                 videoDO.setObjectKey(videoItem.getObjectKey());
+                copyVideoCover(videoItem, videoDO);
                 videoDO.setSort(i);
                 postVideoMapper.insert(videoDO);
             }
@@ -712,8 +714,38 @@ public class PostServiceImpl extends ServiceImpl<CommunityPostMapper, CommunityP
                             PostVideoRespDTO videoDTO = new PostVideoRespDTO();
                             videoDTO.setUrl(videoDO.getUrl());
                             videoDTO.setObjectKey(videoDO.getObjectKey());
+                            // 封面照原样透传（可能就是 null = 没抽出来/没回填过），
+                            // 这里不做任何"推导一个出来"的事：推得出 key 不等于对象存在，
+                            // 下发一个 404 的图比让前端画中性占位更糟
+                            videoDTO.setCoverUrl(videoDO.getCoverUrl());
+                            videoDTO.setCoverObjectKey(videoDO.getCoverObjectKey());
                             return videoDTO;
                         }, Collectors.toList())));
+    }
+
+    /**
+     * 把请求里的视频封面字段搬到实体上（发帖与编辑共用同一份口径）
+     * <p>
+     * 规则只有一条：<b>成对才生效</b>。两个都给了 ⇒ 原样入库；
+     * 都没给 ⇒ 保持 null（前端画中性占位，跑一次回填就能补上）；
+     * 只给一半 ⇒ 忽略并告警 —— 半份数据存进去只会让"清理封面对象"缺凭据。
+     * <p>
+     * ⚠️ 这里<b>不抛异常</b>，这是刻意的：封面是装饰，客户端漏带一个可选字段
+     * 不该让整个发帖失败（与 {@code copyVideoCover} 的调用点无关的 url/objectKey 校验仍然照旧严格）。
+     * 也就是说——<b>客户端漏带封面 = 这一帖没有封面，不等于这次发帖请求有问题</b>。
+     */
+    private void copyVideoCover(PostVideoReqDTO videoItem, CommunityPostVideoDO videoDO) {
+        boolean hasUrl = StrUtil.isNotBlank(videoItem.getCoverUrl());
+        boolean hasObjectKey = StrUtil.isNotBlank(videoItem.getCoverObjectKey());
+        if (hasUrl && hasObjectKey) {
+            videoDO.setCoverUrl(videoItem.getCoverUrl());
+            videoDO.setCoverObjectKey(videoItem.getCoverObjectKey());
+            return;
+        }
+        if (hasUrl || hasObjectKey) {
+            log.warn("视频封面字段只给了一半，已忽略（封面是可选装饰，不因此拒绝发帖）, videoObjectKey={}, hasCoverUrl={}, hasCoverObjectKey={}",
+                    videoItem.getObjectKey(), hasUrl, hasObjectKey);
+        }
     }
 
     /**

@@ -17,6 +17,13 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <!--MyBatis-Plus 3.5.9 起分页插件依赖 jsqlparser，需单独引入，版本与 mybatis-plus 保持一致-->
         <mybatis-plus-jsqlparser.version>3.5.14</mybatis-plus-jsqlparser.version>
+        <!--
+        视频抽首帧用 jcodec（**纯 Java**，无任何原生库）。
+        为什么不选 JavaCV / ffmpeg：javacv-platform 会把各平台 ffmpeg 原生包全拉下来（数百 MB ~ 1GB），
+        而本项目只需要"解一帧 H.264 存成 JPEG"这一件事；jcodec + jcodec-javase 合计约 2.5MB，且不装任何系统软件。
+        代价与边界见 support/VideoCoverExtractor 的类注释（只覆盖 H.264/MP4 这一档，失败一律降级为无封面）。
+        -->
+        <jcodec.version>0.2.5</jcodec.version>
     </properties>
 
     <dependencies>
@@ -47,6 +54,18 @@
             <artifactId>spring-cloud-starter-alibaba-seata</artifactId>
         </dependency>
         -->
+        <!--视频抽首帧：jcodec 纯 Java 解码 H.264，不引入任何原生库（详见父 properties 里的 jcodec.version 注释）-->
+        <dependency>
+            <groupId>org.jcodec</groupId>
+            <artifactId>jcodec</artifactId>
+            <version>${jcodec.version}</version>
+        </dependency>
+        <!--jcodec-javase 提供 AWTUtil.toBufferedImage：把解码出的 Picture 转成 BufferedImage 才能写 JPEG-->
+        <dependency>
+            <groupId>org.jcodec</groupId>
+            <artifactId>jcodec-javase</artifactId>
+            <version>${jcodec.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>

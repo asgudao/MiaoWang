@@ -9,6 +9,8 @@ import com.MapleLeaf.MiaoWang.config.CommunityVideoProperties;
 import com.MapleLeaf.MiaoWang.dto.resp.VideoUploadRespDTO;
 import com.MapleLeaf.MiaoWang.enums.CommunityErrorCodeEnum;
 import com.MapleLeaf.MiaoWang.service.VideoStorageService;
+import com.MapleLeaf.MiaoWang.support.VideoCoverExtractor;
+import com.MapleLeaf.MiaoWang.support.VideoCoverKeys;
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
@@ -19,7 +21,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
@@ -40,6 +47,15 @@ import java.util.stream.Collectors;
  * 校验口径（刻意的取舍）：<b>扩展名是主判据</b>，content-type 只记告警不拒绝 ——
  * 部分安卓机型录出来的视频 content-type 是 application/octet-stream，
  * 只按 content-type 卡会把正常用户挡在门外。
+ * <p>
+ * <b>封面（抽首帧）</b>：视频对象写完后再走一次"尽力而为"的抽帧 ——
+ * 解出第 {@code community.video.cover-seek-second}（默认 0.1）秒的画面存成 JPEG，
+ * 放进<b>同一个桶</b>，对象 key 由视频 key 确定性推导（{@link VideoCoverKeys}），
+ * 下发的 URL 仍走 common 的 {@code ObjectStorageUrlBuilder}（与图片、头像同一份取址规则）。
+ * <p>
+ * ⚠️ 抽帧整段是<b>可失败</b>的：解不出来、JPEG 写不出、MinIO 写封面失败、开关被关掉
+ * ⇒ 一律只记日志，本次上传<b>照样成功</b>（coverUrl / coverObjectKey 留空，前端画中性占位）。
+ * 视频本体已经上传成功这件事，绝不能被"封面没抽出来"推翻。
  */
 @Slf4j
 @Service
@@ -112,7 +128,73 @@ public class MinioVideoStorageServiceImpl implements VideoStorageService {
         respDTO.setObjectKey(objectKey);
         respDTO.setSize(file.getSize());
         respDTO.setFormat(extension);
+        // 封面放在最后：视频本体已经落库成功，抽帧无论成败都不再影响本次上传的成败
+        fillCover(respDTO, file, bucket, objectKey);
         return respDTO;
+    }
+
+    /**
+     * 抽首帧 → 存成 JPEG → 把封面 URL / 对象 key 填进响应
+     * <p>
+     * <b>这个方法不抛异常</b>（除 {@code Error} 外全接住）：它是附加功能，
+     * 失败的正确表现是"没有封面"，而不是"上传失败"。
+     * <p>
+     * 为什么要把上传流<b>落一个临时文件</b>：jcodec 的 {@code FrameGrab} 需要可随机寻址的输入
+     * （{@code SeekableByteChannel}），而 {@code MultipartFile} 的流不保证支持 seek；
+     * jcodec 也没有"从 InputStream 读"的入口。代价是一次磁盘拷贝（视频 ≤100MB），
+     * 用完在 finally 里删掉，不留在工程目录里。
+     */
+    private void fillCover(VideoUploadRespDTO respDTO, MultipartFile file, String bucket, String videoObjectKey) {
+        if (!Boolean.TRUE.equals(videoProperties.getCoverEnabled())) {
+            return;
+        }
+        String coverObjectKey = VideoCoverKeys.coverObjectKeyOf(videoObjectKey);
+        if (coverObjectKey == null) {
+            return;
+        }
+        Path tempFile = null;
+        try {
+            tempFile = Files.createTempFile("miaowang-video-cover-", ".tmp");
+            try (InputStream inputStream = file.getInputStream()) {
+                Files.copy(inputStream, tempFile, StandardCopyOption.REPLACE_EXISTING);
+            }
+            byte[] jpeg = VideoCoverExtractor.extractFirstFrameJpeg(tempFile, videoProperties.getCoverSeekSecond());
+            if (jpeg == null || jpeg.length == 0) {
+                log.warn("视频封面未生成（前端将回退中性占位）, objectKey={}", videoObjectKey);
+                return;
+            }
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(coverObjectKey)
+                    .stream(new ByteArrayInputStream(jpeg), jpeg.length, -1)
+                    .contentType(VideoCoverKeys.COVER_CONTENT_TYPE)
+                    .build());
+            // 只有对象真的写进去了才填 URL —— 填一个不存在的地址比没有封面更糟（前端会拿到裂图）
+            respDTO.setCoverObjectKey(coverObjectKey);
+            respDTO.setCoverUrl(objectStorageUrlBuilder.buildPublicUrl(bucket, coverObjectKey));
+            log.info("视频封面已生成, videoObjectKey={}, coverObjectKey={}, coverBytes={}",
+                    videoObjectKey, coverObjectKey, jpeg.length);
+        } catch (Throwable t) {
+            log.warn("视频封面生成失败（本次上传照常成功，封面留空）, videoObjectKey={}, reason={}",
+                    videoObjectKey, t.toString());
+            log.debug("视频封面生成失败详情", t);
+        } finally {
+            deleteQuietly(tempFile);
+        }
+    }
+
+    /**
+     * 删临时文件：删不掉只记日志 —— 临时目录里的残留不该影响任何业务结果
+     */
+    private void deleteQuietly(Path tempFile) {
+        if (tempFile == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(tempFile);
+        } catch (IOException e) {
+            log.warn("视频抽帧临时文件删除失败, path={}", tempFile, e);
+        }
     }
 
     /**

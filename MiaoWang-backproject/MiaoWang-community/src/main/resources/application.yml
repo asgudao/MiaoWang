@@ -21,11 +21,22 @@ spring:
     name: miaowang-community
   servlet:
     multipart:
-      # 容器层的图片大小限制，与 minio.max-size-mb（common 默认 50）对齐；
-      # 不配的话 Spring Boot 默认只允许 1MB，超过 1MB 的图片在进 Controller 之前就被拒了。
-      # 单请求 60MB 够用：图片接口是"一次传一张"，不是把 9 张塞进同一个请求
-      max-file-size: 50MB
-      max-request-size: 60MB
+      # ⚠️ 这一层是**图片与视频共用的容器闸门**：Spring 的 multipart 解析在进 Controller 之前发生，
+      # 此时**还分不清**请求里是图片还是视频（CommunityExceptionHandler 的注释也写了这点），
+      # 所以这里必须按"两类里最大的那个"来定，谁小谁先把另一类拦掉。
+      #
+      # 现状（2026-09-22 修正）：视频业务上限是 community.video.max-size-mb = 100MB，
+      # 但这里原来是 50MB ⇒ **51MB 的视频会被容器先拦下**，返回的还是图片段错误码 B000308，
+      # 文案却是"视频单个最大 100MB" —— 文案与真实行为不一致（实测 51MB 回 B000308）。
+      # 现在改成 100MB，让那句文案变成真的。
+      #
+      # 单请求 110MB = 单文件上限 100MB + 10MB 余量（multipart 边界/其他表单字段）。
+      # 请求仍然只带一个文件（图片接口一次传一张），所以不需要按"9 张 × 上限"放大。
+      #
+      # ⚠️ 改这一层**不会**放宽图片：图片仍受 common 的 minio.max-size-mb（默认 50MB）约束，
+      # 那是在 FileStorageServiceImpl 里独立校验的（超了回 FILE_SIZE_EXCEED），与本文件无关。
+      max-file-size: 100MB
+      max-request-size: 110MB
 # 本地兜底端口：Nacos 的 MiaoWang-service-community 里配的是 8101，读到会覆盖这里
 server:
   port: 8053
