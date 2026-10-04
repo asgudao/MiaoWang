@@ -36,18 +36,27 @@ public class VipPromoGrantReqDTO {
     private Integer durationDays;
 
     /**
+     * 促销码ID：与 {@link #promoCode} 一起写进订单
+     *
+     * <p>id 用于对账/统计时回连促销码表（谁发的、发了多少），code 是快照 ——
+     * 码被改名或删除后，历史订单仍能显示当时用的是什么码。两个都要写。
+     */
+    private Long promoCodeId;
+
+    /**
      * 促销码快照（写进订单备注与订单号溯源）
      */
     private String promoCode;
 
     public static VipPromoGrantReqDTO of(Long uid, String username, String planCode, String planName,
-                                         Integer durationDays, String promoCode) {
+                                         Integer durationDays, Long promoCodeId, String promoCode) {
         VipPromoGrantReqDTO requestParam = new VipPromoGrantReqDTO();
         requestParam.setUid(uid);
         requestParam.setUsername(username);
         requestParam.setPlanCode(planCode);
         requestParam.setPlanName(planName);
         requestParam.setDurationDays(durationDays);
+        requestParam.setPromoCodeId(promoCodeId);
         requestParam.setPromoCode(promoCode);
         return requestParam;
     }

@@ -451,6 +451,8 @@ public class VipOrderServiceImpl implements VipOrderService {
         orderDO.setPayableAmount(BigDecimal.ZERO);
         orderDO.setDurationDays(durationDays);
         orderDO.setPayType(PAY_TYPE_PROMO);
+        // id + code 都要落：id 供对账回连促销码表，code 是当时用的码的快照（漏了 id 就只能靠字符串对账）
+        orderDO.setPromoCodeId(requestParam.getPromoCodeId());
         orderDO.setPromoCode(requestParam.getPromoCode());
         // 促销单直接落「已支付」：没有支付环节，也就没有回调
         orderDO.setPayStatus(VipPayStatusEnum.PAID.getCode());

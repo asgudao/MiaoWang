@@ -70,7 +70,7 @@ public class VipPromoServiceImpl implements VipPromoService {
         // ① 先生成 0 元促销订单并发会员（同一事务）；② 再占名额
         VipOrderRespDTO order = vipOrderService.createPromoOrder(VipPromoGrantReqDTO.of(
                 uid, username, planDO.getPlanCode(), planDO.getPlanName(),
-                promoCode.getDurationDays(), promoCode.getCode()));
+                promoCode.getDurationDays(), promoCode.getId(), promoCode.getCode()));
         boolean consumed = vipPromoCodeSupport.consume(promoCode, uid, username, order.getOrderNo());
         log.info("用户 {} 核销促销码 {}（{}），获得档位 {} {} 天，订单 {}，占用名额={}",
                 uid, promoCode.getCode(), promoCode.getName(), planDO.getPlanCode(),
