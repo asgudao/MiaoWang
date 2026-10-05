@@ -39,7 +39,7 @@ gateway:
       - /miaowang-user/mapleleaf/miaowang/v1/user/sms
       - /miaowang-user/mapleleaf/miaowang/v1/user/captcha
       # 知识库：只放行「读」路径（公开内容区）。
-      # 原来写的是 /miaowang-knowledge/**（整个服务免登录）——那会把将来的写接口（收藏等）
+      # 原来写的是 /miaowang-knowledge/**（整个服务免登录）——那会把将来的写接口（管理端等）
       # 一并免登录，等于"公开读"顺手把"登录写"也放行了，所以按读路径逐条列。
       # 注意：服务间 Feign（ai-knowledge 建索引、healthy 取症状选项）走 Nacos 直连、
       # 不经过网关，所以不受这里影响。
