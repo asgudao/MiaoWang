@@ -26,6 +26,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PetServiceImpl extends ServiceImpl<PetMapper,PetDO> implements PetService {
 
+    /**
+     * 生存状态：在世（库中 1=在世 / 2=已离世）
+     *
+     * <p>新建的宠物必然在世 —— 「离世」只能由后续的"申报"流程改写，不在创建/编辑入参里
+     * （客户端传不了这个字段）。这里显式写 1 而不是依赖库的 DEFAULT 1：
+     * 让"新建即在世"这条业务事实在代码里可见，也不依赖 MyBatis-Plus 的 insert 字段策略
+     * （只有 null 字段被省略时才轮到库默认值生效）。
+     */
+    private static final int LIFE_STATUS_ALIVE = 1;
+
     private final PetBenefitResolver petBenefitResolver;
 
     @Override
@@ -81,6 +91,8 @@ public class PetServiceImpl extends ServiceImpl<PetMapper,PetDO> implements PetS
         // 数据库关联用 uid，username 冗余存储便于排查展示
         petDO.setUid(Long.parseLong(userId));
         petDO.setUsername(username);
+        // 生存状态：新建即在世（离世由后续的申报流程改写，本接口不开放这个入参）
+        petDO.setLifeStatus(LIFE_STATUS_ALIVE);
         // 大类是库中非空字段且取值受限，前置校验，避免脏数据和 SQL 异常
         checkSpecies(petDO.getSpecies(), true);
         // 数量上限属于会员权益（免费每种 1 只、会员每种 5 只…），规则由 vip 模块判定

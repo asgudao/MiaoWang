@@ -58,4 +58,16 @@ public class PetFeignRespDTO {
      * 绝育状态（0=未绝育，1=已绝育，可能为空）
      */
     private Integer sterilizedState;
+
+    /**
+     * 生存状态（1=在世，2=已离世；pet 库里 NOT NULL DEFAULT 1，所以正常不会是 null）。
+     *
+     * <p>跨服务消费方靠它判断"还要不要给这只宠物干活"：例如 VIP 的宠物归属校验、
+     * ai-pet 挑聊天对象时不该挑到已离世的宠物。
+     *
+     * <p>⚠️ 与 common 里其它镜像 DTO 同一条规矩：pet 的返回体一旦加字段，
+     * 这里必须同步加，否则消费方是<b>静默拿到 null</b>（不报错、不告警）。
+     * 只新增、不改 pet 既有字段的名字与语义。
+     */
+    private Integer lifeStatus;
 }
