@@ -53,6 +53,16 @@ public enum VipErrorCodeEnum implements IErrorCode {
     VIP_ADMIN_USERNAME_EXIST("B000532", "登录名已存在"),
     VIP_PAY_CHANNEL_NOT_CONFIGURED("B000533", "支付渠道未配置，请先在后端配置渠道密钥"),
     VIP_PAY_CHANNEL_ERROR("B000534", "支付渠道调用失败，请稍后重试"),
+
+    /**
+     * per-pet（宠物级）权益相关（v7，挂账 #94）
+     */
+    VIP_PET_PARAM_ERROR("B000535", "宠物ID不合法"),
+    VIP_PLAN_PET_REQUIRED("B000536", "该档位需要指定绑定的宠物，请选择宠物后再下单"),
+    VIP_PLAN_PET_SCOPE_MISMATCH("B000537", "该档位不支持绑定单只宠物"),
+    VIP_PET_PLAN_ALREADY_OWNED("B000538", "这只宠物已购买过该档位，一只宠物仅可购买一次"),
+    VIP_MEMORIAL_GATE_UNAVAILABLE("B000539", "宠物离世状态校验失败，请稍后重试"),
+    VIP_MEMORIAL_PET_NOT_DECEASED("B000540", "宠物纪念包仅可为已申报离世的宠物购买"),
     ;
 
     private final String code;

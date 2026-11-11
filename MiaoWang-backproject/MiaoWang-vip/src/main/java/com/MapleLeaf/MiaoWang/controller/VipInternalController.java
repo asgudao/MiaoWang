@@ -7,6 +7,7 @@ import com.MapleLeaf.MiaoWang.dto.req.Vip3dCompleteReqDTO;
 import com.MapleLeaf.MiaoWang.dto.req.VipInternalQuotaConsumeReqDTO;
 import com.MapleLeaf.MiaoWang.dto.resp.UserVipBenefitRespDTO;
 import com.MapleLeaf.MiaoWang.dto.resp.Vip3dOrderRespDTO;
+import com.MapleLeaf.MiaoWang.dto.resp.VipPetBenefitRespDTO;
 import com.MapleLeaf.MiaoWang.dto.resp.VipQuotaRespDTO;
 import com.MapleLeaf.MiaoWang.service.UserVipService;
 import com.MapleLeaf.MiaoWang.service.Vip3dOrderService;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 服务间调用接口（不面向浏览器）
  * <ul>
  *   <li>GET  /benefit/{uid}          查某用户权益（如宠物模块校验「还能不能再养一只」）</li>
+ *   <li>GET  /benefit/{uid}/{pid}    查某只宠物的<b>宠物级</b>权益（如 ai-pet 判断能否启动纪念投递）</li>
  *   <li>POST /quota/consume          ai-knowledge / ai-pet 执行前扣额度</li>
  *   <li>POST /quota/refund           业务最终失败时回退额度（失败不扣次数）</li>
  *   <li>POST /3d/complete            制作方回填定制模型地址</li>
@@ -48,6 +50,19 @@ public class VipInternalController {
     @GetMapping("/benefit/{uid}")
     public Result<UserVipBenefitRespDTO> getBenefitByUid(@PathVariable("uid") Long uid) {
         return Results.success(userVipService.getBenefitByUid(uid));
+    }
+
+    /**
+     * 查询指定用户「某一只宠物」的宠物级权益（per-pet）
+     *
+     * <p>这是给 ai-pet 用的：按 {@code (uid, pid)} 判断这只宠物身上有没有生效中的纪念包，
+     * 有才启动投递。它与上面的用户级权益是两套口径 ——
+     * 用户开了全能月卡不代表这只宠物被纪念，反之亦然。
+     */
+    @GetMapping("/benefit/{uid}/{pid}")
+    public Result<VipPetBenefitRespDTO> getPetBenefit(@PathVariable("uid") Long uid,
+                                                      @PathVariable("pid") Long pid) {
+        return Results.success(userVipService.getPetBenefitByUid(uid, pid));
     }
 
     /**

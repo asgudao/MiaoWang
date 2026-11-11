@@ -7,6 +7,7 @@ import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import com.MapleLeaf.MiaoWang.common.convention.exception.ClientException;
 import com.MapleLeaf.MiaoWang.config.VipPayProperties;
+import com.MapleLeaf.MiaoWang.constant.VipScopeConstant;
 import com.MapleLeaf.MiaoWang.dao.entity.UserVipDO;
 import com.MapleLeaf.MiaoWang.dao.entity.VipOrderDO;
 import com.MapleLeaf.MiaoWang.dao.entity.VipPlanDO;
@@ -17,6 +18,7 @@ import com.MapleLeaf.MiaoWang.dao.mapper.VipPlanMapper;
 import com.MapleLeaf.MiaoWang.dto.req.VipOrderCreateReqDTO;
 import com.MapleLeaf.MiaoWang.dto.req.VipPromoGrantReqDTO;
 import com.MapleLeaf.MiaoWang.dto.req.VipRefundReqDTO;
+import com.MapleLeaf.MiaoWang.dto.resp.PetFeignRespDTO;
 import com.MapleLeaf.MiaoWang.dto.resp.VipOrderRespDTO;
 import com.MapleLeaf.MiaoWang.enums.VipErrorCodeEnum;
 import com.MapleLeaf.MiaoWang.enums.VipPayChannelEnum;
@@ -29,7 +31,9 @@ import com.MapleLeaf.MiaoWang.pay.PayNotifyResult;
 import com.MapleLeaf.MiaoWang.pay.PayQueryResult;
 import com.MapleLeaf.MiaoWang.pay.PayRefundResult;
 import com.MapleLeaf.MiaoWang.service.VipOrderService;
+import com.MapleLeaf.MiaoWang.support.MemorialGateChecker;
 import com.MapleLeaf.MiaoWang.support.VipPaySignUtil;
+import com.MapleLeaf.MiaoWang.support.VipPetOwnershipChecker;
 import com.MapleLeaf.MiaoWang.support.VipPromoCodeSupport;
 import com.MapleLeaf.MiaoWang.support.VipUserHelper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -120,6 +124,10 @@ public class VipOrderServiceImpl implements VipOrderService {
 
     private final VipPromoCodeSupport vipPromoCodeSupport;
 
+    private final VipPetOwnershipChecker vipPetOwnershipChecker;
+
+    private final MemorialGateChecker memorialGateChecker;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public VipOrderRespDTO createOrder(VipOrderCreateReqDTO requestParam) {
@@ -128,7 +136,12 @@ public class VipOrderServiceImpl implements VipOrderService {
         }
         Long uid = VipUserHelper.currentUid();
         String username = VipUserHelper.currentUsername();
+        // 宠物级（per-pet）下单：带 pid 就是「给这一只宠物买」（如宠物纪念年包），不带就是用户级。
+        // 空/非正数一律收敛成 0，绝不让 NULL 进唯一键列（见 VipScopeConstant）
+        long pid = VipScopeConstant.normalize(requestParam.getPid());
         VipPlanDO planDO = loadPurchasablePlan(requestParam.getPlanCode());
+        // 档位作用域必须和 pid 对得上：用户级档位绑宠物、宠物级档位不绑宠物，两种都是脏数据
+        validatePlanScope(planDO, pid);
         PayChannel channel = payChannelRegistry.require(
                 StrUtil.blankToDefault(requestParam.getPayType(), VipPayChannelEnum.MOCK.getCode()));
         // 优惠码：这里只做「能不能用 + 减多少」的试算，名额等支付成功再占（用码不付款不该浪费名额）
@@ -148,8 +161,27 @@ public class VipOrderServiceImpl implements VipOrderService {
                 return toRespDTO(existOrder, channel.createPayment(existOrder, requestParam.getPayScene()));
             }
         }
-        // 幂等②：同一档位 + 同一优惠码还有未超时的待支付单就直接复用（用户连点不会出一堆单）
-        VipOrderDO pendingOrder = findPendingOrder(uid, planDO.getPlanCode(),
+        // 宠物级档位的前置校验。刻意排在这两处之后：
+        //   · 放在 requestId 幂等之后 —— 重复提交同一个 requestId 要能拿回自己的订单，
+        //     不能因为"这会儿已经买过了"就把一次正常重试变成报错
+        //   · 放在待支付单复用之前 —— 已经买过还去复用那张待支付单，用户付完钱才发现拿不到东西
+        if (VipScopeConstant.isPetLevel(pid)) {
+            // ① 只能给自己的宠物买：否则能替别人的宠物"锁"一个纪念位，而权益发在自己账上。
+            //    这一步顺带把宠物档案取回来，② 直接拿它判离世 —— 不为此多打一次远程调用
+            PetFeignRespDTO pet = vipPetOwnershipChecker.requireOwnedIfPresent(pid);
+            // ② 离世闸门（方案 D）：判据是 pet 的 life_status，随归属校验一起到手。
+            //    刻意只在下单这一处判 —— 回调路径必须能在渠道重试下稳定成功，不能塞远程调用；
+            //    而"已离世"没有回退，订单创建后不会反过来变回在世
+            memorialGateChecker.requireDeceased(pet);
+            // ③ 一只宠物最多买一年、不可续：这里刻意不看是否过期 ——
+            //    到期后也不再卖第二次，"再买一年"会破坏那条 365 天的疗愈弧线（产品硬规则③）
+            if (findMembership(uid, pid, planDO.getPlanCode()) != null) {
+                log.warn("用户 {} 已为宠物 {} 购买过档位 {}，拒绝重复购买", uid, pid, planDO.getPlanCode());
+                throw new ClientException(VipErrorCodeEnum.VIP_PET_PLAN_ALREADY_OWNED);
+            }
+        }
+        // 幂等②：同一档位 + 同一宠物 + 同一优惠码还有未超时的待支付单就直接复用（用户连点不会出一堆单）
+        VipOrderDO pendingOrder = findPendingOrder(uid, pid, planDO.getPlanCode(),
                 promoCode == null ? null : promoCode.getId());
         if (pendingOrder != null) {
             log.info("用户 {} 在档位 {} 已有待支付订单 {}，复用该订单", uid, planDO.getPlanCode(), pendingOrder.getOrderNo());
@@ -163,6 +195,9 @@ public class VipOrderServiceImpl implements VipOrderService {
         orderDO.setOrderNo(generateOrderNo());
         orderDO.setUid(uid);
         orderDO.setUsername(username);
+        // 订单必须记住是给哪只宠物买的：发会员、退款回收时长都要按这个键找记录，
+        // 丢了它退给宠物 A 的款会去扣宠物 B 的时长（挂账 #94 的另一半）
+        orderDO.setPid(pid);
         orderDO.setPlanCode(planDO.getPlanCode());
         orderDO.setPlanName(planDO.getPlanName());
         orderDO.setAmount(planDO.getPrice());
@@ -191,8 +226,8 @@ public class VipOrderServiceImpl implements VipOrderService {
             log.info("requestId={} 并发下单撞唯一索引，返回已有订单 {}", requestParam.getRequestId(), existOrder.getOrderNo());
             return toRespDTO(existOrder, channel.createPayment(existOrder, requestParam.getPayScene()));
         }
-        log.info("用户 {}（uid={}）创建会员订单 {}：档位 {}，原价 {}，优惠 {}，应付 {}，渠道 {}，场景 {}，优惠码 {}",
-                username, uid, orderDO.getOrderNo(), planDO.getPlanCode(), orderDO.getAmount(),
+        log.info("用户 {}（uid={}）创建会员订单 {}：档位 {}，pid={}，原价 {}，优惠 {}，应付 {}，渠道 {}，场景 {}，优惠码 {}",
+                username, uid, orderDO.getOrderNo(), planDO.getPlanCode(), pid, orderDO.getAmount(),
                 orderDO.getDiscountAmount(), orderDO.getPayableAmount(), channel.code(),
                 StrUtil.blankToDefault(requestParam.getPayScene(), "渠道默认"), orderDO.getPromoCode());
         return toRespDTO(orderDO, channel.createPayment(orderDO, requestParam.getPayScene()));
@@ -331,8 +366,8 @@ public class VipOrderServiceImpl implements VipOrderService {
             vipPromoCodeSupport.consumeDiscountQuietly(orderDO.getPromoCodeId(), orderDO.getPromoCode(),
                     orderDO.getUid(), orderDO.getUsername(), orderDO.getOrderNo());
         }
-        log.info("订单 {} 支付成功并发会员：uid={}，档位={}，到期时间={}",
-                orderDO.getOrderNo(), orderDO.getUid(), orderDO.getPlanCode(), orderDO.getExpireTime());
+        log.info("订单 {} 支付成功并发会员：uid={}，pid={}，档位={}，到期时间={}",
+                orderDO.getOrderNo(), orderDO.getUid(), orderDO.getPid(), orderDO.getPlanCode(), orderDO.getExpireTime());
         return channel.ackBody();
     }
 
@@ -436,6 +471,15 @@ public class VipOrderServiceImpl implements VipOrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public VipOrderRespDTO createPromoOrder(VipPromoGrantReqDTO requestParam) {
+        // 宠物级档位只能由「带 pid 的下单」发放：促销码是运营批量发的东西，它没有 pid 可言，
+        // 一旦放行就会落成 pid=0 的行 —— 那只宠物的权益没发出去，
+        // 反倒给这个用户凭空加了一份用户级权益（挂账 #96 那类静默放大的翻版）
+        VipPlanDO promoPlan = findPlan(requestParam.getPlanCode());
+        if (promoPlan != null && promoPlan.getPetScoped() != null && promoPlan.getPetScoped() == 1) {
+            log.warn("促销码 {} 试图发放宠物级档位 {}，已拒绝（宠物级权益只能走带 pid 的下单）",
+                    requestParam.getPromoCode(), requestParam.getPlanCode());
+            throw new ClientException(VipErrorCodeEnum.VIP_PLAN_PET_SCOPE_MISMATCH);
+        }
         Date now = new Date();
         int durationDays = requestParam.getDurationDays() == null
                 ? DEFAULT_DURATION_DAYS : requestParam.getDurationDays();
@@ -470,14 +514,17 @@ public class VipOrderServiceImpl implements VipOrderService {
     }
 
     /**
-     * 发放会员：同一档位只保留一行，未过期就在原到期时间上叠加，已过期从当前时间算起
+     * 发放会员：同一「用户 + 宠物 + 档位」只保留一行，未过期就在原到期时间上叠加，已过期从当前时间算起
+     *
+     * <p>pid 必须参与定位（挂账 #94）：少了它，给宠物 B 买包会命中宠物 A 那一行 ——
+     * A 白拿一年、B 什么都没得到，退款还会去扣 A 的时长。
      *
      * <p>同时把权益区间回写到订单（start/expire），退款回收时长时按订单上的口径扣。
      */
     private void grantMembership(VipOrderDO orderDO) {
         Date now = new Date();
         int durationDays = orderDO.getDurationDays() == null ? DEFAULT_DURATION_DAYS : orderDO.getDurationDays();
-        UserVipDO membership = findMembership(orderDO.getUid(), orderDO.getPlanCode());
+        UserVipDO membership = findMembership(orderDO.getUid(), orderDO.getPid(), orderDO.getPlanCode());
         Date startTime;
         Date expireTime;
         if (membership != null) {
@@ -497,6 +544,8 @@ public class VipOrderServiceImpl implements VipOrderService {
             UserVipDO newMembership = new UserVipDO();
             newMembership.setUid(orderDO.getUid());
             newMembership.setUsername(orderDO.getUsername());
+            // 归属维度落库（0 = 用户级哨兵值，真实宠物ID ≥ 1）
+            newMembership.setPid(VipScopeConstant.normalize(orderDO.getPid()));
             newMembership.setPlanCode(orderDO.getPlanCode());
             newMembership.setStartTime(startTime);
             newMembership.setExpireTime(expireTime);
@@ -519,7 +568,7 @@ public class VipOrderServiceImpl implements VipOrderService {
      * <p>注意不去动已消耗的额度计数（次数已经用掉了），这是产品口径上的取舍，已记在 README 挂账里。
      */
     private void revokeMembership(VipOrderDO orderDO) {
-        UserVipDO membership = findMembership(orderDO.getUid(), orderDO.getPlanCode());
+        UserVipDO membership = findMembership(orderDO.getUid(), orderDO.getPid(), orderDO.getPlanCode());
         if (membership == null || membership.getExpireTime() == null) {
             log.warn("订单 {} 退款：没有找到对应的会员记录，无需回收", orderDO.getOrderNo());
             return;
@@ -536,8 +585,8 @@ public class VipOrderServiceImpl implements VipOrderService {
         if (userVipMapper.updateById(membership) < 1) {
             throw new ClientException(VipErrorCodeEnum.VIP_MEMBERSHIP_SAVE_ERROR);
         }
-        log.info("订单 {} 退款：回收会员时长 {} 天，uid={}，档位={}，新到期时间={}，会员状态={}",
-                orderDO.getOrderNo(), durationDays, orderDO.getUid(), orderDO.getPlanCode(),
+        log.info("订单 {} 退款：回收会员时长 {} 天，uid={}，pid={}，档位={}，新到期时间={}，会员状态={}",
+                orderDO.getOrderNo(), durationDays, orderDO.getUid(), orderDO.getPid(), orderDO.getPlanCode(),
                 newExpireTime, membership.getStatus());
     }
 
@@ -614,10 +663,7 @@ public class VipOrderServiceImpl implements VipOrderService {
     }
 
     private VipPlanDO loadPurchasablePlan(String planCode) {
-        VipPlanDO planDO = vipPlanMapper.selectOne(Wrappers.lambdaQuery(VipPlanDO.class)
-                .eq(VipPlanDO::getPlanCode, planCode)
-                .eq(VipPlanDO::getDelFlag, 0)
-                .last("limit 1"));
+        VipPlanDO planDO = findPlan(planCode);
         if (planDO == null) {
             throw new ClientException(VipErrorCodeEnum.VIP_PLAN_NOT_EXIST);
         }
@@ -625,6 +671,42 @@ public class VipOrderServiceImpl implements VipOrderService {
             throw new ClientException(VipErrorCodeEnum.VIP_PLAN_NOT_PURCHASABLE);
         }
         return planDO;
+    }
+
+    /**
+     * 按档位编码查档位配置
+     *
+     * <p>刻意不过滤 {@code purchasable}：促销发码路径要能识别出「这是宠物级档位」并拒绝它，
+     * 那个档位恰好也是不可售的，用可售版查询会查不到、guard 直接失效。
+     */
+    private VipPlanDO findPlan(String planCode) {
+        if (StrUtil.isBlank(planCode)) {
+            return null;
+        }
+        return vipPlanMapper.selectOne(Wrappers.lambdaQuery(VipPlanDO.class)
+                .eq(VipPlanDO::getPlanCode, planCode)
+                .eq(VipPlanDO::getDelFlag, 0)
+                .last("limit 1"));
+    }
+
+    /**
+     * 校验档位作用域与下单请求是否匹配
+     *
+     * <p>两个方向都必须拦：
+     * <ul>
+     *   <li><b>宠物级档位没带 pid</b>：会落成 pid=0 的行，等于把「一只宠物专属」的东西
+     *       塞进用户的总权益里（挂账 #96 那类静默放大的翻版）</li>
+     *   <li><b>用户级档位带了 pid</b>：那只宠物会凭白多出一份它本来没有的用户级权益</li>
+     * </ul>
+     */
+    private void validatePlanScope(VipPlanDO planDO, long pid) {
+        boolean petScoped = planDO.getPetScoped() != null && planDO.getPetScoped() == 1;
+        if (petScoped && !VipScopeConstant.isPetLevel(pid)) {
+            throw new ClientException(VipErrorCodeEnum.VIP_PLAN_PET_REQUIRED);
+        }
+        if (!petScoped && VipScopeConstant.isPetLevel(pid)) {
+            throw new ClientException(VipErrorCodeEnum.VIP_PLAN_PET_SCOPE_MISMATCH);
+        }
     }
 
     private VipOrderDO findByOrderNo(String orderNo) {
@@ -667,11 +749,15 @@ public class VipOrderServiceImpl implements VipOrderService {
     }
 
     /**
-     * 同档位 + 同优惠码的未超时待支付单（优惠码不同就不复用：用户换了码，应付金额也变了）
+     * 同档位 + 同一宠物 + 同优惠码的未超时待支付单（优惠码不同就不复用：用户换了码，应付金额也变了）
+     *
+     * <p>pid 必须参与：给宠物 A 的待支付单不能拿去复用成宠物 B 的单，否则付完钱会发现
+     * 发出去的权益落在另一只宠物身上。
      */
-    private VipOrderDO findPendingOrder(Long uid, String planCode, Long promoCodeId) {
+    private VipOrderDO findPendingOrder(Long uid, Long pid, String planCode, Long promoCodeId) {
         LambdaQueryWrapper<VipOrderDO> queryWrapper = Wrappers.lambdaQuery(VipOrderDO.class)
                 .eq(VipOrderDO::getUid, uid)
+                .eq(VipOrderDO::getPid, VipScopeConstant.normalize(pid))
                 .eq(VipOrderDO::getPlanCode, planCode)
                 .eq(VipOrderDO::getPayStatus, VipPayStatusEnum.PENDING.getCode())
                 .eq(VipOrderDO::getDelFlag, 0);
@@ -685,9 +771,19 @@ public class VipOrderServiceImpl implements VipOrderService {
                 .last("limit 1"));
     }
 
-    private UserVipDO findMembership(Long uid, String planCode) {
+    /**
+     * 定位会员记录：<b>用户 + 宠物 + 档位</b>三要素缺一不可（挂账 #94 的核心修复点）
+     *
+     * <p>少了 pid 会怎样：同一用户先给宠物 A 买包、再给宠物 B 买，第二次会命中 A 那一行，
+     * 把 A 的到期时间往后叠 —— B 什么都没得到、A 白拿一年；退款时同样扣错人。
+     *
+     * <p>pid 用哨兵值 0 而不是 NULL 比较：NULL 在 MySQL 唯一索引里互不相等，
+     * 而且 {@code eq(col, null)} 在 MyBatis-Plus 里根本不是等值条件（见 VipScopeConstant）。
+     */
+    private UserVipDO findMembership(Long uid, Long pid, String planCode) {
         return userVipMapper.selectOne(Wrappers.lambdaQuery(UserVipDO.class)
                 .eq(UserVipDO::getUid, uid)
+                .eq(UserVipDO::getPid, VipScopeConstant.normalize(pid))
                 .eq(UserVipDO::getPlanCode, planCode)
                 .eq(UserVipDO::getDelFlag, 0)
                 .last("limit 1"));

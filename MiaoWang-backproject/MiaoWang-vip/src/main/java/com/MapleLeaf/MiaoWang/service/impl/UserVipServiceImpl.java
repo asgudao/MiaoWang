@@ -4,10 +4,12 @@ package com.MapleLeaf.MiaoWang.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import com.MapleLeaf.MiaoWang.common.convention.exception.ClientException;
+import com.MapleLeaf.MiaoWang.constant.VipScopeConstant;
 import com.MapleLeaf.MiaoWang.dto.req.VipOrderCreateReqDTO;
 import com.MapleLeaf.MiaoWang.dto.req.VipSubscribeReqDTO;
 import com.MapleLeaf.MiaoWang.dto.resp.UserVipBenefitRespDTO;
 import com.MapleLeaf.MiaoWang.dto.resp.VipOrderRespDTO;
+import com.MapleLeaf.MiaoWang.dto.resp.VipPetBenefitRespDTO;
 import com.MapleLeaf.MiaoWang.dto.resp.VipQuotaRespDTO;
 import com.MapleLeaf.MiaoWang.enums.VipBizTypeEnum;
 import com.MapleLeaf.MiaoWang.enums.VipPayChannelEnum;
@@ -50,6 +52,16 @@ public class UserVipServiceImpl implements UserVipService {
     }
 
     @Override
+    public VipPetBenefitRespDTO getPetBenefitByUid(Long uid, Long pid) {
+        return buildPetBenefit(uid, pid);
+    }
+
+    @Override
+    public VipPetBenefitRespDTO getMyPetBenefit(Long pid) {
+        return buildPetBenefit(VipUserHelper.currentUid(), pid);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public VipOrderRespDTO subscribe(VipSubscribeReqDTO requestParam) {
         if (requestParam == null || StrUtil.isBlank(requestParam.getPlanCode())) {
@@ -79,6 +91,30 @@ public class UserVipServiceImpl implements UserVipService {
         respDTO.setChatPeriodDesc(chatQuota.getPeriodDesc());
         respDTO.setChatUsed(chatQuota.getUsed());
         respDTO.setChatRemaining(chatQuota.getRemaining());
+        return respDTO;
+    }
+
+    /**
+     * 组装「某一只宠物」的宠物级权益
+     *
+     * <p>两个标记各回答一个问题，刻意不合并：
+     * {@code petVip} = 这只宠物身上有没有宠物级档位（如宠物纪念年包）；
+     * {@code userVip} = 这个用户有没有用户级会员。产品硬规则⑤：宠物纪念包<b>独立于</b>用户级 VIP，
+     * 合并成一个 true/false 之后，「用户开了月卡但没给这只宠物买纪念包」就没法表达了。
+     *
+     * <p>pid 收敛成哨兵值 0 时（未指定/非法），直接返回 {@code petVip=false}：
+     * 调用方拿到的就是「没有宠物级权益」，而不是一个看起来像用户级权益的东西。
+     */
+    private VipPetBenefitRespDTO buildPetBenefit(Long uid, Long pid) {
+        long normalizedPid = VipScopeConstant.normalize(pid);
+        VipBenefitResolver.PetScope petScope = vipBenefitResolver.resolvePetScope(uid, normalizedPid);
+        VipPetBenefitRespDTO respDTO = new VipPetBenefitRespDTO();
+        respDTO.setUid(uid);
+        respDTO.setPid(normalizedPid);
+        respDTO.setPetVip(petScope.petVip());
+        respDTO.setPetPlanNames(petScope.planNames());
+        respDTO.setPetExpireTime(petScope.expireTime());
+        respDTO.setUserVip(vipBenefitResolver.resolve(uid).getVip());
         return respDTO;
     }
 }

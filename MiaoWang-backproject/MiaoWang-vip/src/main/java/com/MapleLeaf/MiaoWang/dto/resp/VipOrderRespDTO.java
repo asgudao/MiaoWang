@@ -24,6 +24,11 @@ public class VipOrderRespDTO {
     private String planCode;
 
     /**
+     * 宠物ID：0=用户级订单；&gt;0=宠物级（per-pet）订单，这笔权益只对这只宠物生效
+     */
+    private Long pid;
+
+    /**
      * 档位名称
      */
     private String planName;

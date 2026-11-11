@@ -14,6 +14,13 @@ public enum VipPlanCodeEnum {
     AI_249("AI_249", "AI 进阶月卡"),
     AI_349("AI_349", "AI 畅享月卡"),
     ALL_400("ALL_400", "全能月卡"),
+    /**
+     * 宠物级档位（{@code pet_scoped=1}）：绑定单只已离世的宠物，365 天，不可续。
+     *
+     * <p>它不参与用户级权益合并，也不会出现在通用档位列表里
+     * （列表接口按 {@code pet_scoped=0} 过滤）——「纪念」功能只在宠物离世后才出现。
+     */
+    MEMORIAL_100("MEMORIAL_100", "宠物纪念年包"),
     ;
 
     private final String code;

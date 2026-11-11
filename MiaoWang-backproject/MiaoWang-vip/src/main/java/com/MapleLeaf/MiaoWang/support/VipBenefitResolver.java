@@ -2,6 +2,7 @@ package com.MapleLeaf.MiaoWang.support;
 
 
 import com.MapleLeaf.MiaoWang.common.convention.exception.ClientException;
+import com.MapleLeaf.MiaoWang.constant.VipScopeConstant;
 import com.MapleLeaf.MiaoWang.dao.entity.UserVipDO;
 import com.MapleLeaf.MiaoWang.dao.entity.VipPlanDO;
 import com.MapleLeaf.MiaoWang.dao.mapper.UserVipMapper;
@@ -84,6 +85,16 @@ public class VipBenefitResolver {
     }
 
     /**
+     * 某只宠物身上的宠物级（per-pet）权益
+     *
+     * @param petVip       是否有生效中的宠物级档位
+     * @param planNames    生效中的宠物级档位名称
+     * @param expireTime   最晚到期时间
+     */
+    public record PetScope(boolean petVip, List<String> planNames, Date expireTime) {
+    }
+
+    /**
      * 解析用户当前权益（uid 为空时返回免费档权益）
      */
     public VipBenefit resolve(Long uid) {
@@ -109,9 +120,12 @@ public class VipBenefitResolver {
             applyQuota(benefit, VipBizTypeEnum.CHAT, chatQuota);
             return benefit;
         }
-        // 生效中 = 状态正常 + 未删除 + 未过期
+        // 生效中 = 状态正常 + 未删除 + 未过期 + **用户级**（pid=0）
+        // pid 条件不能省：宠物级（per-pet）行是「给某一只宠物买的」，把它并进用户权益里，
+        // 给猫买的纪念包会把狗的额度也顶上去（见挂账 #94）。
         List<UserVipDO> memberships = userVipMapper.selectList(Wrappers.lambdaQuery(UserVipDO.class)
                 .eq(UserVipDO::getUid, uid)
+                .eq(UserVipDO::getPid, VipScopeConstant.USER_LEVEL_PID)
                 .eq(UserVipDO::getStatus, 1)
                 .eq(UserVipDO::getDelFlag, 0)
                 .gt(UserVipDO::getExpireTime, new Date()));
@@ -122,6 +136,13 @@ public class VipBenefitResolver {
                 VipPlanDO plan = queryPlan(membership.getPlanCode());
                 if (plan == null) {
                     log.warn("用户 {} 持有档位 {} 但档位配置已不存在，该档位权益被忽略", uid, membership.getPlanCode());
+                    continue;
+                }
+                // 兜底：正常路径下宠物级档位只会落在 pid>0 的行上（下单时已强制校验），
+                // 这里再挡一道，避免脏数据（手工改库、历史 bug 遗留）把 per-pet 权益漏成用户级权益
+                if (plan.getPetScoped() != null && plan.getPetScoped() == 1) {
+                    log.warn("用户 {} 的用户级会员行(pid=0)上挂着宠物级档位 {}，已忽略；该行应属于某只宠物",
+                            uid, membership.getPlanCode());
                     continue;
                 }
                 benefit.setPetLimitPerType(mergeLimit(benefit.getPetLimitPerType(), plan.getPetLimitPerType()));
@@ -143,6 +164,45 @@ public class VipBenefitResolver {
         applyQuota(benefit, VipBizTypeEnum.RAG, ragQuota);
         applyQuota(benefit, VipBizTypeEnum.CHAT, chatQuota);
         return benefit;
+    }
+
+    /**
+     * 解析「某只宠物」身上的宠物级（per-pet）权益
+     *
+     * <p>与 {@link #resolve(Long)} 严格分开：这里<b>只</b>统计 pid 等于这只宠物的行，
+     * 用户级行(pid=0)一概不算。「用户开了全能月卡」和「这只宠物有纪念包」是两件事，
+     * 混起来业务侧就没法回答「这只宠物到底有没有被纪念」。
+     *
+     * @param uid 用户ID
+     * @param pid 宠物ID；为空或 &le; 0（用户级哨兵值）时直接返回「无宠物级权益」
+     */
+    public PetScope resolvePetScope(Long uid, Long pid) {
+        if (uid == null || pid == null || pid <= VipScopeConstant.USER_LEVEL_PID) {
+            return new PetScope(false, Collections.emptyList(), null);
+        }
+        List<UserVipDO> memberships = userVipMapper.selectList(Wrappers.lambdaQuery(UserVipDO.class)
+                .eq(UserVipDO::getUid, uid)
+                .eq(UserVipDO::getPid, pid)
+                .eq(UserVipDO::getStatus, 1)
+                .eq(UserVipDO::getDelFlag, 0)
+                .gt(UserVipDO::getExpireTime, new Date()));
+        if (memberships == null || memberships.isEmpty()) {
+            return new PetScope(false, Collections.emptyList(), null);
+        }
+        List<String> planNames = new ArrayList<>();
+        Date latestExpireTime = null;
+        for (UserVipDO membership : memberships) {
+            VipPlanDO plan = queryPlan(membership.getPlanCode());
+            if (plan == null) {
+                log.warn("宠物 {} 持有档位 {} 但档位配置已不存在，该档位权益被忽略", pid, membership.getPlanCode());
+                continue;
+            }
+            planNames.add(plan.getPlanName());
+            if (latestExpireTime == null || membership.getExpireTime().after(latestExpireTime)) {
+                latestExpireTime = membership.getExpireTime();
+            }
+        }
+        return new PetScope(!planNames.isEmpty(), planNames, latestExpireTime);
     }
 
     /**

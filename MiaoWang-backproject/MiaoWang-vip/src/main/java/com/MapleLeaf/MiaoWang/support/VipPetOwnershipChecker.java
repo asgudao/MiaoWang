@@ -14,10 +14,14 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * 宠物归属校验（3D 定制用）
+ * 宠物归属校验（3D 定制 / 宠物级会员下单用）
  *
- * <p>3D 定制单可以绑定一只宠物（pid），定制单里会冗余宠物名。不校验归属的话，
- * 用户能拿别人的 pid 下单，把别人的宠物信息写进自己的定制单 —— 典型的越权写。
+ * <p>两处调用方都要求「这个 pid 必须是当前登录用户自己的宠物」：
+ * <ul>
+ *   <li>3D 定制单：不校验的话用户能拿别人的 pid 下单，把别人的宠物信息写进自己的定制单</li>
+ *   <li>宠物级（per-pet）会员下单：不校验的话能给别人家的宠物买纪念包，
+ *       等于替别人的宠物"锁"了一个纪念位（而权益发到的是自己的 uid 上，谁也拿不到）</li>
+ * </ul>
  *
  * <p>实现思路与 healthy 的 {@code PetOwnershipChecker} 保持一致：<b>不让 pet 模块新增内部接口</b>，
  * 直接复用它的「查我的宠物」——该接口按登录态返回当前用户的宠物列表，
@@ -55,7 +59,7 @@ public class VipPetOwnershipChecker {
                 return pet;
             }
         }
-        log.warn("3D 定制绑定宠物归属校验未通过，pid={}", pid);
+        log.warn("宠物归属校验未通过，pid={}", pid);
         throw new ClientException(VipErrorCodeEnum.VIP_3D_PET_NOT_OWNED);
     }
 

@@ -77,6 +77,11 @@ public class VipPlanRespDTO {
     private Integer reminderLimit;
 
     /**
+     * 权益归属：0=用户级 1=宠物级（per-pet，只对下单绑定的那只宠物生效）
+     */
+    private Integer petScoped;
+
+    /**
      * 排序值
      */
     private Integer sort;

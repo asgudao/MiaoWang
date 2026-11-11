@@ -96,6 +96,14 @@ public class VipPlanDO extends BaseDO {
     private Integer purchasable;
 
     /**
+     * 权益归属：0=用户级（算进用户总权益，参与合并）1=宠物级（per-pet，只对订单绑定的那只宠物生效）
+     *
+     * <p>用户级档位 {@code pet_scoped=0}：通用档位列表只返回这一类，
+     * 所以宠物级档位（如宠物纪念年包）不会出现在普通会员页上。
+     */
+    private Integer petScoped;
+
+    /**
      * 状态：0=停用 1=启用
      */
     private Integer status;

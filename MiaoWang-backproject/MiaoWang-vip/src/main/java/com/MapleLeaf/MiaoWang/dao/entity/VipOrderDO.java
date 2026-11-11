@@ -13,6 +13,10 @@ import java.util.Date;
 
 /**
  * 会员订阅订单
+ *
+ * <p>{@code pid} 记录这笔单是给谁买的：0=用户级，&gt;0=宠物级（per-pet）。
+ * 发放与退款回收都必须按订单上的 pid 去定位那一行会员记录，
+ * 否则「退 B 宠物的单」会按 uid+planCode 摸到 A 宠物同一档位的那行，把 A 的时长一起削掉。
  */
 @Data
 @TableName("miaowang_vip_order")
@@ -39,6 +43,11 @@ public class VipOrderDO extends BaseDO {
      * 用户名（冗余，便于排查）
      */
     private String username;
+
+    /**
+     * 宠物ID：0=用户级订单 >0=宠物级订单（发放/退款回收都只动这只宠物那行）
+     */
+    private Long pid;
 
     /**
      * 档位编码

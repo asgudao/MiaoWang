@@ -15,6 +15,17 @@ public class VipOrderCreateReqDTO {
     private String planCode;
 
     /**
+     * 宠物ID：<b>只在下单「宠物级」档位（{@code pet_scoped=1}，如宠物纪念年包）时传</b>。
+     *
+     * <p>不传 / 传 0 = 用户级订单（现有全部档位都走这条路径，行为与改造前一致）。
+     *
+     * <p>两边的档位类型必须对上，对不上直接报错、不做静默修正：宠物级档位不传 pid
+     * 会发成一条用户级权益（等于白送一份用户级会员）；用户级档位传了 pid 则会让
+     * 「一次购买」变成只对某只宠物生效（用户以为买了全站会员）。宁可报错。
+     */
+    private Long pid;
+
+    /**
      * 支付渠道：MOCK（默认）/ WECHAT / ALIPAY
      */
     private String payType;
